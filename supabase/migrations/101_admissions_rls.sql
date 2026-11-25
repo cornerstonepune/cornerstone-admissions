@@ -18,3 +18,33 @@
 -- (check: `\dp deals` shows authenticated=Dxtm), so policies alone return "permission denied". Grant
 -- SELECT, INSERT, UPDATE, DELETE on all six tables to authenticated, and ALL to service_role; nothing to anon.
 -- RLS then narrows access: a refused UPDATE/DELETE must touch 0 rows, not raise.
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.admissions_settings, public.leads, public.visits,
+  public.lead_stage_history, public.lead_activity, public.settings_changes TO authenticated;
+GRANT ALL ON public.admissions_settings, public.leads, public.visits,
+  public.lead_stage_history, public.lead_activity, public.settings_changes TO service_role;
+
+CREATE POLICY admissions_settings_select ON public.admissions_settings FOR SELECT TO authenticated USING (public.is_account_member(account_id));
+CREATE POLICY admissions_settings_insert ON public.admissions_settings FOR INSERT TO authenticated WITH CHECK (public.is_account_member(account_id, 'admin'));
+CREATE POLICY admissions_settings_update ON public.admissions_settings FOR UPDATE TO authenticated USING (public.is_account_member(account_id, 'admin')) WITH CHECK (public.is_account_member(account_id, 'admin'));
+CREATE POLICY admissions_settings_delete ON public.admissions_settings FOR DELETE TO authenticated USING (public.is_account_member(account_id, 'admin'));
+
+CREATE POLICY leads_select ON public.leads FOR SELECT TO authenticated USING (public.is_account_member(account_id));
+CREATE POLICY leads_insert ON public.leads FOR INSERT TO authenticated WITH CHECK (public.is_account_member(account_id, 'agent'));
+CREATE POLICY leads_update ON public.leads FOR UPDATE TO authenticated USING (public.is_account_member(account_id, 'agent')) WITH CHECK (public.is_account_member(account_id, 'agent'));
+CREATE POLICY leads_delete ON public.leads FOR DELETE TO authenticated USING (public.is_account_member(account_id, 'admin'));
+
+CREATE POLICY visits_select ON public.visits FOR SELECT TO authenticated USING (public.is_account_member(account_id));
+CREATE POLICY visits_insert ON public.visits FOR INSERT TO authenticated WITH CHECK (public.is_account_member(account_id, 'agent'));
+CREATE POLICY visits_update ON public.visits FOR UPDATE TO authenticated USING (public.is_account_member(account_id, 'agent')) WITH CHECK (public.is_account_member(account_id, 'agent'));
+CREATE POLICY visits_delete ON public.visits FOR DELETE TO authenticated USING (public.is_account_member(account_id, 'admin'));
+
+CREATE POLICY lead_stage_history_select ON public.lead_stage_history FOR SELECT TO authenticated USING (public.is_account_member(account_id));
+CREATE POLICY lead_stage_history_insert ON public.lead_stage_history FOR INSERT TO authenticated WITH CHECK (public.is_account_member(account_id, 'agent'));
+
+CREATE POLICY lead_activity_select ON public.lead_activity FOR SELECT TO authenticated USING (public.is_account_member(account_id));
+CREATE POLICY lead_activity_insert ON public.lead_activity FOR INSERT TO authenticated WITH CHECK (public.is_account_member(account_id, 'agent'));
+CREATE POLICY lead_activity_update ON public.lead_activity FOR UPDATE TO authenticated USING (public.is_account_member(account_id, 'agent')) WITH CHECK (public.is_account_member(account_id, 'agent'));
+CREATE POLICY lead_activity_delete ON public.lead_activity FOR DELETE TO authenticated USING (public.is_account_member(account_id, 'admin'));
+
+CREATE POLICY settings_changes_select ON public.settings_changes FOR SELECT TO authenticated USING (public.is_account_member(account_id));
