@@ -10,10 +10,7 @@ async function fill(t: Tx, a: Awaited<ReturnType<typeof account>>) {
   const settingId = await setting(t, a, "campus", "baner");
   await t`insert into visits (account_id, lead_id, cal_booking_id, starts_at) values (${a.accountId}, ${leadId}, ${"cal_" + leadId}, now())`;
   const [h] = await t`select id from lead_stage_history where lead_id = ${leadId}`; // written by 104's trigger
-  await t`insert into lead_activity (account_id, lead_id, kind) values (${a.accountId}, ${leadId}, 'call_task')`;
-  await t`
-    insert into settings_changes (account_id, setting_id, kind, key, action)
-    values (${a.accountId}, ${settingId}, 'campus', 'baner', 'insert')`;
+  await t`insert into lead_activity (account_id, lead_id, kind) values (${a.accountId}, ${leadId}, 'call_task')`; // settings_changes row comes from 105's trigger
   return { leadId, settingId, historyId: h.id as string };
 }
 

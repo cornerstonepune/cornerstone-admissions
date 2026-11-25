@@ -2,21 +2,18 @@
 
 _Overwritten at the end of every session. Keep under 30 lines. Facts only._
 
-**Updated:** 2026-11-25 · **By:** Plan · **Model:** claude-opus-5-5
-**Milestone:** M0 — data model · **Branch:** plan/lesson-seed-retest
+**Updated:** 2026-11-26 · **By:** Plan · **Model:** claude-opus-5-5
+**Milestone:** M0 — data model · **Branch:** plan/rls-fill-audit-dup
 
 ## State
-- PR #38 (#26, 105 settings audit) failed loop-tests: the hidden `rls.test.ts` `fill()` inserted a settings_changes row by hand, and 105's trigger wrote a second one.
-- Fixed on seed `plan/t26` (56c4d58, pushed): main merged in, manual insert removed, expectations stay at 1. Not fixed on main: main has no 105 trigger, so the same edit there would leave 0 rows and turn main red.
-- Proof: on the 105 stub the 2 tests fail (expected for a seed). With PR #38's real 105, `npm run test:db` passes 13 files, 91/91 tests.
-- Checked the other seeds: only `rls.test.ts` writes settings_changes by hand. plan/t30 and plan/t36 still have the old copy and pick up the fix when they merge main after #38.
-- LESSONS.md: proof lesson (re-prove existing tests when a trigger lands).
+- PR #38 (#26, 105) still red: its branch merged main (#39), but #39 carried only the lesson, not the test fix. The fix lives on `origin/plan/t26` and was never merged into #38's branch.
+- This PR removes the manual settings_changes insert from `fill()` in `tests/holdout/db/rls.test.ts` (forged-insert 42501 test unchanged).
+- Proof (local Supabase): with #38's 105 applied, old test 2 fail / 8 pass, new test 10/10 pass. Without 105 (main today), new test 2 fail (0 rows, expected 1). So this PR is red on main until 105 lands: the two changes must land together.
+- loop-guard on #38 flags HANDOFF.md arriving via the main merge commit — false positive, left for Nimish; loop-guard not touched.
 
 ## Next step
-1. Coordinator: merge `origin/plan/t26` into `t26-m0-105-settings-audit-trail` (PR #38), re-run CI, then review and merge.
-2. After #38 merges: merge main into plan/t30 and plan/t36 before their builds.
-3. Still open from before: plan/wireframes PR (16 wireframes, ADR 0015) not opened; #36 seed not proven red; #37 has no seed.
+1. Coordinator: `git merge origin/plan/t26` into `t26-m0-105-settings-audit-trail` (PR #38) and push; re-run CI. That lands test fix + 105 together. Then close this PR as superseded.
+2. Nimish: decide on the loop-guard false positive (handoff file brought in by a merge-from-main commit).
 
 ## Don't repeat
-- When a seed adds a trigger, re-prove every older test that writes to its tables against the real migration.
-- Never wrap `loop plan` in a shell `timeout`; run it in the background.
+- A test that depends on a not-yet-merged trigger can't go to main alone; land it on the ticket branch with the migration.
