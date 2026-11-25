@@ -1,0 +1,13 @@
+-- 109 — a lead with stage history can't move to another account or deal (ADR 0015 §2; PR #34 review).
+--
+-- Write:
+--   CREATE OR REPLACE FUNCTION public.check_lead_integrity(), copied whole from 103_lead_integrity.sql, changing only
+--   the first IF block:
+--     - also refuse when EXISTS (SELECT 1 FROM public.lead_stage_history WHERE lead_id = OLD.id);
+--     - the sentence becomes exactly 'A lead with stage history, visits or activity cannot move to another account or deal'
+--       (still USING ERRCODE = '23514').
+--   Everything else stays as in 103: LANGUAGE plpgsql SET search_path = public, no SECURITY DEFINER (it runs as the
+--   caller; every member can SELECT the lead's history, visits and activity), the settings and deal checks unchanged.
+--   Don't recreate the trigger leads_check_integrity (it already calls this function) and don't touch
+--   deal_matches_lead or message_in_account.
+-- Since 104 writes a history row when a lead is created, a lead's account and deal are fixed once it exists: intended.
