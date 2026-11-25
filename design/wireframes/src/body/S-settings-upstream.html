@@ -1,0 +1,42 @@
+title: Account settings (as built)
+kind: snapshot
+nav: settings
+note: Route /settings?tab=. Upstream settings with Team members open. Appearance is hidden in v1 (light only). Admissions rules live in Admissions settings (S-admissions-settings), not here.
+---
+<main class="wf-main">
+<div class="wf-col">
+  <div class="wf-trail">Account settings › Team members</div>
+  <div class="wf-head">
+    <div><h1>Settings</h1><p class="wf-lead">Everything in one place — your account and your workspace.</p></div>
+  </div>
+  <div class="wf-split" style="grid-template-columns:minmax(0,1fr) minmax(0,3fr)">
+    <nav>
+      <a href="#">Overview</a>
+      <span class="wf-eyebrow">Account</span><a href="#">Your profile</a><a href="#">Login &amp; security</a>
+      <span class="wf-eyebrow">Workspace</span><a href="#">WhatsApp</a><a href="#">Templates</a><a href="#">Quick replies</a><a href="#">Inbox</a><a href="#">Fields &amp; tags</a><a href="#">Deals &amp; currency</a><b>Team members</b><a href="#">API keys</a>
+    </nav>
+    <div>
+      <div class="wf-row"><h2>Team members</h2><span class="wf-grow"></span><a class="b-btn b-btn-main" href="#">Invite member</a></div>
+      <table class="wf-table">
+        <thead><tr><th>Member</th><th>Joined</th><th>Role</th><th></th></tr></thead>
+        <tbody>
+          <tr><td data-label="Member">● Anjali D.<br><span class="b-caption">anjali.d@…</span></td><td data-label="Joined">Joined 1 Nov 2026</td><td data-label="Role">Owner</td><td></td></tr>
+          <tr><td data-label="Member">● Meera S.<br><span class="b-caption">meera.s@…</span></td><td data-label="Joined">Joined 3 Nov 2026</td><td data-label="Role"><span class="wf-input">Admin ▾</span></td><td><a class="b-btn b-btn-text" href="#">Remove</a></td></tr>
+          <tr><td data-label="Member">○ Ravi K.<br><span class="b-caption">ravi.k@…</span></td><td data-label="Joined">Joined 10 Nov 2026</td><td data-label="Role"><span class="wf-input">Agent ▾</span></td><td><a class="b-btn b-btn-text" href="#">Remove</a></td></tr>
+        </tbody>
+      </table>
+      <p class="b-caption">● online now · ○ away (member presence).</p>
+      <h3>Pending invitations</h3>
+      <ul class="b-rlist"><li class="b-ritem">Agent · "front desk" · valid 6 more days <a class="b-btn b-btn-text" href="#">Revoke</a></li></ul>
+    </div>
+  </div>
+</div>
+</main>
+<section class="wf-states" aria-label="Other states">
+  <h2>Other states</h2>
+  <div class="b-strip">
+    <div class="card"><h3>Invite dialog</h3><div class="b-form"><div class="b-field"><label>Role</label><span class="wf-input">Agent ▾</span></div><div class="b-field"><label>Link valid for</label><span class="wf-seg"><span>1 day</span><span aria-pressed="true">7 days</span><span>30 days</span></span></div><div class="b-field"><label>Label</label><span class="wf-input">front desk</span></div><a class="b-btn b-btn-main" href="#">Generate link</a></div></div>
+    <div class="card"><h3>Link made</h3><p><span class="wf-input">…/join/•••••</span></p><div class="wf-row"><a class="b-btn" href="#">Copy</a><a class="b-btn" href="#">Send via WhatsApp</a></div></div>
+    <div class="card"><h3>Other tabs</h3><p>Each tab is upstream's form, restyled. Not redrawn here.</p></div>
+  </div>
+</section>

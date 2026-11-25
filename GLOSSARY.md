@@ -111,3 +111,9 @@ One action a follow-up rule takes for one lead. Any reply from the parent pauses
 **Template**:
 A WhatsApp message approved by Meta, needed to message a parent more than 24 hours after their last message.
 _Avoid_: canned message (that's a quick reply)
+
+## Screen colours (wireframes, ADR 0014)
+
+**Kind colours**:
+Each kind of thing has one colour tag everywhere: a lead uses the `child` colour, a visit or campus the `period` colour, a call the `note` colour.
+_Avoid_: inventing a new colour per screen

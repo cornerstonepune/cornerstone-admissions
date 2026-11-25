@@ -1,0 +1,141 @@
+title: Admissions settings (8 tabs)
+kind: new
+nav: admissions-settings
+note: Milestone M6. Every number and message the follow-ups use, changeable without a developer (brief §7). One page, eight tabs; this wireframe stacks all eight so each can be signed off, with Follow-up rules as the open tab. Every change is logged with who and when (change log at the end). A change takes effect on the next scheduler run; leads already waiting keep their timing unless the rule is switched off.
+---
+<main class="wf-main">
+<div class="wf-col">
+  <div class="wf-trail">Admissions settings › Follow-up rules</div>
+  <div class="wf-head">
+    <div>
+      <span class="wf-eyebrow">Set up · <span data-source="settings_changes (7 days)">4 changes this week</span></span>
+      <h1>Admissions settings</h1>
+      <p class="wf-lead">The rules behind every automatic message and call task. Changes apply from the next run, within a minute.</p>
+    </div>
+    <a class="b-btn" href="#">Change log</a>
+  </div>
+  <nav class="wf-tabs" aria-label="Settings tabs"><a href="#" aria-current="page">Follow-up rules</a><a href="#">Templates</a><a href="#">Alerts</a><a href="#">Stages</a><a href="#">Campuses</a><a href="#">Sources</a><a href="#">Welcome flow</a><a href="#">People</a></nav>
+
+  <section class="wf-sec" data-block="RulesTab">
+    <header><h2>1 · Follow-up rules</h2><p>14 rules · 13 on · by stage, then day</p><a class="b-btn b-btn-main" href="#">+ Add a rule</a></header>
+    <p class="wf-take">One rule is off: Applied, day 3 document reminder. Leads in Applied get no reminder until it is back on.</p>
+    <div class="card" data-flush>
+    <table class="wf-table">
+      <thead><tr><th>Stage</th><th class="n">Day</th><th>Do this</th><th>Template</th><th>On</th><th></th></tr></thead>
+      <tbody>
+        <tr><td data-label="Stage">Enquiry</td><td class="n" data-label="Day" data-source="admissions_settings (kind follow_up_rule)">1</td><td data-label="Do">Send a template</td><td data-label="Template">nudge_booking_link</td><td data-label="On"><span class="wf-switch" role="switch" aria-checked="true"></span></td><td><a href="#">Edit</a> ⋮</td></tr>
+        <tr><td data-label="Stage">Enquiry</td><td class="n" data-label="Day">3</td><td data-label="Do">Create a call task</td><td data-label="Template">—</td><td data-label="On"><span class="wf-switch" role="switch" aria-checked="true"></span></td><td><a href="#">Edit</a> ⋮</td></tr>
+        <tr><td data-label="Stage">Enquiry</td><td class="n" data-label="Day">7</td><td data-label="Do">Send a template</td><td data-label="Template">nudge_second</td><td data-label="On"><span class="wf-switch" role="switch" aria-checked="true"></span></td><td><a href="#">Edit</a> ⋮</td></tr>
+        <tr><td data-label="Stage">Enquiry</td><td class="n" data-label="Day">14</td><td data-label="Do">Move to Dormant</td><td data-label="Template">—</td><td data-label="On"><span class="wf-switch" role="switch" aria-checked="true"></span></td><td><a href="#">Edit</a> ⋮</td></tr>
+        <tr><td data-label="Stage">Visited</td><td class="n" data-label="Day">7</td><td data-label="Do">Create a call task</td><td data-label="Template">—</td><td data-label="On"><span class="wf-switch" role="switch" aria-checked="true"></span></td><td><a href="#">Edit</a> ⋮</td></tr>
+        <tr data-state="late"><td data-label="Stage">Applied</td><td class="n" data-label="Day">3</td><td data-label="Do">Send a template</td><td data-label="Template">documents_reminder</td><td data-label="On"><span class="wf-switch" role="switch" aria-checked="false"></span> <span class="b-caption">off since 20 Nov</span></td><td><a href="#">Edit</a> ⋮</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="b-caption">+ 8 more rules. ⋮ = Move up, Move down, Delete. Edit opens on the right: stage, day, action, template (only Meta-approved ones), on/off.</p>
+  </section>
+
+  <div class="wf-two">
+    <section class="wf-sec" data-block="TemplatesTab">
+      <header><h2>2 · Templates</h2><p>11 · not approved first</p><a class="b-btn" href="#">+ New template</a></header>
+      <ul class="b-rlist card">
+        <li class="b-ritem"><span class="wf-chip" data-state="late">● Rejected</span>fee_reminder · <a href="#">see why</a></li>
+        <li class="b-ritem"><span class="wf-chip" data-state="wait">◐ In review</span>proof_story_day15</li>
+        <li class="b-ritem"><span class="wf-chip" data-state="ok">✓ Approved</span>nudge_booking_link · used by 2 rules</li>
+        <li class="b-ritem"><span class="wf-chip" data-state="ok">✓ Approved</span>visit_confirmation · used by Cal.com</li>
+      </ul>
+      <p class="b-caption" data-source="message_templates.status">Wording, variables and a phone preview open on the right. Submit to Meta and sync are upstream's.</p>
+    </section>
+
+    <section class="wf-sec" data-block="AlertsTab">
+      <header><h2>3 · Alerts</h2><p>when a lead turns red or amber</p></header>
+      <div class="card b-form">
+        <div class="b-field"><label>Untouched turns red after</label><span class="wf-input">24 hours</span></div>
+        <div class="b-field"><label>Stuck after (days in stage)</label>
+          <dl class="b-kv"><dt>Enquiry</dt><dd><span class="wf-input">5</span></dd><dt>Visit booked</dt><dd><span class="wf-input">7</span></dd><dt>Visited</dt><dd><span class="wf-input">7</span></dd><dt>Deciding</dt><dd><span class="wf-input">21</span></dd><dt>Applied</dt><dd><span class="wf-input">10</span></dd></dl>
+        </div>
+        <a class="b-btn b-btn-main" href="#">Save alerts</a>
+      </div>
+    </section>
+
+    <section class="wf-sec" data-block="StagesTab">
+      <header><h2>4 · Stages</h2><p>names and order; lost reasons</p></header>
+      <div class="card">
+        <ol class="b-stepper"><li class="b-step">Enquiry</li><li class="b-step">Visit booked</li><li class="b-step">Visited</li><li class="b-step">Deciding</li><li class="b-step">Applied</li><li class="b-step">Admitted</li></ol>
+        <p class="b-caption">Rename here; the six stages and their order are fixed in v1 (rules and the report depend on them). Colour comes from the design tokens.</p>
+        <h3>Lost reasons</h3>
+        <ul class="b-rlist"><li class="b-ritem">Distance <a href="#">Edit</a></li><li class="b-ritem">Fees <a href="#">Edit</a></li><li class="b-ritem">Chose another school <a href="#">Edit</a></li><li class="b-ritem">Moved city <a href="#">Edit</a></li></ul>
+        <a class="b-btn b-btn-text" href="#">+ Add a reason</a>
+      </div>
+    </section>
+
+    <section class="wf-sec" data-block="CampusesTab">
+      <header><h2>5 · Campuses and routing</h2><p>date of birth decides the campus</p></header>
+      <div class="card" data-flush>
+      <table class="wf-table">
+        <thead><tr><th>Campus</th><th>Grades</th><th>Born</th><th>Visit link</th></tr></thead>
+        <tbody>
+          <tr><td data-label="Campus"><span data-block="Kind" data-kind="period"><span class="wf-kind">Neev</span></span></td><td data-label="Grades">Playgroup – Sr KG</td><td data-label="Cut-off" data-source="admissions_settings (kind campus)">from 1 Jun 2020</td><td data-label="Link"><a href="#">Copy</a></td></tr>
+          <tr><td data-label="Campus"><span data-block="Kind" data-kind="period"><span class="wf-kind">Gurukul</span></span></td><td data-label="Grades">Grade 1 – Grade 7</td><td data-label="Cut-off">before 1 Jun 2020</td><td data-label="Link"><a href="#">Copy</a></td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p class="b-caption">Reference date for age: 1 June of the admission year.</p>
+    </section>
+
+    <section class="wf-sec" data-block="SourcesTab">
+      <header><h2>6 · Sources</h2><p>one QR and link each</p><a class="b-btn" href="#">+ Add a source</a></header>
+      <ul class="b-rlist card">
+        <li class="b-ritem">Gate QR <span class="b-caption">tag gate</span><a href="#">QR</a> <a href="#">Copy link</a></li>
+        <li class="b-ritem">Instagram <span class="b-caption">tag insta</span><a href="#">QR</a> <a href="#">Copy link</a></li>
+        <li class="b-ritem">Open-house event <span class="b-caption">tag event</span><a href="#">QR</a> <a href="#">Copy link</a></li>
+        <li class="b-ritem">Referral card <span class="b-caption">tag referral</span><a href="#">QR</a> <a href="#">Copy link</a></li>
+      </ul>
+      <p class="b-caption">Built in: WhatsApp, Website, Walk-in, Phone call (can't be deleted).</p>
+    </section>
+
+    <section class="wf-sec" data-block="WelcomeTab">
+      <header><h2>7 · Welcome flow</h2><p>first message a parent gets</p></header>
+      <div class="card b-form">
+        <div class="b-field"><label>Greeting</label><span class="wf-input">Namaste! Thank you for writing to Cornerstone…</span></div>
+        <div class="b-field"><label>Menu options</label><span class="wf-input">Book a visit · Call me back · Send me details</span></div>
+        <div class="b-field"><label>Questions asked</label><span class="wf-input">Parent name · Child name · Date of birth · Area</span></div>
+        <div class="b-field"><label>Working hours</label><span class="wf-input">Mon–Sat, 09:00–17:00</span></div>
+        <div class="b-field"><label>Out-of-hours reply</label><span class="wf-input">We're closed now and will call you tomorrow morning.</span></div>
+        <a class="b-btn b-btn-main" href="#">Save</a>
+      </div>
+      <p class="b-caption">The full flow stays editable in Flows; this tab changes only these words.</p>
+    </section>
+
+    <section class="wf-sec" data-block="PeopleTab">
+      <header><h2>8 · People</h2><p>who can sign in</p><a class="b-btn" href="#">Invite</a></header>
+      <ul class="b-rlist card">
+        <li class="b-ritem">You <span class="wf-chip">Owner</span></li>
+        <li class="b-ritem">Meera S. <span class="wf-chip">Admin</span></li>
+        <li class="b-ritem">Ravi K. <span class="wf-chip">Staff · quick-add only</span><a href="#">Remove</a></li>
+        <li class="b-ritem"><span class="wf-chip" data-state="wait">◐ Invited</span>link for Staff, valid 6 more days <a href="#">Revoke</a></li>
+      </ul>
+      <p class="b-caption" data-source="profiles.account_role, account_invitations">The same list as Account settings › Team members (ADR 0014 §6).</p>
+    </section>
+  </div>
+
+  <section class="wf-sec" data-block="ChangeLog">
+    <header><h2>Change log</h2><p>newest first · all tabs</p></header>
+    <ol class="b-timeline card">
+      <li class="b-tli"><span class="b-tile">✎</span><div><b>Follow-up rules</b> · Applied, day 3 reminder switched off<p>Meera S.</p></div><span class="b-caption" data-source="settings_changes.changed_at, changed_by">20 Nov, 16:12</span></li>
+      <li class="b-tli"><span class="b-tile">✎</span><div><b>Alerts</b> · Deciding stuck after 14 → 21 days<p>Owner</p></div><span class="b-caption">19 Nov, 10:30</span></li>
+      <li class="b-tli"><span class="b-tile">+</span><div><b>Sources</b> · added Open-house event<p>Meera S.</p></div><span class="b-caption">18 Nov, 09:05</span></li>
+    </ol>
+  </section>
+</div>
+</main>
+<section class="wf-states" aria-label="Other states">
+  <h2>Other states</h2>
+  <div class="b-strip">
+    <div class="card"><h3>Saved</h3><p><span class="wf-chip" data-state="ok">✓ Saved. Applies from the next run.</span></p><p>A line is added to the change log.</p></div>
+    <div class="card"><h3>Bad value</h3><div class="b-field"><label>Untouched turns red after</label><span class="wf-input">0 hours</span><span data-error>● Enter 1 to 168 hours.</span></div></div>
+    <div class="card"><h3>Rule using an unapproved template</h3><p><span class="wf-chip" data-state="wait">◐ Template not approved yet</span></p><p>The rule saves but stays off until Meta approves the template.</p></div>
+    <div class="card"><h3>Read-only</h3><p>A viewer sees every tab with no Save, Add or switches.</p></div>
+    <div class="card"><h3>Loading / couldn't load</h3><span class="wf-skel"></span><p><span class="wf-chip" data-state="late">● Couldn't load settings</span> <a href="#">Try again</a></p></div>
+  </div>
+</section>
