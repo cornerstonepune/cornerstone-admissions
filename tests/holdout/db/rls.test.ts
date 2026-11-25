@@ -78,7 +78,8 @@ describe("RLS edge cases (hidden)", () => {
         t,
         (s) => s`insert into visits (account_id, lead_id, cal_booking_id, starts_at) values (${b.accountId}, ${leadId}, 'cal_x', now())`,
       );
-      expect(err?.code).toBe("42501");
+      // 103's same-account trigger (BEFORE, runs ahead of RLS WITH CHECK) may refuse first: ADR 0013 §1
+      expect(["42501", "23514"]).toContain(err?.code);
     }));
 
   it("lets an agent edit a lead but not a viewer", () =>
