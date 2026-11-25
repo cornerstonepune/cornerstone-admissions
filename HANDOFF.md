@@ -3,26 +3,27 @@
 _Overwritten at the end of every session. Keep under 30 lines. Facts only._
 
 **Updated:** 2026-11-26 · **By:** Plan · **Model:** claude-opus-5-5
-**Milestone:** M0 — data model (closing) · **Branch:** plan/handoff-m0-close · **PR:** #53 merged
+**Milestone:** M0 — data model (closing) · **Branch:** plan/m0-final · **PR:** see below
 
 ## State
-- Tests: main `npm run test:db` 120/120, `npm test` exit 0. Seed #51: 13 red, 137/137 green vs a correct 110. Seed #52: 26 red, 1755/1755 green vs a correct impl (both checked locally, not committed).
-- Last thing done: PR #53 merged: schema.sql regenerated (100–109), ADR 0016, G0.2–G0.5 ticked. Seeds pushed: `plan/t51` (M0 · 110), `plan/t52` (M1 hidden routes). #7–#12, #18 labelled M1.
+- #51 (110) merged (PR #55). `db/schema.sql` regenerated for 100–110 in this PR (was stale: still showed pre-110 FK, index, insert policy).
+- Reviewer of #55 found two gaps → ADR 0017, ticket **#56** (migration 111): rule-made activity must be the kind its rule makes (send_template→follow_up_send, call_task→call_task, dormant→none); rule_id/stage_history_id fixed on UPDATE; a used rule keeps its action.
+- Seed `plan/t56` pushed: 12 red (assertion failures, no import errors), 157/157 green vs a correct 111 (checked locally, not committed). Lint clean on both test files.
+- Existing fixtures that recorded sends under `call_task` rules now use `send_template` rules (this PR; 137/137 green on 110).
+- Stale PR #49 (`plan/handoff`, mid-merge locally) abandoned; its content is superseded by this handoff. Close it.
 
 ## Next step
-`loop run-ticket 51` → review → merge; then a plan job runs `npm run db:reset && npm run db:schema`, commits schema, marks M0 done. Then `loop run-ticket 52`.
+1. `loop run-ticket 56` → review → merge. 2. Plan job: `npm run db:reset && npm run db:schema`, commit schema.sql (protected: builders can't), tick M0 done in PROJECT.md. 3. `loop run-ticket 52` (M1 hidden routes).
 
 ## Blocked / open questions
-- Nimish: `loop approve S-frame` (and `loop approve --all` for built-screen snapshots) so M1 ports #7–#12, #18 get seeds.
-- Reviewer's "no rule_id on call tasks" deliberately not applied (GLOSSARY: rules create call tasks); ADR 0016 §1. Nimish can overturn.
+- Nimish: `loop approve S-frame` (and `loop approve --all`) so M1 ports #7–#12, #18 get seeds.
 
 ## Don't repeat
 - Seed hidden tests must also pass against a correct implementation, not only fail on main.
-- A BEFORE trigger fires before RLS WITH CHECK: one on lead_activity would turn agents' 42501 into 23514.
+- A BEFORE trigger fires before RLS WITH CHECK: new lead_activity checks go in an AFTER trigger (111 does).
+- `db/schema.sql` is protected: never list it in a ticket's files; the plan job regenerates it after the merge.
 - `/signup?invite=` must never be hidden: invited people sign up there.
-- Planner `ls src/app` is blocked by the frontend hook; use `git ls-files`.
 
 ## Files touched this session
-- db/schema.sql, docs/adr/0015 + 0016, PROJECT.md, HANDOFF.md — PR #53
-- plan/t51: supabase/migrations/110 skeleton, tests/db + tests/holdout/db follow-up and lead-move tests
-- plan/t52: src/admissions/hidden-routes.ts skeleton + test, src/middleware.test.ts, tests/holdout/hidden-routes.test.ts
+- db/schema.sql, docs/adr/0017, PROJECT.md, HANDOFF.md, tests/db/{call-tasks-only,invariants-tables}, tests/holdout/db/{call-tasks-only,m0-follow-ups} — plan/m0-final
+- plan/t56: supabase/migrations/111 skeleton, tests/db/rule-made-activity, tests/holdout/db/rule-made-activity
