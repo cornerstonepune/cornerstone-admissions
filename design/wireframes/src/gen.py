@@ -31,6 +31,7 @@ a{color:var(--link)}
 .wf-menu a{display:flex;align-items:center;gap:var(--space-2);min-height:var(--tap);padding:0 var(--space-2);border-radius:var(--radius-control);color:var(--menu-ink);text-decoration:none;font-size:var(--text-label);font-weight:600}
 .wf-menu a i{display:grid;place-items:center;width:var(--space-4);height:var(--space-4);border-radius:var(--radius-control);background:var(--menu-hover);font-style:normal}
 .wf-menu a[aria-current]{background:var(--action-soft);color:var(--action-soft-ink)}
+.wf-menu a[aria-current] i{background:var(--action);color:var(--action-ink)}
 .wf-menu a b{margin-left:auto;padding:0 var(--space-1);border-radius:var(--radius-pill);background:var(--action);color:var(--action-ink);font-size:var(--text-caption)}
 .wf-menu h4{margin:var(--space-3) 0 var(--space-0);padding:0 var(--space-2);font:var(--weight-eyebrow) var(--text-eyebrow)/var(--lh-eyebrow) var(--font-eyebrow);text-transform:uppercase;color:var(--menu-ink-muted)}
 .wf-main{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--space-5);align-content:start;padding:var(--space-4) var(--space-4) var(--space-7)}

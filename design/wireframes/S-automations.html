@@ -32,6 +32,7 @@ a{color:var(--link)}
 .wf-menu a{display:flex;align-items:center;gap:var(--space-2);min-height:var(--tap);padding:0 var(--space-2);border-radius:var(--radius-control);color:var(--menu-ink);text-decoration:none;font-size:var(--text-label);font-weight:600}
 .wf-menu a i{display:grid;place-items:center;width:var(--space-4);height:var(--space-4);border-radius:var(--radius-control);background:var(--menu-hover);font-style:normal}
 .wf-menu a[aria-current]{background:var(--action-soft);color:var(--action-soft-ink)}
+.wf-menu a[aria-current] i{background:var(--action);color:var(--action-ink)}
 .wf-menu a b{margin-left:auto;padding:0 var(--space-1);border-radius:var(--radius-pill);background:var(--action);color:var(--action-ink);font-size:var(--text-caption)}
 .wf-menu h4{margin:var(--space-3) 0 var(--space-0);padding:0 var(--space-2);font:var(--weight-eyebrow) var(--text-eyebrow)/var(--lh-eyebrow) var(--font-eyebrow);text-transform:uppercase;color:var(--menu-ink-muted)}
 .wf-main{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--space-5);align-content:start;padding:var(--space-4) var(--space-4) var(--space-7)}
@@ -141,7 +142,7 @@ a{color:var(--link)}
   <table class="wf-table">
     <thead><tr><th>Automation</th><th>Trigger</th><th class="n">Runs</th><th>Last run</th><th>On</th><th></th></tr></thead>
     <tbody>
-      <tr><td data-label="Automation"><b>● Tag gate QR</b><br><span class="b-caption">Tags contacts who scan the gate QR</span></td><td data-label="Trigger"><span class="wf-chip">Keyword Match</span></td><td class="n" data-label="Runs">52</td><td data-label="Last">5m ago</td><td data-label="On"><span class="wf-switch" role="switch" aria-checked="true"></span></td><td>⋯</td></tr>
+      <tr><td data-label="Automation"><b>Tag gate QR</b><br><span class="b-caption">Tags contacts who scan the gate QR</span></td><td data-label="Trigger"><span class="wf-chip">Keyword Match</span></td><td class="n" data-label="Runs">52</td><td data-label="Last">5m ago</td><td data-label="On"><span class="wf-switch" role="switch" aria-checked="true"></span></td><td>⋯</td></tr>
       <tr><td data-label="Automation"><b>Assign new chats</b><br><span class="b-caption">Assigns first messages to the admissions office</span></td><td data-label="Trigger"><span class="wf-chip">First Message from Contact</span></td><td class="n" data-label="Runs">214</td><td data-label="Last">1h ago</td><td data-label="On"><span class="wf-switch" role="switch" aria-checked="true"></span></td><td>⋯</td></tr>
     </tbody>
   </table>
@@ -151,7 +152,7 @@ a{color:var(--link)}
   <section class="wf-sec">
     <header><h2>Builder</h2></header>
     <div class="card">
-      <div class="wf-row"><a href="#">‹</a><b>Tag gate QR</b><span class="wf-grow"></span>Active <span class="wf-switch" role="switch" aria-checked="true"></span><a class="b-btn b-btn-main" href="#">Save</a></div>
+      <div class="wf-row"><a href="#">‹ Automations</a><b>Tag gate QR</b><span class="wf-grow"></span>Active <span class="wf-switch" role="switch" aria-checked="true"></span><a class="b-btn b-btn-main" href="#">Save</a></div>
       <div class="card"><span class="wf-eyebrow">Trigger</span><p>Keyword Match · "gate"</p></div>
       <div class="card"><span class="wf-eyebrow">Step 1</span><p>Add Tag · gate</p></div>
       <a class="b-btn b-btn-text" href="#">+ Add step</a>
