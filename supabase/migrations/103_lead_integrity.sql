@@ -1,7 +1,8 @@
 -- 103 — lead integrity (spec docs/spec/m0-data-model.md; ADR 0010, 0011, 0013 §1).
 -- Every rejection is 23514 with one plain sentence (a missing id and another account's id read the same).
 -- Triggers and the admissions_settings lookups run as the caller (RLS applies). Only two tiny SECURITY DEFINER helpers
--- exist, for upstream tables agents cannot SELECT (deals, messages/conversations); each returns just a boolean.
+-- exist, for upstream tables agents cannot SELECT (deals, messages/conversations); each returns just a boolean, and
+-- answers true only for an account the caller belongs to (service_role / no-role sessions bypass), so rpc() can't probe.
 
 CREATE OR REPLACE FUNCTION public.admissions_setting_is(
   p_setting_id uuid, p_account_id uuid, p_kind public.admissions_setting_kind
@@ -17,21 +18,33 @@ $$;
 CREATE FUNCTION public.deal_matches_lead(p_deal_id uuid, p_account_id uuid, p_contact_id uuid) RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
 AS $$
-  SELECT EXISTS (SELECT 1 FROM public.deals
+  SELECT (current_setting('role', true) IN ('service_role', 'postgres', 'none', '') OR public.is_account_member(p_account_id))
+    AND EXISTS (SELECT 1 FROM public.deals
     WHERE id = p_deal_id AND account_id = p_account_id AND contact_id IS NOT DISTINCT FROM p_contact_id)
 $$;
 
 CREATE FUNCTION public.message_in_account(p_message_id uuid, p_account_id uuid) RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
 AS $$
-  SELECT EXISTS (SELECT 1 FROM public.messages m JOIN public.conversations c ON c.id = m.conversation_id
+  SELECT (current_setting('role', true) IN ('service_role', 'postgres', 'none', '') OR public.is_account_member(p_account_id))
+    AND EXISTS (SELECT 1 FROM public.messages m JOIN public.conversations c ON c.id = m.conversation_id
     WHERE m.id = p_message_id AND c.account_id = p_account_id)
 $$;
+
+REVOKE ALL ON FUNCTION public.deal_matches_lead(uuid, uuid, uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.deal_matches_lead(uuid, uuid, uuid) TO authenticated, service_role;
+REVOKE ALL ON FUNCTION public.message_in_account(uuid, uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.message_in_account(uuid, uuid) TO authenticated, service_role;
 
 CREATE FUNCTION public.check_lead_integrity() RETURNS trigger
 LANGUAGE plpgsql SET search_path = public
 AS $$
 BEGIN
+  IF TG_OP = 'UPDATE' AND (NEW.account_id IS DISTINCT FROM OLD.account_id OR NEW.deal_id IS DISTINCT FROM OLD.deal_id)
+     AND (EXISTS (SELECT 1 FROM public.visits WHERE lead_id = OLD.id)
+          OR EXISTS (SELECT 1 FROM public.lead_activity WHERE lead_id = OLD.id)) THEN
+    RAISE EXCEPTION 'A lead with visits or activity cannot move to another account or deal' USING ERRCODE = '23514';
+  END IF;
   IF NOT public.admissions_setting_is(NEW.campus_id, NEW.account_id, 'campus')
      OR NOT public.admissions_setting_is(NEW.source_id, NEW.account_id, 'source')
      OR NOT public.admissions_setting_is(NEW.lost_reason_id, NEW.account_id, 'lost_reason') THEN
