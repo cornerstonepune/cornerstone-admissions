@@ -2,32 +2,26 @@
 
 _Overwritten at the end of every session. Keep under 30 lines. Facts only._
 
-**Updated:** 2026-11-25 22:00 · **By:** Plan · **Model:** claude-opus-5-5
-**Milestone:** M0 — data model · **Branch:** plan/m0-spec · **PR:** M0 spec (this PR)
+**Updated:** 2026-11-26 · **By:** Plan · **Model:** claude-opus-5-5
+**Milestone:** M0 — data model · **Branch:** plan/rls-fill-audit-either
 
 ## State
-- Merged: #6 loop harness, #19 platform design copy, #20 loop-adopt (PROJECT.md, schema, glossary, ADRs 0004–0010).
-- This PR: M0 spec `docs/spec/m0-data-model.md`, ADR 0011, migration 100 (six tables, RLS on, no policies), DB test
-  harness (`npm run db:reset && npm run test:db`, `tests/db/db.ts`), CI DB job. Local: 13/13 DB tests, 1728/1728 unit
-  tests, typecheck clean, lint 0 errors.
-- M0 tickets (label M0), one migration each: #22 RLS (101) · #23 invite-only (102) · #24 lead integrity (103) ·
-  #25 stage history + deal status (104) · #26 settings audit (105, size:small) · #27 current visit view (106).
-  None depends on another. Seeds `plan/t22`–`plan/t27` are pushed from main right after this PR merges.
-- G0.1 and G0.6 ticked (CI ran the DB tests on a fresh Supabase).
+- CI runs `tests/holdout` from main, so PR #41 (#26, 105 settings audit) stayed red: main's hidden `rls.test.ts` `fill()` inserted a settings_changes row by hand and 105's trigger wrote a second. PR #40 (drop the insert) couldn't pass before 105 exists; closed.
+- Fix (this PR): `fill()` inserts the audit row only `where not exists` one for that setting, so it yields exactly 1 row with or without 105.
+- Proof (local `npm run db:reset`): main as is → rls.test.ts 10/10. With PR #41's `105_settings_audit.sql` copied in → 10/10. Old main fill() with 105 → 2 failed (the bug, reproduced).
 
 ## Next step
-Coordinator: `loop run-ticket` #22–#27 **one at a time** (all share the local Supabase container). After the last
-merges: `loop plan "M0 close: regenerate db/schema.sql, tick G0.2–G0.5"` (builders can't touch db/schema.sql).
-
-## Blocked / open questions (need Nimish)
-- Dependabot PRs #1–#5: recommended closing all and deleting `.github/dependabot.yml`. Unanswered.
-- Assumption, open: staff (kakas, didis) = agent, quick-add only.
-- New hosted Supabase project at M7: Nimish creates it; cost not checked.
+1. After this merges: `loop ci 41`, then review and merge #41.
+2. After #41 merges: merge main into plan/t30 and plan/t36 before their builds.
+3. Still open: plan/wireframes PR (16 wireframes, ADR 0015) not opened; #36 seed not proven red; #37 has no seed.
 
 ## Don't repeat
-- Never open the platform repo (ADR 0003) or touch `ruznbyngtfjsaymuylhm` (ADR 0009). Don't stop other projects' Docker containers.
-- The loop guard blocks Bash naming frontend paths or `design/approved.json`, even read-only.
-- `loop plan` runs in the main checkout and switches branches: don't switch branches there while it runs.
+- Hidden tests run from main: a test fix that must hold across a pending migration has to work both before and after it.
+- When a seed adds a trigger, re-prove every older test that writes to its tables against the real migration.
 
-## Files touched this session
-docs/spec/m0-data-model.md, docs/adr/0011, supabase/migrations/100, db/schema.sql, tests/db/*, vitest*.ts, package.json, CI workflow, PROJECT.md, CLAUDE.md, GLOSSARY.md, HANDOFF.md.
+## Coordinator session 2026-11-26 (appended)
+- Merged: #23 (102), #24 (103), #25 (104), #26 (105), PR #44 (all 16 wireframes, still unapproved: Nimish signs each off himself). Follow-up tickets for #24 review findings: #36, #37 (#37 has no seed).
+- ESCALATED #30 (107): the builder wrote "## Blocked / - none" and `loop finish` treats the heading as a block (5 attempts failed). Fix with a plan job on the ticket, or rebuild with a handoff that omits the Blocked heading. The migration is in the #30 build folder.
+- Lessons: CI runs tests/holdout from main, so seed test fixes land on main first. Builders can't merge; Builders are NOT Bash-denied: only commands starting with `(`, heredocs or `python3 -` are refused (loop BUILDER_RULES fixed 2026-11-26, nimishshah1989/loop PR #8). Never put orchestrator advice like "git merge" in a ticket's Don't. loop-guard blames a PR for planning commits merged after its Plan-base: refresh seeds from main before building.
+- #27 (106): attempts 1–2 failed only on the Bash trap (a `( npm …` and a python3 heredoc refused), not on code. The edit to 106 is on disk in .loop/wt/27, unverified. Last attempt: `loop prep 27` then `loop build 27`; the builder rule now covers it. Session 2's 'NEEDS NIMISH: allow Bash' was a misdiagnosis: don't change permission settings.
+- Next: #30, #27 (merge main into plan/t27 first), #36, seed #37, then M0 close: regenerate db/schema.sql.

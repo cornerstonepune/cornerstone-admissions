@@ -1,0 +1,132 @@
+title: Lead card and its right-side panel
+kind: new
+nav: pipeline
+note: Milestone M3. The Admissions pipeline board (upstream S-board, restyled) with the new lead card, and the lead opened in the right-side panel (?open=lead:&lt;id&gt;&amp;tab=card). The same panel opens from Today, Inbox and Parents. Tabs: Card · Calls · Chat · History. One child per lead; a sibling is a note on the card (ADR 0007).
+---
+<main class="wf-main">
+<div class="wf-col">
+  <div class="wf-trail">Pipeline › Ira (Grade 2)</div>
+  <div class="wf-head">
+    <div>
+      <span class="wf-eyebrow"><span data-block="Kind" data-kind="child"><span class="wf-kind">◉ Leads</span></span> <span data-source="leads (open)">38 open</span> · <span data-source="lead_stage_history (this week)">9 moved this week</span></span>
+      <h1>Pipeline</h1>
+      <p class="wf-lead">Every open lead by stage. Drag a card to move it; red and amber cards need you first.</p>
+    </div>
+    <div class="wf-row">
+      <span class="wf-seg" aria-label="View"><span>Table</span><span aria-pressed="true">Board</span></span>
+      <span class="wf-input">Campus: All ▾</span>
+      <span class="wf-input">Source: All ▾</span>
+      <a class="b-btn b-btn-main" href="#">+ Add a lead</a>
+    </div>
+  </div>
+
+  <div class="wf-board" data-block="Board">
+    <section class="wf-lane"><header>Enquiry <span class="wf-chip" data-source="leads (stage)">12</span></header>
+      <a class="card" data-press href="#" data-block="LeadCard"><b>Kavya · Nursery</b><span class="b-caption">Priya Menon · WhatsApp</span><span class="wf-row"><span class="wf-chip" data-state="late">● Untouched 31 h</span></span></a>
+      <a class="card" data-press href="#" data-block="LeadCard"><b>Myra · Jr KG</b><span class="b-caption">Rohit Shah · Referral call</span><span class="wf-row"><span class="wf-chip" data-state="wait">◐ Call today</span><span class="b-caption" data-source="lead_stage_history.entered_at">3 d</span></span></a>
+      <a class="card" data-press href="#" data-block="LeadCard"><b>Child not given yet</b><span class="b-caption">Deepa Iyer · Gate QR</span><span class="wf-row"><span class="b-caption">1 d</span></span></a>
+      <span class="b-caption">+ 9 more</span>
+    </section>
+    <section class="wf-lane"><header>Visit booked <span class="wf-chip">8</span></header>
+      <a class="card" data-press href="#" data-block="LeadCard"><b>Aanya · Nursery</b><span class="b-caption">Neev · visit today 10:00</span><span class="wf-row"><span class="wf-chip" data-state="ok">✓ Confirmed</span><span class="b-caption">4 d</span></span></a>
+      <a class="card" data-press href="#" data-block="LeadCard"><b>Anvi · Grade 1</b><span class="b-caption">Gurukul · visit Sat 11:00</span><span class="wf-row"><span class="wf-chip" data-state="wait">◐ Stuck 8 d</span></span></a>
+    </section>
+    <section class="wf-lane"><header>Visited <span class="wf-chip">7</span></header>
+      <a class="card" data-press href="#" data-block="LeadCard" aria-current="true"><b>Ira · Grade 2</b><span class="b-caption">Neha Kulkarni · Instagram</span><span class="wf-row"><span class="wf-chip" data-state="wait">◐ Call today</span><span class="b-caption">7 d</span></span></a>
+      <a class="card" data-press href="#" data-block="LeadCard"><b>Ishaan · Jr KG</b><span class="b-caption">Neev</span><span class="wf-row"><span class="wf-chip" data-state="wait">◐ Stuck 9 d</span></span></a>
+    </section>
+    <section class="wf-lane"><header>Deciding <span class="wf-chip">6</span></header>
+      <a class="card" data-press href="#" data-block="LeadCard"><b>Vihaan · Nursery</b><span class="b-caption">Replied 08:47</span><span class="wf-row"><span class="wf-chip" data-state="wait">◐ Call today</span></span></a>
+    </section>
+    <section class="wf-lane"><header>Applied <span class="wf-chip">3</span></header>
+      <a class="card" data-press href="#" data-block="LeadCard"><b>Kabir · Grade 4</b><span class="b-caption">Documents pending</span><span class="wf-row"><span class="wf-chip" data-state="wait">◐ Stuck 19 d</span></span></a>
+    </section>
+    <section class="wf-lane"><header>Admitted <span class="wf-chip" data-state="ok">2</span></header>
+      <a class="card" data-press href="#" data-block="LeadCard"><b>Ruhi · Grade 2</b><span class="b-caption">Fee paid 20 Nov</span></a>
+    </section>
+  </div>
+  <p class="b-caption">Lost and Dormant are not lanes: they are filters ("Show closed") and appear grey. Dropping a card on "Lost…" at the board's end asks for the reason.</p>
+</div>
+
+<aside class="wf-panel" aria-label="Lead" data-block="DetailPanel">
+  <header>
+    <span class="b-tile" data-block="Kind" data-kind="child">◉</span>
+    <div><span class="wf-eyebrow">Lead · Visited · 7 days</span><h2>Ira</h2><span class="b-caption">Grade 2 · Gurukul · Instagram</span></div>
+    <a href="#" aria-label="Close">×</a>
+  </header>
+  <div class="wf-row"><a class="b-btn b-btn-main" href="#">☎ Log a call</a><a class="b-btn" href="#">Move to… ▾</a><a class="b-btn b-btn-text" href="#">Edit</a></div>
+  <nav class="wf-tabs"><a href="#" aria-current="page">Card</a><a href="#">Calls (2)</a><a href="#">Chat</a><a href="#">History</a></nav>
+
+  <ol class="b-stepper" data-block="StageStepper" aria-label="Stages">
+    <li class="b-step" data-state="ok">✓ Enquiry</li><li class="b-step" data-state="ok">✓ Visit booked</li><li class="b-step" data-state="wait">● Visited</li><li class="b-step" data-state="quiet">Deciding</li><li class="b-step" data-state="quiet">Applied</li><li class="b-step" data-state="quiet">Admitted</li>
+  </ol>
+
+  <section class="wf-sec">
+    <h3>Child</h3>
+    <dl class="b-kv">
+      <dt>Name</dt><dd data-source="leads.child_name">Ira</dd>
+      <dt>Date of birth</dt><dd data-source="leads.child_dob">14 Mar 2019 · 7 y 8 m</dd>
+      <dt>Grade</dt><dd data-source="leads.grade">Grade 2</dd>
+      <dt>Campus</dt><dd data-source="leads.campus_id">Gurukul <span class="b-caption">from date of birth</span></dd>
+    </dl>
+  </section>
+  <section class="wf-sec">
+    <h3>Parent</h3>
+    <dl class="b-kv">
+      <dt>Name</dt><dd data-source="contacts.name">Neha Kulkarni</dd>
+      <dt>Phone</dt><dd data-source="contacts.phone">+91 98xxx xxx21 <a href="#">Call</a></dd>
+      <dt>Area</dt><dd data-source="leads.area">Baner</dd>
+      <dt>Source</dt><dd data-source="leads.source_id">Instagram</dd>
+      <dt>First contact</dt><dd data-source="leads.created_at">2 Nov 2026</dd>
+    </dl>
+  </section>
+  <section class="wf-sec">
+    <h3>Visit</h3>
+    <p data-source="visits.starts_at, visits.status"><span class="wf-chip" data-state="ok">✓ Visited</span> Wed 18 Nov, 16:00 · Gurukul</p>
+    <p class="b-caption">Earlier: 15 Nov rescheduled.</p>
+  </section>
+  <section class="wf-sec">
+    <h3>Follow-ups</h3>
+    <ul class="b-rlist">
+      <li class="b-ritem"><span class="wf-chip" data-state="ok">✓ Sent</span> Thank-you + fee sheet · 18 Nov</li>
+      <li class="b-ritem"><span class="wf-chip" data-state="ok">✓ Sent</span> "Any questions?" · 20 Nov</li>
+      <li class="b-ritem"><span class="wf-chip" data-state="wait">◐ Today</span> Day 7 call (you)</li>
+    </ul>
+    <p class="b-caption" data-source="lead_activity">If the parent replies, the next send pauses and a call task is made.</p>
+  </section>
+  <section class="wf-sec">
+    <h3>Notes</h3>
+    <p class="b-caption">Younger sibling (2 y) may enquire next year. — 18 Nov</p>
+    <span class="wf-input">Add a note…</span>
+  </section>
+</aside>
+</main>
+<section class="wf-states" aria-label="Other tabs and states">
+  <h2>Other tabs and states</h2>
+  <div class="b-strip">
+    <div class="card"><h3>Calls tab · log a call</h3>
+      <div class="b-form">
+        <div class="b-field"><label>Outcome</label><span class="wf-input">Talked ▾ (Talked · No answer · Call back later · Wrong number)</span></div>
+        <div class="b-field"><label>Notes</label><span class="wf-input">Wants to bring grandparents for a second visit</span></div>
+        <div class="b-field"><label>Next step</label><span class="wf-input">Move to Deciding ▾ · next call Mon 30 Nov ▾</span></div>
+        <a class="b-btn b-btn-main" href="#">Save call</a>
+      </div>
+      <ol class="b-timeline"><li class="b-tli"><span class="b-tile" data-block="Kind" data-kind="note">☎</span><div>No answer<p>Meera S.</p></div><span class="b-caption" data-source="lead_activity.done_at">12 Nov</span></li></ol>
+    </div>
+    <div class="card"><h3>History tab</h3>
+      <ol class="b-timeline">
+        <li class="b-tli"><span class="b-tile" data-block="Kind" data-kind="child">→</span><div>Visited<p>by Meera S.</p></div><span class="b-caption" data-source="lead_stage_history.entered_at">18 Nov · 7 d</span></li>
+        <li class="b-tli"><span class="b-tile" data-block="Kind" data-kind="period">→</span><div>Visit booked<p>by Cal.com</p></div><span class="b-caption">10 Nov · 8 d</span></li>
+        <li class="b-tli"><span class="b-tile" data-block="Kind" data-kind="child">→</span><div>Enquiry<p>WhatsApp, Instagram QR</p></div><span class="b-caption">2 Nov · 8 d</span></li>
+      </ol>
+    </div>
+    <div class="card"><h3>Chat tab</h3><p>The WhatsApp thread with this parent, as in Inbox, with the composer. "Open in Inbox" link.</p></div>
+    <div class="card"><h3>Move to Lost</h3>
+      <div class="b-field"><label>Why was this lead lost? (required)</label><span class="wf-input">Choose a reason ▾</span><span data-error>● Pick a reason to close this lead as Lost.</span></div>
+      <div class="wf-row"><a class="b-btn b-btn-main" href="#">Close as Lost</a><a class="b-btn b-btn-text" href="#">Cancel</a></div>
+      <p class="b-caption">Lost and Dormant show grey everywhere, never red.</p>
+    </div>
+    <div class="card"><h3>Loading / couldn't load</h3><span class="wf-skel"></span><span class="wf-skel"></span><p><span class="wf-chip" data-state="late">● Couldn't load this lead</span> <a href="#">Try again</a></p></div>
+    <div class="card"><h3>Phone</h3><p>The panel is a full-height sheet over the board; × or Back closes it.</p></div>
+  </div>
+</section>

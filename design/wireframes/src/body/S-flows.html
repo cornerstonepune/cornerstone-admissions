@@ -1,0 +1,41 @@
+title: Flows (list and editor)
+kind: snapshot
+nav: flows
+note: Routes /flows, /flows/[id], /flows/[id]/runs. Upstream chatbot flows; the welcome flow lives here. Day-to-day wording changes go through Admissions settings › Welcome flow; this editor is for the owner.
+---
+<main class="wf-main">
+<div class="wf-col">
+  <div class="wf-trail">Flows</div>
+  <div class="wf-head">
+    <div><span class="wf-eyebrow">Beta</span><h1>Flows</h1></div>
+    <a class="b-btn b-btn-main" href="#">New flow</a>
+  </div>
+  <div class="wf-two">
+    <div class="card"><h3>Admissions welcome</h3><p><span class="wf-chip" data-state="ok">Active</span> First message from a contact</p><p class="b-caption">214 runs</p><div class="wf-row"><a class="b-btn" href="#">Edit</a><a class="b-btn b-btn-text" href="#">Delete</a></div></div>
+    <div class="card"><h3>Out of hours</h3><p><span class="wf-chip">Draft</span> Keyword "hi"</p><p class="b-caption">0 runs</p><div class="wf-row"><a class="b-btn" href="#">Edit</a><a class="b-btn b-btn-text" href="#">Delete</a></div></div>
+  </div>
+
+  <section class="wf-sec">
+    <header><h2>Editor</h2><p>/flows/[id]</p></header>
+    <div class="card">
+      <div class="wf-row"><a href="#">‹ Back to Flows</a><b>Admissions welcome</b><span class="b-caption">Unsaved changes</span><span class="wf-grow"></span><a class="b-btn" href="#">Runs</a><a class="b-btn" href="#">Pause</a><a class="b-btn b-btn-main" href="#">Save</a></div>
+      <span class="wf-seg"><span aria-pressed="true">Canvas</span><span>List</span></span>
+      <div class="wf-split">
+        <div><h3>Nodes</h3><p class="b-caption">Start · Send message · Send buttons · Send list · Send media · Collect input · If / else · Tag contact · Handoff to agent · End</p></div>
+        <div><p class="card">Start</p><p class="card">Send buttons: Book a visit · Call me back · Send me details</p><p class="card">Collect input: child's date of birth</p><p class="card">If / else: born on or after cut-off → Neev link, else Gurukul link</p></div>
+        <div><h3>Settings</h3><p class="b-caption">No node selected</p></div>
+      </div>
+      <p><span class="wf-chip" data-state="ok">✓ No issues. Ready to activate.</span></p>
+    </div>
+  </section>
+</div>
+</main>
+<section class="wf-states" aria-label="Other states">
+  <h2>Other states</h2>
+  <div class="b-strip">
+    <div class="card"><h3>No flows</h3><div class="b-empty"><p>No flows yet</p></div></div>
+    <div class="card"><h3>New flow</h3><p>Start from Welcome menu, FAQ bot, Lead capture, or blank.</p></div>
+    <div class="card"><h3>Runs</h3><p>Rows: contact, status, "at {node}", "Started {time}".</p></div>
+    <div class="card"><h3>Problems</h3><p><span class="wf-chip" data-state="late">● 2 issues</span> listed in the bar; Activate is off until fixed.</p></div>
+  </div>
+</section>
