@@ -19,6 +19,8 @@ Nimish reads PROJECT.md on #20 and confirms or corrects the 3 assumptions. Merge
 - Port clash cleared for now: Nimish stopped the `assessment-engine` stack (2026-11-25). Next session reruns the M0 runtime check (app on local Supabase, sign-in). The `beyond` stack still runs (db 54332) and may clash on other ports; a permanent port move needs his OK (PROJECT.md §6).
 - Dependabot PRs #1–#5 untouched (#2 xyflow 13 and #4 eslint 10 are majors).
 
+- Nimish (2026-11-25, chat): "do we need ~35 tables for this simple project?" The 37 are upstream wacrm's; the 12 new admissions tables in PROJECT.md §3 are too many. Coordinator's proposed cut: ~5 (leads incl. visit + exit, lead_stage_history, one settings table for campuses/sources/lost reasons/rules/alerts, one sends/tasks log, settings_changes). Also asked him: own Supabase project for admissions (drops the move of 37 tables + 60 migrations into `admissions`) vs the brief's shared school project. Fold his answers into #20 (with ADR) before merging.
+
 ## Don't repeat
 - A helper's edit of supabase/config.toml ports (scratch worktree) was refused by the permission system on 2026-11-25. Don't retry or route around it without Nimish's OK.
 - Never open the platform repo (ADR 0003). Don't stop other projects' Docker containers.
