@@ -2,7 +2,7 @@
 
 _The locked blueprint. Agents read §1–4 and the current milestone every session. Only Plan sessions edit this file, and every edit gets an ADR in `docs/adr/`. Tasks live in GitHub Issues, not here. Folded from `ADMISSIONS_PROJECT.md` v2.1 (now history) and the code at `dcc5d5d` by loop-adopt (ADR 0004)._
 
-**Status:** Building M0 · **Current milestone:** M0 · **Locked on:** 2026-11-25 · **Version:** v1
+**Status:** Building M1 · **Current milestone:** M1 · **Locked on:** 2026-11-25 · **Version:** v1
 
 ## 1. Product
 - **Problem:** Admissions enquiries arrive by WhatsApp, website, walk-in and referral call, live in groups, personal phones and a sheet, and parents get lost between enquiry and admission.
@@ -91,7 +91,7 @@ _M0 is the data model. Every later milestone is a vertical slice Nimish can clic
 
 **Gaps found:** `on_auth_user_created` trigger present and creates a new account for every sign-up; self sign-up page live; no DB-level tests run in `loop-tests` (only upstream's migration replay in `Migrations`); built screens have no wireframe snapshots.
 
-### M0 — Data model · In progress
+### M0 — Data model · Done (2026-11-26)
 - **Delivers:** the 6 admissions tables (ADR 0010) beside upstream's in `public`, upstream migrations untouched; `db/schema.sql` regenerated; every §3 invariant has a passing test in CI.
 - **Goals (yes/no):**
   - [x] G0.1 A fresh local DB (`supabase db reset`: upstream 001–060 unchanged, then ours from 100) applies with zero errors and has the 6 new tables — test: `tests/db/migrations.test.ts`
@@ -100,15 +100,15 @@ _M0 is the data model. Every later milestone is a vertical slice Nimish can clic
   - [x] G0.4 Invariants 3–7 enforced by the database — tests: `tests/db/invariants-*.test.ts`, `tests/db/visits.test.ts`
   - [x] G0.5 The upstream suite still passes (clients stay on `public`, ADR 0009) — test: `npm test`
   - [x] G0.6 `loop-tests` CI starts a local Postgres and runs `tests/db/` (`npm run test:db`, ADR 0011) — test: CI run on the M0 spec PR
-- **Issues:** label `M0`. #51 (110, ADR 0016) merged and `db/schema.sql` regenerated. Last: #56 (migration 111, ADR 0017: rule-made activity matches its rule); then regenerate `db/schema.sql` once more and mark M0 done.
+- **Issues:** label `M0`, all closed. Last: #56 (migration 111, ADR 0017, PR #58). `db/schema.sql` regenerated after 111; `npm run test:db` 23 files, 157 tests pass (2026-11-26).
 - **Out of scope:** any UI; Cal.com and WhatsApp wiring (tables only).
 
-### M1 — Look and frame · Not started
+### M1 — Look and frame · In progress
 - **Delivers:** every existing screen in the Cornerstone theme, light only; signup, broadcasts and AI hidden. Port tickets #7–#12, #18.
 - **Screens:** S-frame (plus snapshots of built screens approved with `loop approve --all`).
 - **Goals:** [ ] G1.1 no theme picker, `<html data-scheme="light">` · [ ] G1.2 hidden routes return 404 and are not in the menu · [ ] G1.3 CI token check passes on all `src/` (no raw colours) · [ ] G1.4 upstream tests pass.
 - **Depends on:** M0.
-- **Issues:** label `M1`: #52 (hidden routes, seeded, no wireframe needed); #7–#12, #18 (ports, seeded when S-frame is approved). G1.3 (token check on all `src/`) is checked after the ports land.
+- **Issues:** label `M1`: #52 (hidden routes, seeded, label `ready`: no wireframe needed); #7–#12, #18 (ports, seeded when S-frame is approved). G1.3 (token check on all `src/`) is checked after the ports land.
 
 ### M2 — WhatsApp on the test number · Not started
 - **Delivers:** tunnel, Meta test app, webhook; written finding on connecting the real number.
