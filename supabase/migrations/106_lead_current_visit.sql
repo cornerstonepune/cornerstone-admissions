@@ -9,6 +9,10 @@
 --   (this Supabase grants nothing on new views; readers also need 101's grant on visits, so build after #22).
 
 CREATE VIEW public.lead_current_visit WITH (security_invoker = true) AS
-SELECT v.lead_id, v.id AS visit_id, v.account_id, v.cal_booking_id, v.starts_at, v.campus_id, v.status, v.created_at
+SELECT DISTINCT ON (v.lead_id)
+  v.lead_id, v.id AS visit_id, v.account_id, v.cal_booking_id, v.starts_at, v.campus_id, v.status, v.created_at
 FROM public.visits v
-WHERE false;  -- placeholder: not implemented
+WHERE v.status NOT IN ('cancelled', 'rescheduled')
+ORDER BY v.lead_id, v.created_at DESC, v.id DESC;
+
+GRANT SELECT ON public.lead_current_visit TO authenticated, service_role;
