@@ -1,6 +1,6 @@
 // The current visit (migration 106, ADR 0011 §3): latest visit that wasn't cancelled or rescheduled.
 import { afterAll, describe, expect, it } from "vitest";
-import { type Account, type Tx, account, lead, sql, tx } from "./db";
+import { type Account, type Tx, account, actAs, lead, member, sql, tx } from "./db";
 
 afterAll(() => sql.end());
 
@@ -52,5 +52,19 @@ describe("current visit", () => {
       await visit(t, a, leadId, "booked", 60);
       const v = await visit(t, a, leadId, "no_show", 5);
       expect(await current(t, leadId)).toEqual([v]);
+    }));
+
+  it("shows an account member their lead's current visit, and another account's member nothing", () =>
+    tx(async (t) => {
+      const a = await account(t);
+      const b = await account(t);
+      const { leadId } = await lead(t, a);
+      const v = await visit(t, a, leadId, "booked", 5);
+      const viewer = await member(t, a.accountId, "viewer");
+      const outsider = await member(t, b.accountId, "admin");
+      await actAs(t, viewer);
+      expect(await current(t, leadId)).toEqual([v]);
+      await actAs(t, outsider);
+      expect(await current(t, leadId)).toEqual([]);
     }));
 });
