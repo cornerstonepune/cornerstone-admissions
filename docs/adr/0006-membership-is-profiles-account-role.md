@@ -1,6 +1,6 @@
 # 0006 — Membership is `profiles.account_id` + `account_role`; no `account_members` table; invite-only
 
-**Date:** 2026-11-25 · **Status:** accepted (Plan, unattended; corrects the brief and CLAUDE.md)
+**Date:** 2026-11-25 · **Status:** accepted; role mapping accepted by Nimish on PR #20, 2026-11-25 (corrects the brief and CLAUDE.md)
 
 ## Context
 The brief (§4 rule 5) and CLAUDE.md say access is decided by membership in `admissions.account_members`. That table does
@@ -15,8 +15,10 @@ new account, and the signup page is live: anyone who signs up gets a tenant.
 - One account: Cornerstone admissions. The first owner is created by a local seed script, not by a trigger.
 - No trigger on `auth.users` (brief §4 rule 4). A profile is created when an invited person first signs in, by the
   invitation-accept path. Self sign-up is off and the signup page is hidden.
-- Roles map: Nimish = owner, Akanksha = admin, Lakshmi ma'am = agent with permission to edit templates and rules
-  (exact rights fixed in the M0 spec), staff = agent limited to quick-add.
+- Roles map (Nimish, 2026-11-25: "all 3 of us have the same roles - everything to start with"): Nimish = owner,
+  Akanksha = admin, Lakshmi ma'am = admin. Upstream allows exactly one owner per account, so admin is how the other two
+  get full access; the only thing admin can't do is transfer ownership.
+- **Assumption (Nimish didn't mention staff):** staff (kakas, didis) = agent limited to quick-add.
 
 ## Why
 Adding a second membership table would fork every RLS policy away from upstream for no gain. The trigger must go because

@@ -6,7 +6,7 @@ _The locked blueprint. Agents read §1–4 and the current milestone every sessi
 
 ## 1. Product
 - **Problem:** Admissions enquiries arrive by WhatsApp, website, walk-in and referral call, live in groups, personal phones and a sheet, and parents get lost between enquiry and admission.
-- **Users:** Lakshmi ma'am (runs her whole day from it: who to call, who is visiting, who is stuck); Akanksha (visits, oversight); Nimish (admin). Staff (kakas, didis) only use quick-add.
+- **Users:** Lakshmi ma'am (runs her whole day from it: who to call, who is visiting, who is stuck); Akanksha (visits, oversight); Nimish. All three have full access to start (Nimish owner, the other two admin; ADR 0006). Staff (kakas, didis) only use quick-add.
 - **Must do (v1):**
   - Every enquiry becomes one lead within a minute, with its source; one lead per phone number.
   - Six stages (Enquiry, Visit booked, Visited, Deciding, Applied, Admitted) and two exits (Lost with a reason, Dormant), with stage history.
@@ -20,11 +20,11 @@ _The locked blueprint. Agents read §1–4 and the current milestone every sessi
 - **Stack:** fork of `ArnasDon/wacrm` (MIT, ADR 0001): Next.js 16 App Router + React 19 (what wacrm is), Supabase Postgres + RLS + Auth (wacrm's data layer; its own Supabase project: local until M7, then a new hosted project, ADR 0009), Meta WhatsApp Cloud API (direct, no provider), Cal.com hosted (free booking), next-intl, Vitest. Hosting chosen at M7 (Cloudflare first, Docker fallback; brief D5).
 - **Shape:** one Next.js monolith. Upstream modules stay where they are (`src/lib/{whatsapp,automations,flows,pipelines,…}`); our code lives in `src/admissions/`, our migrations in `supabase/migrations/` numbered from 100. Upstream files are touched as little as possible.
 - **External systems:** Meta Cloud API (inbound webhook, signed, fails closed; outbound send per message), Cal.com webhook (booking, reschedule, cancel, no-show), a scheduler calling `/api/automations/cron` and `/api/flows/cron` every minute with `x-cron-secret`.
-- **Tenancy / security:** one account (Cornerstone admissions). Access = a `profiles` row for the user with `account_id` and `account_role` (owner > admin > agent > viewer), checked by `is_account_member()` in RLS on every table (ADR 0006). No self sign-up; people join by invitation.
+- **Tenancy / security:** one account (Cornerstone admissions). Access = a `profiles` row for the user with `account_id` and `account_role` (owner > admin > agent > viewer), checked by `is_account_member()` in RLS on every table (ADR 0006). Nimish = owner; Akanksha and Lakshmi ma'am = admin; staff = agent, quick-add only (assumption). No self sign-up; people join by invitation.
 - **Non-negotiables:** admissions has its own Supabase project and never touches the shared project `ruznbyngtfjsaymuylhm` (ADR 0009); upstream tables stay in `public` untouched, ours sit beside them; local Supabase only until M7, never `supabase db push`; self sign-up off (invite only); isolation from every other Cornerstone repo (brief §4, ADR 0003); every Settings change logged with who and when.
 
 ## 3. Data model
-- **Source of truth:** `db/schema.sql`, generated from the migrations (ADR 0005). Don't copy columns here. Today it is upstream's 37 tables in `public`; M0 adds our 5 beside them (ADR 0009, ADR 0010).
+- **Source of truth:** `db/schema.sql`, generated from the migrations (ADR 0005). Don't copy columns here. Today it is upstream's 37 tables in `public`; M0 adds our 6 beside them (ADR 0009, ADR 0010).
 - **Entities that exist (upstream, all with RLS on, verified 2026-11-25):**
 
 | Table | Holds | Key relations | Rough rows | Notes |
@@ -43,7 +43,7 @@ _The locked blueprint. Agents read §1–4 and the current milestone every sessi
 | broadcasts, broadcast_recipients | bulk sends | | 0 | hidden in v1 |
 | ai_configs, ai_knowledge_documents, ai_knowledge_chunks, ai_usage_log | AI replies | | 0 | hidden in v1 |
 
-- **Entities M0 adds (5, in `public`, names final in the M0 spec; ADR 0010):** `leads` (1:1 with a deal in the Admissions pipeline: child name, date of birth, grade, campus, area, source, exit, lost reason, and the current visit with its unique Cal.com booking id; ADR 0007), `lead_stage_history`, `admissions_settings` (one row per campus, source, lost reason, follow-up rule or alert, by `kind`), `lead_activity` (follow-up sends, call tasks and their call log), `settings_changes` (audit).
+- **Entities M0 adds (6, in `public`, names final in the M0 spec; ADR 0010):** `leads` (1:1 with a deal in the Admissions pipeline: child name, date of birth, grade, campus, area, source, exit, lost reason; ADR 0007), `visits` (every Cal.com booking, reschedule, cancel and no-show for a lead, Cal.com booking id unique; the lead's current visit is derived from it), `lead_stage_history`, `admissions_settings` (one row per campus, source, lost reason, follow-up rule or alert, by `kind`), `lead_activity` (follow-up sends, call tasks and their call log), `settings_changes` (audit).
 - **Core flow:** a message, form or quick-add finds-or-creates the contact by phone → one open lead (deal + `leads` row) in Enquiry → each stage move writes one history row → rules read settings and queue sends or call tasks → a parent reply pauses them → Admitted, Lost (with reason) or Dormant closes the lead.
 - **Invariants (each becomes a test in M0):**
   1. Self sign-up is off: a sign-up without an invitation creates no account and no profile.
@@ -51,12 +51,12 @@ _The locked blueprint. Agents read §1–4 and the current milestone every sessi
   3. One contact per normalized phone per account; at most one open lead per contact.
   4. A lead cannot exit as Lost without a lost reason.
   5. Every stage change writes exactly one `lead_stage_history` row; days in stage is computed from it.
-  6. At most one `lead_activity` send per (lead, follow-up rule, stage entry); a repeated Cal.com webhook changes nothing (booking id unique on `leads`).
+  6. At most one `lead_activity` send per (lead, follow-up rule, stage entry); a repeated Cal.com webhook changes nothing (booking id unique on `visits`).
   7. Every insert, update or delete on `admissions_settings` writes a `settings_changes` row with who and when.
 
 ## 4. Frontend (screens and flows locked here; pixels locked by approved wireframes)
 - **Design system (ADR 0003):** root `DESIGN.md` is the design authority, its values in `design/tokens.css` (the Cornerstone platform's tokens, copied once on 2026-11-25). `design/platform/` is a frozen reference snapshot: port from it through tickets, never import it, never edit it, never open the platform repo again. Project brand overrides only in `design/brand.css`, only for `.loop.json → brand_overridable`. Port tickets #7–#18 (`design-port`, `queued`) get their seeds when the first screen that needs them is approved. Inventory: `docs/design/platform-components.md`.
-- **Light mode only** (ADR 0008, an assumption: brief §8, Nimish not asked): `data-scheme="light"` on `<html>`, no theme picker; dark values stay in the tokens file.
+- **Light mode only** (ADR 0008, confirmed by Nimish 2026-11-25): `data-scheme="light"` on `<html>`, no theme picker; dark values stay in the tokens file.
 - **Screens** (built = upstream wacrm, restyled by the theme in M1, not redesigned):
 
 | ID | Screen | Who | Job | Wireframe | State |
@@ -92,9 +92,9 @@ _M0 is the data model. Every later milestone is a vertical slice Nimish can clic
 **Gaps found:** `on_auth_user_created` trigger present and creates a new account for every sign-up; self sign-up page live; no DB-level tests run in `loop-tests` (only upstream's migration replay in `Migrations`); built screens have no wireframe snapshots.
 
 ### M0 — Data model · In progress
-- **Delivers:** the 5 admissions tables (ADR 0010) beside upstream's in `public`, upstream migrations untouched; `db/schema.sql` regenerated; every §3 invariant has a passing test in CI.
+- **Delivers:** the 6 admissions tables (ADR 0010) beside upstream's in `public`, upstream migrations untouched; `db/schema.sql` regenerated; every §3 invariant has a passing test in CI.
 - **Goals (yes/no):**
-  - [ ] G0.1 A fresh local DB (`supabase db reset`: upstream 001–060 unchanged, then ours from 100) applies with zero errors and has the 5 new tables — test: `tests/db/migrations.test.ts`
+  - [ ] G0.1 A fresh local DB (`supabase db reset`: upstream 001–060 unchanged, then ours from 100) applies with zero errors and has the 6 new tables — test: `tests/db/migrations.test.ts`
   - [ ] G0.2 Self sign-up off: a sign-up without an invitation gets no account or profile; an invited user gets a profile on first sign-in — test: `tests/db/access.test.ts`
   - [ ] G0.3 RLS on every table; a non-member reads zero rows everywhere — test: `tests/db/rls.test.ts`
   - [ ] G0.4 Invariants 3–7 enforced by the database — test: `tests/db/invariants.test.ts`

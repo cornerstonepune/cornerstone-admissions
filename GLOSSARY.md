@@ -68,7 +68,7 @@ Neev or Gurukul. The child's date of birth decides which, by the cut-off in Sett
 _Avoid_: school, branch, centre
 
 **Visit**:
-A family's booked campus visit, made through Cal.com.
+A family's booked campus visit, made through Cal.com. A lead keeps every visit it has had (rescheduled, cancelled, no-show); its current visit is the latest one not cancelled or rescheduled.
 _Avoid_: tour, appointment, meeting
 
 **No-show**:

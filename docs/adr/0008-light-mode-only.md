@@ -1,6 +1,6 @@
 # 0008 — Admissions is light mode only
 
-**Date:** 2026-11-25 · **Status:** accepted as an assumption (Plan, unattended; Nimish was not asked)
+**Date:** 2026-11-25 · **Status:** accepted by Nimish on PR #20, 2026-11-25
 
 The brief (§8) says make light mode the default and remove the theme picker; `design/tokens.css` (from the platform,
 ADR 0003) follows the system setting. We hold light everywhere: `data-scheme="light"` on `<html>`, no picker, no
