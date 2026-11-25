@@ -1,0 +1,65 @@
+-- 111 — rule-made activity is the kind its rule makes and keeps its rule and stage entry;
+-- a follow-up rule in use keeps its action (ADR 0017; reviewer of PR #55).
+--
+-- Write:
+--   1. FUNCTION public.check_rule_made_activity() RETURNS trigger, plpgsql, SET search_path = public (SECURITY INVOKER):
+--      a. IF TG_OP = 'UPDATE' AND (NEW.rule_id IS DISTINCT FROM OLD.rule_id
+--                                  OR NEW.stage_history_id IS DISTINCT FROM OLD.stage_history_id) THEN
+--           RAISE EXCEPTION 'A lead activity keeps its rule and stage entry' USING ERRCODE = '23514';
+--      b. IF NEW.rule_id IS NOT NULL AND NOT EXISTS (
+--             SELECT 1 FROM public.admissions_settings s WHERE s.id = NEW.rule_id
+--             AND (s.value->>'action', NEW.kind::text) IN (('send_template', 'follow_up_send'), ('call_task', 'call_task'))) THEN
+--           RAISE EXCEPTION 'A rule-made activity must be the kind its rule makes' USING ERRCODE = '23514';
+--         (a 'dormant' rule matches no kind: it moves the lead and makes no activity row)
+--      c. RETURN NULL (AFTER trigger).
+--   2. CREATE TRIGGER lead_activity_rule_made AFTER INSERT OR UPDATE ON public.lead_activity
+--        FOR EACH ROW EXECUTE FUNCTION public.check_rule_made_activity();
+--      AFTER, never BEFORE: a BEFORE trigger fires before RLS WITH CHECK and would turn an agent's 42501 into 23514.
+--   3. FUNCTION public.check_rule_action_in_use() RETURNS trigger, plpgsql, SECURITY DEFINER, SET search_path = public
+--      (same reason as 108: the in-use lookup must see every row):
+--        IF OLD.kind = 'follow_up_rule' AND NEW.value->>'action' IS DISTINCT FROM OLD.value->>'action'
+--           AND EXISTS (SELECT 1 FROM lead_activity WHERE rule_id = OLD.id) THEN
+--          RAISE EXCEPTION 'A follow-up rule in use cannot change its action' USING ERRCODE = '23514';
+--        RETURN NEW.
+--      CREATE TRIGGER admissions_settings_rule_action_fixed BEFORE UPDATE OF value ON public.admissions_settings
+--        FOR EACH ROW EXECUTE FUNCTION public.check_rule_action_in_use();
+-- Leave every other function, trigger, policy and constraint alone.
+
+CREATE OR REPLACE FUNCTION public.check_rule_made_activity() RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+BEGIN
+  IF TG_OP = 'UPDATE' AND (NEW.rule_id IS DISTINCT FROM OLD.rule_id
+                           OR NEW.stage_history_id IS DISTINCT FROM OLD.stage_history_id) THEN
+    RAISE EXCEPTION 'A lead activity keeps its rule and stage entry' USING ERRCODE = '23514';
+  END IF;
+  IF NEW.rule_id IS NOT NULL AND NOT EXISTS (
+       SELECT 1 FROM public.admissions_settings s WHERE s.id = NEW.rule_id
+       AND (s.value->>'action', NEW.kind::text) IN (('send_template', 'follow_up_send'), ('call_task', 'call_task'))) THEN
+    RAISE EXCEPTION 'A rule-made activity must be the kind its rule makes' USING ERRCODE = '23514';
+  END IF;
+  RETURN NULL;
+END;
+$$;
+
+-- AFTER, never BEFORE: BEFORE would fire ahead of RLS WITH CHECK and turn an agent's 42501 into 23514.
+CREATE TRIGGER lead_activity_rule_made AFTER INSERT OR UPDATE ON public.lead_activity
+  FOR EACH ROW EXECUTE FUNCTION public.check_rule_made_activity();
+
+CREATE OR REPLACE FUNCTION public.check_rule_action_in_use() RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF OLD.kind = 'follow_up_rule' AND NEW.value->>'action' IS DISTINCT FROM OLD.value->>'action'
+     AND EXISTS (SELECT 1 FROM lead_activity WHERE rule_id = OLD.id) THEN
+    RAISE EXCEPTION 'A follow-up rule in use cannot change its action' USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER admissions_settings_rule_action_fixed BEFORE UPDATE OF value ON public.admissions_settings
+  FOR EACH ROW EXECUTE FUNCTION public.check_rule_action_in_use();

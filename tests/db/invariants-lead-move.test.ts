@@ -1,10 +1,10 @@
-// Lead move guard (migration 109): a lead with stage history can't move to another account or deal (ADR 0015 §2).
+// Lead identity (migrations 109, 110): a lead's account and deal never change (ADR 0016 §3).
 import { afterAll, describe, expect, it } from "vitest";
 import { account, errorOf, lead, sql, tx, type Account, type Tx } from "./db";
 
 afterAll(() => sql.end());
 
-const MOVE = "A lead with stage history, visits or activity cannot move to another account or deal";
+const MOVE = "A lead's account and deal never change";
 
 /** A deal without a lead, for the given contact. */
 async function plainDeal(t: Tx, a: Account, contactId: string): Promise<string> {

@@ -7,7 +7,7 @@ afterAll(() => sql.end());
 async function withSendAndTask(t: Tx) {
   const a = await account(t);
   const { leadId } = await lead(t, a);
-  const rule = await setting(t, a, "follow_up_rule", "enquiry_day_2", { stage: "enquiry", days: 2, action: "call_task" });
+  const rule = await setting(t, a, "follow_up_rule", "enquiry_day_2", { stage: "enquiry", days: 2, action: "send_template", template: "enquiry_day_2" });
   const [h] = await t`
     insert into lead_stage_history (account_id, lead_id, stage_id) values (${a.accountId}, ${leadId}, ${a.stageIds[0]})
     returning id`;

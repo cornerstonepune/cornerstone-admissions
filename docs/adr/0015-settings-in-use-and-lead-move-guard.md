@@ -2,6 +2,8 @@
 
 **Date:** 2026-11-25 · **Status:** accepted (unattended assumption; Nimish can overturn) · **Source:** PR #34 review findings
 
+> §2 superseded by ADR 0016 (account and deal simply never change).
+
 ## Context
 Migration 103 checks a lead's settings and deal on the lead's side only. Two gaps remained: a setting already used by a lead, visit or activity could later change its `kind` or `account_id`, silently making old rows invalid; and the guard against moving a lead to another account or deal looked at visits and activity but not at `lead_stage_history`, whose rows carry the lead's account.
 

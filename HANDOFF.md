@@ -1,19 +1,17 @@
 # HANDOFF
 
-_Overwritten at the end of every session. Keep under 30 lines. Facts only._
+_Overwritten at the end of every session. Facts only._
 
-**Updated:** 2026-11-26 · **By:** Plan · **Model:** claude-opus-5-5
-**Milestone:** M0 — data model · **Branch:** plan/rls-fill-audit-either
+**Updated:** 2026-11-26 · **By:** Coordinator · **Milestone:** M1 (M0 done, ADR 0018)
 
 ## State
-- Merged this session: #30 (107, PR 46), #27 (106, PR 47). M0 left: #36 (108), #37 (109), then regenerate db/schema.sql (ADR 0011). 16 wireframes merged, awaiting Nimish's own sign-off.
-- PR #48 (#36): loop-guard red only on "Ticket PR without a handoff": builder never wrote docs/loop/handoff/36.md. Fix: loop prep 36, loop build 36, loop finish 36.
-- #37: seed proven red; 2 builds failed on "Bash permission denied" (builder env, not code); 1 attempt left, then loop build 37 --rescue.
-- Stale Plan-base fix: when loop-guard says "must not edit HANDOFF.md", run loop plan to merge main into plan/tN and update the PR body Plan-base.
+- M0 merged and db/schema.sql regenerated. M1: #52 (hidden routes) merged.
+- Blocked on Nimish: approving the S-frame wireframe himself (none of the 16 are approved). Then build #7, then #8/#9, then #10/#18, #11, #12 (need `loop plan` seeds first).
 
 ## Next step
-1. #36 handoff fix, #37 rescue, merge both. 2. M0 close: npm run db:schema via plan job. 3. Then M1 tickets.
+1. Nimish approves S-frame. 2. `loop plan "Seed tickets #7-#12, #18"`. 3. Build in the order above.
+4. Plan follow-ups from the #52 review: turn off Supabase auth sign-up (enable_signup=false in supabase/config.toml; anon key can still hit /auth/v1/signup); broadcast/AI API routes still answer (ticket or ADR); #18 must remove all links to hidden pages (sidebar.tsx:98, overview-header.tsx:29, campaigns-card.tsx:68/80).
 
 ## Don't repeat
-- Seed hidden tests must also pass against a correct implementation, not only fail on main.
-- Reviewer notes (plan follow-ups): lead_activity call_task rows can still carry rule_id (add CHECK); rule_id ON DELETE SET NULL clashes with lead_activity_send_has_rule; no test of lead_current_visit as an account member.
+- Builders sometimes skip docs/loop/handoff/<N>.md (loop-guard red): add it to the ticket's Don't, re-prep, rebuild.
+- Builder env can lack Bash permission; rescue (Fable) worked for #37.

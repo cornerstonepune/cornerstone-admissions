@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { isHiddenRoute } from '@/admissions/hidden-routes'
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -40,6 +41,10 @@ export async function middleware(request: NextRequest) {
       response.cookies.set(cookie)
     })
     return response
+  }
+
+  if (isHiddenRoute(request.nextUrl.pathname, request.nextUrl.searchParams)) {
+    return withRefreshedCookies(new NextResponse(null, { status: 404 }))
   }
 
   // Auth pages - redirect to dashboard if already logged in.

@@ -173,6 +173,43 @@ $$;
 
 
 --
+-- Name: admissions_setting_is(uuid, uuid, public.admissions_setting_kind); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.admissions_setting_is(p_setting_id uuid, p_account_id uuid, p_kind public.admissions_setting_kind) RETURNS boolean
+    LANGUAGE sql STABLE
+    SET search_path TO 'public'
+    AS $$
+  SELECT p_setting_id IS NULL OR EXISTS (
+    SELECT 1 FROM public.admissions_settings s
+    WHERE s.id = p_setting_id AND s.account_id = p_account_id AND s.kind = p_kind)
+$$;
+
+
+--
+-- Name: audit_admissions_settings(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.audit_admissions_settings() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+DECLARE
+  r public.admissions_settings := CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
+BEGIN
+  -- Skipped when the whole account is being deleted (cascade): the FK to accounts would fail.
+  INSERT INTO public.settings_changes (account_id, setting_id, kind, key, action, old_value, new_value, changed_by)
+  SELECT r.account_id, r.id, r.kind, r.key, lower(TG_OP)::public.settings_change_action,
+         CASE WHEN TG_OP = 'INSERT' THEN NULL ELSE to_jsonb(OLD) END,
+         CASE WHEN TG_OP = 'DELETE' THEN NULL ELSE to_jsonb(NEW) END,
+         auth.uid()
+  WHERE EXISTS (SELECT 1 FROM public.accounts WHERE id = r.account_id);
+  RETURN NULL;
+END;
+$$;
+
+
+--
 -- Name: broadcast_delivery_in_flight(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -250,6 +287,137 @@ CREATE FUNCTION public.bump_conversation_on_inbound(p_conversation_id uuid, p_la
       updated_at        = NOW()
   WHERE id = p_conversation_id;
 $$;
+
+
+--
+-- Name: check_lead_activity_refs(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.check_lead_activity_refs() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO 'public'
+    AS $$
+BEGIN
+  IF NOT public.admissions_setting_is(NEW.rule_id, NEW.account_id, 'follow_up_rule') THEN
+    RAISE EXCEPTION 'A lead activity can only use a follow-up rule of its own account' USING ERRCODE = '23514';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.leads WHERE id = NEW.lead_id AND account_id = NEW.account_id) THEN
+    RAISE EXCEPTION 'A lead activity can only belong to a lead of its own account' USING ERRCODE = '23514';
+  END IF;
+  IF NEW.stage_history_id IS NOT NULL AND NOT EXISTS (
+       SELECT 1 FROM public.lead_stage_history WHERE id = NEW.stage_history_id AND lead_id = NEW.lead_id) THEN
+    RAISE EXCEPTION 'A lead activity can only point at a stage entry of its own lead' USING ERRCODE = '23514';
+  END IF;
+  IF NEW.message_id IS NOT NULL AND NOT public.message_in_account(NEW.message_id, NEW.account_id) THEN
+    RAISE EXCEPTION 'A lead activity can only point at a message of its own account' USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END $$;
+
+
+--
+-- Name: check_lead_integrity(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.check_lead_integrity() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO 'public'
+    AS $$
+BEGIN
+  IF TG_OP = 'UPDATE' AND (NEW.account_id IS DISTINCT FROM OLD.account_id OR NEW.deal_id IS DISTINCT FROM OLD.deal_id) THEN
+    RAISE EXCEPTION 'A lead''s account and deal never change' USING ERRCODE = '23514';
+  END IF;
+  IF NOT public.admissions_setting_is(NEW.campus_id, NEW.account_id, 'campus')
+     OR NOT public.admissions_setting_is(NEW.source_id, NEW.account_id, 'source')
+     OR NOT public.admissions_setting_is(NEW.lost_reason_id, NEW.account_id, 'lost_reason') THEN
+    RAISE EXCEPTION 'A lead can only use campus, source and lost-reason settings of its own account and the right kind'
+      USING ERRCODE = '23514';
+  END IF;
+  IF NOT public.deal_matches_lead(NEW.deal_id, NEW.account_id, NEW.contact_id) THEN
+    RAISE EXCEPTION 'A lead must be in the same account and have the same contact as its deal' USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END $$;
+
+
+--
+-- Name: check_rule_action_in_use(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.check_rule_action_in_use() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+BEGIN
+  IF OLD.kind = 'follow_up_rule' AND NEW.value->>'action' IS DISTINCT FROM OLD.value->>'action'
+     AND EXISTS (SELECT 1 FROM lead_activity WHERE rule_id = OLD.id) THEN
+    RAISE EXCEPTION 'A follow-up rule in use cannot change its action' USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: check_rule_made_activity(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.check_rule_made_activity() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO 'public'
+    AS $$
+BEGIN
+  IF TG_OP = 'UPDATE' AND (NEW.rule_id IS DISTINCT FROM OLD.rule_id
+                           OR NEW.stage_history_id IS DISTINCT FROM OLD.stage_history_id) THEN
+    RAISE EXCEPTION 'A lead activity keeps its rule and stage entry' USING ERRCODE = '23514';
+  END IF;
+  IF NEW.rule_id IS NOT NULL AND NOT EXISTS (
+       SELECT 1 FROM public.admissions_settings s WHERE s.id = NEW.rule_id
+       AND (s.value->>'action', NEW.kind::text) IN (('send_template', 'follow_up_send'), ('call_task', 'call_task'))) THEN
+    RAISE EXCEPTION 'A rule-made activity must be the kind its rule makes' USING ERRCODE = '23514';
+  END IF;
+  RETURN NULL;
+END;
+$$;
+
+
+--
+-- Name: check_setting_in_use(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.check_setting_in_use() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+BEGIN
+  IF (NEW.kind IS DISTINCT FROM OLD.kind OR NEW.account_id IS DISTINCT FROM OLD.account_id)
+     AND (EXISTS (SELECT 1 FROM leads WHERE campus_id = OLD.id OR source_id = OLD.id OR lost_reason_id = OLD.id)
+       OR EXISTS (SELECT 1 FROM visits WHERE campus_id = OLD.id)
+       OR EXISTS (SELECT 1 FROM lead_activity WHERE rule_id = OLD.id)) THEN
+    RAISE EXCEPTION 'A setting in use cannot change its kind or account' USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: check_visit_refs(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.check_visit_refs() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO 'public'
+    AS $$
+BEGIN
+  IF NOT public.admissions_setting_is(NEW.campus_id, NEW.account_id, 'campus') THEN
+    RAISE EXCEPTION 'A visit can only use a campus setting of its own account' USING ERRCODE = '23514';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.leads WHERE id = NEW.lead_id AND account_id = NEW.account_id) THEN
+    RAISE EXCEPTION 'A visit can only belong to a lead of its own account' USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END $$;
 
 
 --
@@ -812,6 +980,20 @@ $$;
 
 
 --
+-- Name: deal_matches_lead(uuid, uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.deal_matches_lead(p_deal_id uuid, p_account_id uuid, p_contact_id uuid) RETURNS boolean
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+  SELECT (current_setting('role', true) IN ('service_role', 'postgres', 'none', '') OR public.is_account_member(p_account_id))
+    AND EXISTS (SELECT 1 FROM public.deals
+    WHERE id = p_deal_id AND account_id = p_account_id AND contact_id IS NOT DISTINCT FROM p_contact_id)
+$$;
+
+
+--
 -- Name: enforce_account_identity_columns(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -1086,6 +1268,19 @@ $$;
 
 
 --
+-- Name: lead_days_in_stage(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.lead_days_in_stage(p_lead_id uuid) RETURNS integer
+    LANGUAGE sql STABLE
+    SET search_path TO 'public'
+    AS $$
+  SELECT (now() AT TIME ZONE 'Asia/Kolkata')::date - (max(entered_at) AT TIME ZONE 'Asia/Kolkata')::date
+  FROM lead_stage_history WHERE lead_id = p_lead_id;
+$$;
+
+
+--
 -- Name: list_timed_out_flow_runs(timestamp with time zone, integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -1310,6 +1505,20 @@ $$;
 
 
 --
+-- Name: message_in_account(uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.message_in_account(p_message_id uuid, p_account_id uuid) RETURNS boolean
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+  SELECT (current_setting('role', true) IN ('service_role', 'postgres', 'none', '') OR public.is_account_member(p_account_id))
+    AND EXISTS (SELECT 1 FROM public.messages m JOIN public.conversations c ON c.id = m.conversation_id
+    WHERE m.id = p_message_id AND c.account_id = p_account_id)
+$$;
+
+
+--
 -- Name: notify_conversation_assigned(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -1449,6 +1658,38 @@ $$;
 
 
 --
+-- Name: record_first_stage(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.record_first_stage() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+BEGIN
+  INSERT INTO lead_stage_history (account_id, lead_id, stage_id, moved_by)
+  SELECT NEW.account_id, NEW.id, d.stage_id, auth.uid() FROM deals d WHERE d.id = NEW.deal_id;
+  RETURN NULL;
+END;
+$$;
+
+
+--
+-- Name: record_stage_change(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.record_stage_change() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+BEGIN
+  INSERT INTO lead_stage_history (account_id, lead_id, stage_id, moved_by)
+  SELECT l.account_id, l.id, NEW.stage_id, auth.uid() FROM leads l WHERE l.deal_id = NEW.id;
+  RETURN NULL;
+END;
+$$;
+
+
+--
 -- Name: record_webhook_failure(uuid, integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -1510,7 +1751,17 @@ BEGIN
   FOR UPDATE OF p, a;
 
   IF v_old_account_id IS NULL THEN
-    RAISE EXCEPTION 'Caller has no profile' USING ERRCODE = '42501';
+    INSERT INTO profiles (user_id, full_name, email, account_id, account_role)
+    SELECT u.id, COALESCE(u.raw_user_meta_data->>'full_name', ''), u.email, v_inv.account_id, v_inv.role
+    FROM auth.users u
+    WHERE u.id = v_caller_id;
+
+    UPDATE account_invitations
+    SET accepted_at = NOW(),
+        accepted_by_user_id = v_caller_id
+    WHERE id = v_inv.id;
+
+    RETURN v_inv.account_id;
   END IF;
 
   IF v_old_account_id = v_inv.account_id THEN
@@ -1906,6 +2157,45 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+
+--
+-- Name: sync_deal_status(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.sync_deal_status() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+DECLARE
+  v_status text := CASE WHEN NEW.admitted_at IS NOT NULL THEN 'won' WHEN NEW.exit IS NOT NULL THEN 'lost' ELSE 'open' END;
+BEGIN
+  UPDATE deals SET status = v_status WHERE id = NEW.deal_id AND status IS DISTINCT FROM v_status;
+  RETURN NULL;
+END;
+$$;
+
+
+--
+-- Name: sync_lead_contact(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.sync_lead_contact() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO 'public'
+    AS $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM public.leads WHERE deal_id = NEW.id) THEN
+    IF NEW.account_id IS DISTINCT FROM OLD.account_id THEN
+      RAISE EXCEPTION 'A deal with a lead cannot move to another account' USING ERRCODE = '23514';
+    END IF;
+    IF NEW.contact_id IS NULL THEN
+      RAISE EXCEPTION 'A deal with a lead must keep its contact' USING ERRCODE = '23514';
+    END IF;
+    UPDATE public.leads SET contact_id = NEW.contact_id WHERE deal_id = NEW.id AND contact_id IS DISTINCT FROM NEW.contact_id;
+  END IF;
+  RETURN NULL;
+END $$;
 
 
 --
@@ -2602,8 +2892,45 @@ CREATE TABLE public.lead_activity (
     created_by uuid,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT lead_activity_rule_has_entry CHECK (((rule_id IS NULL) OR (stage_history_id IS NOT NULL))),
     CONSTRAINT lead_activity_send_has_rule CHECK (((kind <> 'follow_up_send'::public.lead_activity_kind) OR ((rule_id IS NOT NULL) AND (stage_history_id IS NOT NULL))))
 );
+
+
+--
+-- Name: visits; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.visits (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    account_id uuid NOT NULL,
+    lead_id uuid NOT NULL,
+    cal_booking_id text NOT NULL,
+    starts_at timestamp with time zone NOT NULL,
+    campus_id uuid,
+    status public.visit_status DEFAULT 'booked'::public.visit_status NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT visits_cal_booking_id_check CHECK ((btrim(cal_booking_id) <> ''::text))
+);
+
+
+--
+-- Name: lead_current_visit; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.lead_current_visit WITH (security_invoker='true') AS
+ SELECT DISTINCT ON (lead_id) lead_id,
+    id AS visit_id,
+    account_id,
+    cal_booking_id,
+    starts_at,
+    campus_id,
+    status,
+    created_at
+   FROM public.visits v
+  WHERE (status <> ALL (ARRAY['cancelled'::public.visit_status, 'rescheduled'::public.visit_status]))
+  ORDER BY lead_id, created_at DESC, id DESC;
 
 
 --
@@ -2901,24 +3228,6 @@ CREATE TABLE public.tags (
     color text DEFAULT '#3b82f6'::text NOT NULL,
     created_at timestamp with time zone DEFAULT now(),
     account_id uuid NOT NULL
-);
-
-
---
--- Name: visits; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.visits (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    account_id uuid NOT NULL,
-    lead_id uuid NOT NULL,
-    cal_booking_id text NOT NULL,
-    starts_at timestamp with time zone NOT NULL,
-    campus_id uuid,
-    status public.visit_status DEFAULT 'booked'::public.visit_status NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT visits_cal_booking_id_check CHECK ((btrim(cal_booking_id) <> ''::text))
 );
 
 
@@ -3982,10 +4291,10 @@ CREATE INDEX idx_whatsapp_config_registered_at ON public.whatsapp_config USING b
 
 
 --
--- Name: lead_activity_one_send_per_rule_entry; Type: INDEX; Schema: public; Owner: -
+-- Name: lead_activity_one_per_rule_entry; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX lead_activity_one_send_per_rule_entry ON public.lead_activity USING btree (lead_id, rule_id, stage_history_id) WHERE (kind = 'follow_up_send'::public.lead_activity_kind);
+CREATE UNIQUE INDEX lead_activity_one_per_rule_entry ON public.lead_activity USING btree (lead_id, rule_id, stage_history_id) WHERE (rule_id IS NOT NULL);
 
 
 --
@@ -4052,6 +4361,20 @@ CREATE INDEX webhook_endpoints_account_id_idx ON public.webhook_endpoints USING 
 
 
 --
+-- Name: admissions_settings admissions_settings_check_in_use; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER admissions_settings_check_in_use BEFORE UPDATE OF kind, account_id ON public.admissions_settings FOR EACH ROW EXECUTE FUNCTION public.check_setting_in_use();
+
+
+--
+-- Name: admissions_settings admissions_settings_rule_action_fixed; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER admissions_settings_rule_action_fixed BEFORE UPDATE OF value ON public.admissions_settings FOR EACH ROW EXECUTE FUNCTION public.check_rule_action_in_use();
+
+
+--
 -- Name: ai_configs ai_configs_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -4063,6 +4386,13 @@ CREATE TRIGGER ai_configs_updated_at BEFORE UPDATE ON public.ai_configs FOR EACH
 --
 
 CREATE TRIGGER ai_knowledge_documents_updated_at BEFORE UPDATE ON public.ai_knowledge_documents FOR EACH ROW EXECUTE FUNCTION public.update_ai_knowledge_documents_updated_at();
+
+
+--
+-- Name: admissions_settings audit_admissions_settings; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER audit_admissions_settings AFTER INSERT OR DELETE OR UPDATE ON public.admissions_settings FOR EACH ROW EXECUTE FUNCTION public.audit_admissions_settings();
 
 
 --
@@ -4080,10 +4410,24 @@ CREATE TRIGGER conversations_stamp_closed_at BEFORE INSERT OR UPDATE OF status O
 
 
 --
+-- Name: deals deals_record_stage_change; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER deals_record_stage_change AFTER UPDATE OF stage_id ON public.deals FOR EACH ROW WHEN ((new.stage_id IS DISTINCT FROM old.stage_id)) EXECUTE FUNCTION public.record_stage_change();
+
+
+--
 -- Name: deals deals_stamp_closed_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER deals_stamp_closed_at BEFORE INSERT OR UPDATE OF status ON public.deals FOR EACH ROW EXECUTE FUNCTION public.stamp_deal_closed_at();
+
+
+--
+-- Name: deals deals_sync_lead_contact; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER deals_sync_lead_contact AFTER UPDATE OF contact_id, account_id ON public.deals FOR EACH ROW EXECUTE FUNCTION public.sync_lead_contact();
 
 
 --
@@ -4105,6 +4449,41 @@ CREATE TRIGGER enforce_conversation_assignee_membership BEFORE INSERT OR UPDATE 
 --
 
 CREATE TRIGGER enforce_profile_privilege_columns BEFORE INSERT OR UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION public.enforce_profile_privilege_columns();
+
+
+--
+-- Name: lead_activity lead_activity_check_refs; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER lead_activity_check_refs BEFORE INSERT OR UPDATE ON public.lead_activity FOR EACH ROW EXECUTE FUNCTION public.check_lead_activity_refs();
+
+
+--
+-- Name: lead_activity lead_activity_rule_made; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER lead_activity_rule_made AFTER INSERT OR UPDATE ON public.lead_activity FOR EACH ROW EXECUTE FUNCTION public.check_rule_made_activity();
+
+
+--
+-- Name: leads leads_check_integrity; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER leads_check_integrity BEFORE INSERT OR UPDATE ON public.leads FOR EACH ROW EXECUTE FUNCTION public.check_lead_integrity();
+
+
+--
+-- Name: leads leads_record_first_stage; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER leads_record_first_stage AFTER INSERT ON public.leads FOR EACH ROW EXECUTE FUNCTION public.record_first_stage();
+
+
+--
+-- Name: leads leads_sync_deal_status; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER leads_sync_deal_status AFTER INSERT OR UPDATE OF exit, admitted_at ON public.leads FOR EACH ROW EXECUTE FUNCTION public.sync_deal_status();
 
 
 --
@@ -4224,6 +4603,13 @@ CREATE TRIGGER update_leads_updated_at BEFORE UPDATE ON public.leads FOR EACH RO
 --
 
 CREATE TRIGGER update_visits_updated_at BEFORE UPDATE ON public.visits FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: visits visits_check_refs; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER visits_check_refs BEFORE INSERT OR UPDATE ON public.visits FOR EACH ROW EXECUTE FUNCTION public.check_visit_refs();
 
 
 --
@@ -4791,7 +5177,7 @@ ALTER TABLE ONLY public.lead_activity
 --
 
 ALTER TABLE ONLY public.lead_activity
-    ADD CONSTRAINT lead_activity_rule_id_fkey FOREIGN KEY (rule_id) REFERENCES public.admissions_settings(id) ON DELETE SET NULL;
+    ADD CONSTRAINT lead_activity_rule_id_fkey FOREIGN KEY (rule_id) REFERENCES public.admissions_settings(id);
 
 
 --
@@ -5183,6 +5569,34 @@ CREATE POLICY accounts_update ON public.accounts FOR UPDATE USING (public.is_acc
 --
 
 ALTER TABLE public.admissions_settings ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: admissions_settings admissions_settings_delete; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY admissions_settings_delete ON public.admissions_settings FOR DELETE TO authenticated USING (public.is_account_member(account_id, 'admin'::public.account_role_enum));
+
+
+--
+-- Name: admissions_settings admissions_settings_insert; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY admissions_settings_insert ON public.admissions_settings FOR INSERT TO authenticated WITH CHECK (public.is_account_member(account_id, 'admin'::public.account_role_enum));
+
+
+--
+-- Name: admissions_settings admissions_settings_select; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY admissions_settings_select ON public.admissions_settings FOR SELECT TO authenticated USING (public.is_account_member(account_id));
+
+
+--
+-- Name: admissions_settings admissions_settings_update; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY admissions_settings_update ON public.admissions_settings FOR UPDATE TO authenticated USING (public.is_account_member(account_id, 'admin'::public.account_role_enum)) WITH CHECK (public.is_account_member(account_id, 'admin'::public.account_role_enum));
+
 
 --
 -- Name: ai_configs; Type: ROW SECURITY; Schema: public; Owner: -
@@ -5789,16 +6203,79 @@ CREATE POLICY flows_update ON public.flows FOR UPDATE USING (public.is_account_m
 ALTER TABLE public.lead_activity ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: lead_activity lead_activity_delete; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY lead_activity_delete ON public.lead_activity FOR DELETE TO authenticated USING ((public.is_account_member(account_id, 'admin'::public.account_role_enum) AND (kind = 'call_task'::public.lead_activity_kind)));
+
+
+--
+-- Name: lead_activity lead_activity_insert; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY lead_activity_insert ON public.lead_activity FOR INSERT TO authenticated WITH CHECK ((public.is_account_member(account_id, 'agent'::public.account_role_enum) AND (kind = 'call_task'::public.lead_activity_kind) AND (rule_id IS NULL)));
+
+
+--
+-- Name: lead_activity lead_activity_select; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY lead_activity_select ON public.lead_activity FOR SELECT TO authenticated USING (public.is_account_member(account_id));
+
+
+--
+-- Name: lead_activity lead_activity_update; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY lead_activity_update ON public.lead_activity FOR UPDATE TO authenticated USING ((public.is_account_member(account_id, 'agent'::public.account_role_enum) AND (kind = 'call_task'::public.lead_activity_kind))) WITH CHECK ((public.is_account_member(account_id, 'agent'::public.account_role_enum) AND (kind = 'call_task'::public.lead_activity_kind)));
+
+
+--
 -- Name: lead_stage_history; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.lead_stage_history ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: lead_stage_history lead_stage_history_select; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY lead_stage_history_select ON public.lead_stage_history FOR SELECT TO authenticated USING (public.is_account_member(account_id));
+
+
+--
 -- Name: leads; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.leads ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: leads leads_delete; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY leads_delete ON public.leads FOR DELETE TO authenticated USING (public.is_account_member(account_id, 'admin'::public.account_role_enum));
+
+
+--
+-- Name: leads leads_insert; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY leads_insert ON public.leads FOR INSERT TO authenticated WITH CHECK (public.is_account_member(account_id, 'agent'::public.account_role_enum));
+
+
+--
+-- Name: leads leads_select; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY leads_select ON public.leads FOR SELECT TO authenticated USING (public.is_account_member(account_id));
+
+
+--
+-- Name: leads leads_update; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY leads_update ON public.leads FOR UPDATE TO authenticated USING (public.is_account_member(account_id, 'agent'::public.account_role_enum)) WITH CHECK (public.is_account_member(account_id, 'agent'::public.account_role_enum));
+
 
 --
 -- Name: member_presence; Type: ROW SECURITY; Schema: public; Owner: -
@@ -6049,6 +6526,13 @@ CREATE POLICY quick_replies_update ON public.quick_replies FOR UPDATE USING (pub
 ALTER TABLE public.settings_changes ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: settings_changes settings_changes_select; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY settings_changes_select ON public.settings_changes FOR SELECT TO authenticated USING (public.is_account_member(account_id));
+
+
+--
 -- Name: tags; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -6087,6 +6571,34 @@ CREATE POLICY tags_update ON public.tags FOR UPDATE USING (public.is_account_mem
 --
 
 ALTER TABLE public.visits ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: visits visits_delete; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY visits_delete ON public.visits FOR DELETE TO authenticated USING (public.is_account_member(account_id, 'admin'::public.account_role_enum));
+
+
+--
+-- Name: visits visits_insert; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY visits_insert ON public.visits FOR INSERT TO authenticated WITH CHECK (public.is_account_member(account_id, 'agent'::public.account_role_enum));
+
+
+--
+-- Name: visits visits_select; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY visits_select ON public.visits FOR SELECT TO authenticated USING (public.is_account_member(account_id));
+
+
+--
+-- Name: visits visits_update; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY visits_update ON public.visits FOR UPDATE TO authenticated USING (public.is_account_member(account_id, 'agent'::public.account_role_enum)) WITH CHECK (public.is_account_member(account_id, 'agent'::public.account_role_enum));
+
 
 --
 -- Name: webhook_endpoints; Type: ROW SECURITY; Schema: public; Owner: -
