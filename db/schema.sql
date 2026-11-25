@@ -341,6 +341,47 @@ END $$;
 
 
 --
+-- Name: check_rule_action_in_use(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.check_rule_action_in_use() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+BEGIN
+  IF OLD.kind = 'follow_up_rule' AND NEW.value->>'action' IS DISTINCT FROM OLD.value->>'action'
+     AND EXISTS (SELECT 1 FROM lead_activity WHERE rule_id = OLD.id) THEN
+    RAISE EXCEPTION 'A follow-up rule in use cannot change its action' USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: check_rule_made_activity(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.check_rule_made_activity() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO 'public'
+    AS $$
+BEGIN
+  IF TG_OP = 'UPDATE' AND (NEW.rule_id IS DISTINCT FROM OLD.rule_id
+                           OR NEW.stage_history_id IS DISTINCT FROM OLD.stage_history_id) THEN
+    RAISE EXCEPTION 'A lead activity keeps its rule and stage entry' USING ERRCODE = '23514';
+  END IF;
+  IF NEW.rule_id IS NOT NULL AND NOT EXISTS (
+       SELECT 1 FROM public.admissions_settings s WHERE s.id = NEW.rule_id
+       AND (s.value->>'action', NEW.kind::text) IN (('send_template', 'follow_up_send'), ('call_task', 'call_task'))) THEN
+    RAISE EXCEPTION 'A rule-made activity must be the kind its rule makes' USING ERRCODE = '23514';
+  END IF;
+  RETURN NULL;
+END;
+$$;
+
+
+--
 -- Name: check_setting_in_use(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -4327,6 +4368,13 @@ CREATE TRIGGER admissions_settings_check_in_use BEFORE UPDATE OF kind, account_i
 
 
 --
+-- Name: admissions_settings admissions_settings_rule_action_fixed; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER admissions_settings_rule_action_fixed BEFORE UPDATE OF value ON public.admissions_settings FOR EACH ROW EXECUTE FUNCTION public.check_rule_action_in_use();
+
+
+--
 -- Name: ai_configs ai_configs_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -4408,6 +4456,13 @@ CREATE TRIGGER enforce_profile_privilege_columns BEFORE INSERT OR UPDATE ON publ
 --
 
 CREATE TRIGGER lead_activity_check_refs BEFORE INSERT OR UPDATE ON public.lead_activity FOR EACH ROW EXECUTE FUNCTION public.check_lead_activity_refs();
+
+
+--
+-- Name: lead_activity lead_activity_rule_made; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER lead_activity_rule_made AFTER INSERT OR UPDATE ON public.lead_activity FOR EACH ROW EXECUTE FUNCTION public.check_rule_made_activity();
 
 
 --
