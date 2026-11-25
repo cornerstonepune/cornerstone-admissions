@@ -16,7 +16,7 @@ Nimish reads PROJECT.md on #20 and confirms or corrects the 3 assumptions. Merge
 
 ## Blocked / open questions (need Nimish)
 - Assumptions on #20: light mode only (ADR 0008), one child per lead (ADR 0007), role mapping (ADR 0006).
-- Local Supabase port clash: `assessment-engine` stack holds 54322. Nimish picks: stop that stack, or move this repo's ports to 553xx in supabase/config.toml via PR (recommended; PROJECT.md §6 plans it). Until then: app-runs-locally and sign-in checks are unverified.
+- Port clash cleared for now: Nimish stopped the `assessment-engine` stack (2026-11-25). Next session reruns the M0 runtime check (app on local Supabase, sign-in). The `beyond` stack still runs (db 54332) and may clash on other ports; a permanent port move needs his OK (PROJECT.md §6).
 - Dependabot PRs #1–#5 untouched (#2 xyflow 13 and #4 eslint 10 are majors).
 
 ## Don't repeat
