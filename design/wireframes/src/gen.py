@@ -1,0 +1,197 @@
+#!/usr/bin/env python3
+"""Assemble design/wireframes/<ID>.html from body/<ID>.html fragments + one shared frame.
+Fragment header lines (until '---'): title, kind (new|snapshot), nav (menu key), frame (full|bare|none), note."""
+import os, re, sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+OUT = sys.argv[1]
+
+CSS = """@layer wf {
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font:var(--weight-body) var(--text-body)/var(--lh-body) var(--font-body)}
+h1{margin:0;font:var(--weight-title-page) var(--text-title-page)/var(--lh-title-page) var(--font-title-page);letter-spacing:var(--tracking-title-page)}
+h2{margin:0;font:var(--weight-title-section) var(--text-title-section)/var(--lh-title-section) var(--font-title-section);letter-spacing:var(--tracking-title-section)}
+h3{margin:0;font:var(--weight-title-small) var(--text-title-small)/var(--lh-title-small) var(--font-title-small)}
+p{margin:0}
+a{color:var(--link)}
+.wf-note{display:grid;gap:var(--space-0);padding:var(--space-2) var(--space-4);background:var(--highlight);border-bottom:1px solid var(--line);font-size:var(--text-label);line-height:var(--lh-label)}
+.wf-note b{font-weight:600}
+.wf-app{display:grid;grid-template-columns:calc(var(--space-7) * 2.5) minmax(0,1fr);grid-template-rows:auto 1fr;min-height:100vh}
+.wf-app[data-frame="bare"]{grid-template-columns:minmax(0,1fr)}
+.wf-bar{grid-column:1/-1;display:flex;align-items:center;gap:var(--space-3);min-height:calc(var(--tap) + var(--space-2));padding:0 var(--space-4);background:var(--bar);color:var(--bar-ink);font-size:var(--text-label)}
+.wf-bar a{color:var(--bar-ink)}
+.wf-mark{display:flex;align-items:center;gap:var(--space-2);font:var(--weight-title-small) var(--text-title-small)/var(--lh-title-small) var(--font-serif);color:var(--bar-ink);text-decoration:none}
+.wf-mark i{display:grid;place-items:center;width:var(--space-4);height:var(--space-4);border-radius:var(--radius-control);background:var(--brand-clay);color:var(--bar-ink);font-style:normal}
+.wf-grow{flex:1}
+.wf-search{display:flex;align-items:center;min-width:calc(var(--space-7) * 3);min-height:calc(var(--tap) - var(--space-1));padding:0 var(--space-3);border-radius:var(--radius-pill);background:var(--bar-pill);color:var(--bar-pill-ink)}
+.wf-bell{position:relative}
+.wf-bell b{display:inline-grid;place-items:center;min-width:var(--space-3);padding:0 var(--space-0);border-radius:var(--radius-pill);background:var(--bar-badge);color:var(--bar-ink);font-size:var(--text-caption)}
+.wf-menubtn{display:none}
+.wf-menu{display:grid;align-content:start;gap:var(--space-0);padding:var(--space-3) var(--space-2);background:var(--menu);color:var(--menu-ink)}
+.wf-menu a{display:flex;align-items:center;gap:var(--space-2);min-height:var(--tap);padding:0 var(--space-2);border-radius:var(--radius-control);color:var(--menu-ink);text-decoration:none;font-size:var(--text-label);font-weight:600}
+.wf-menu a i{display:grid;place-items:center;width:var(--space-4);height:var(--space-4);border-radius:var(--radius-control);background:var(--menu-hover);font-style:normal}
+.wf-menu a[aria-current]{background:var(--action-soft);color:var(--action-soft-ink)}
+.wf-menu a b{margin-left:auto;padding:0 var(--space-1);border-radius:var(--radius-pill);background:var(--action);color:var(--action-ink);font-size:var(--text-caption)}
+.wf-menu h4{margin:var(--space-3) 0 var(--space-0);padding:0 var(--space-2);font:var(--weight-eyebrow) var(--text-eyebrow)/var(--lh-eyebrow) var(--font-eyebrow);text-transform:uppercase;color:var(--menu-ink-muted)}
+.wf-main{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--space-5);align-content:start;padding:var(--space-4) var(--space-4) var(--space-7)}
+.wf-col{display:grid;gap:var(--space-4);align-content:start;min-width:0}
+.wf-trail{font-size:var(--text-label);color:var(--ink-muted)}
+.wf-head{display:flex;flex-wrap:wrap;align-items:flex-end;gap:var(--space-3);padding-bottom:var(--space-2)}
+.wf-head > div:first-child{display:grid;gap:var(--space-1);flex:1 1 calc(var(--space-7) * 3);min-width:0}
+.wf-eyebrow{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-1);font:var(--weight-eyebrow) var(--text-eyebrow)/var(--lh-eyebrow) var(--font-eyebrow);text-transform:uppercase;color:var(--ink-muted)}
+.wf-lead{max-width:70ch;font:var(--weight-lead) var(--text-lead)/var(--lh-lead) var(--font-lead);color:var(--ink-muted)}
+.wf-sec{display:grid;gap:var(--space-2);align-content:start;min-width:0}
+.wf-sec > header{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--space-2)}
+.wf-sec > header > p{color:var(--ink-muted);font-size:var(--text-label)}
+.wf-take{padding:var(--space-1) var(--space-2);border-radius:var(--radius-control);background:var(--highlight);font-size:var(--text-label)}
+.wf-row{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2)}
+.wf-two{display:grid;grid-template-columns:repeat(auto-fit,minmax(calc(var(--space-7) * 3.5),1fr));gap:var(--space-4);align-items:start}
+.wf-chip{display:inline-flex;align-items:center;gap:var(--space-0);min-height:calc(var(--space-3) + var(--space-0));padding:0 var(--space-2);border-radius:var(--radius-pill);background:var(--cb,var(--surface));color:var(--c,var(--ink-muted));font-size:var(--text-label);font-weight:600;white-space:nowrap}
+.wf-chip[data-state="unseen"]{border:1px dashed var(--line-control)}
+.wf-kind{display:inline-flex;align-items:center;gap:var(--space-0);padding:0 var(--space-2);border-radius:var(--radius-pill);background:var(--kb);color:var(--k);font-size:var(--text-label);font-weight:600}
+.wf-table{width:100%;border-collapse:collapse;font-size:var(--text-label)}
+.wf-table th{padding:var(--space-1) var(--space-2);border-bottom:1px solid var(--line);color:var(--ink-muted);font-weight:600;text-align:start;white-space:nowrap}
+.wf-table td{padding:var(--space-2);border-bottom:1px solid var(--line);vertical-align:middle}
+.wf-table td.n,.wf-table th.n{text-align:end;font-variant-numeric:tabular-nums}
+.wf-table tr[data-open] td{background:var(--action-soft)}
+.wf-table tr[data-state="late"] td:first-child{box-shadow:inset var(--space-0) 0 0 var(--state-late)}
+.wf-tabs{display:flex;gap:var(--space-1);overflow-x:auto;border-bottom:1px solid var(--line)}
+.wf-tabs a{display:flex;align-items:center;min-height:var(--tap);padding:0 var(--space-2);border-bottom:calc(var(--space-0) / 2) solid transparent;color:var(--ink-muted);font-size:var(--text-label);text-decoration:none;white-space:nowrap}
+.wf-tabs a[aria-current]{border-bottom-color:var(--action);color:var(--ink);font-weight:600}
+.wf-seg{display:inline-flex;border:1px solid var(--line-control);border-radius:var(--radius-control);overflow:hidden}
+.wf-seg a,.wf-seg span{display:flex;align-items:center;min-height:calc(var(--tap) - var(--space-1));padding:0 var(--space-2);color:var(--ink-muted);font-size:var(--text-label);text-decoration:none}
+.wf-seg [aria-current],.wf-seg [aria-pressed="true"]{background:var(--action-soft);color:var(--action-soft-ink);font-weight:600}
+.wf-input{display:flex;align-items:center;min-height:var(--tap);padding:0 var(--space-2);border:1px solid var(--line-control);border-radius:var(--radius-control);background:var(--ground);color:var(--ink-muted);font-size:var(--text-label)}
+.wf-board{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(calc(var(--space-7) * 2.4),1fr);gap:var(--space-3);overflow-x:auto;align-items:start}
+.wf-lane{display:grid;gap:var(--space-2);align-content:start;padding:var(--space-2);border-radius:var(--radius-card);background:var(--surface)}
+.wf-lane > header{display:flex;align-items:center;gap:var(--space-1);font-size:var(--text-label);font-weight:600}
+.wf-lane > header span{margin-left:auto}
+.wf-board .card[aria-current]{box-shadow:var(--shadow-lift);border-color:var(--action)}
+.wf-panel{display:grid;gap:var(--space-3);align-content:start;align-self:start;width:calc(var(--space-7) * 4.25);padding:var(--space-card);border-radius:var(--radius-card);background:var(--panel);box-shadow:var(--shadow-pop)}
+.wf-panel > header{display:flex;align-items:flex-start;gap:var(--space-2)}
+.wf-panel > header > div{flex:1;display:grid;gap:var(--space-0)}
+.wf-split{display:grid;grid-template-columns:calc(var(--space-7) * 3.5) minmax(0,1fr) calc(var(--space-7) * 3);min-height:calc(var(--space-7) * 6.5);border-radius:var(--radius-card);background:var(--panel);box-shadow:var(--shadow-card);overflow:hidden}
+.wf-split > *{display:grid;gap:var(--space-2);align-content:start;padding:var(--space-3);min-width:0}
+.wf-split > * + *{border-left:1px solid var(--line)}
+.wf-bubble{max-width:75%;padding:var(--space-1) var(--space-2);border-radius:var(--radius-card);background:var(--surface);font-size:var(--text-label)}
+.wf-bubble[data-out]{justify-self:end;background:var(--action-soft);color:var(--action-soft-ink)}
+.wf-skel{display:block;min-height:var(--space-2);border-radius:var(--radius-small);background:var(--surface)}
+.wf-states{display:grid;gap:var(--space-3);padding:var(--space-4);border-top:1px solid var(--line);background:var(--surface)}
+.wf-states > .b-strip > .card{align-content:start}
+.wf-gap{outline:1px dashed var(--state-wait);outline-offset:var(--space-0)}
+.wf-switch{display:inline-flex;align-items:center;width:var(--space-5);height:calc(var(--space-3) + var(--space-0));padding:0;border-radius:var(--radius-pill);background:var(--line-control)}
+.wf-switch::after{content:"";width:var(--space-3);height:var(--space-3);margin:0 var(--space-0) 0 calc(var(--space-0) / 2);border-radius:var(--radius-pill);background:var(--panel)}
+.wf-switch[aria-checked="true"]{justify-content:flex-end;background:var(--action)}
+.wf-switch[aria-checked="true"]::after{margin:0 calc(var(--space-0) / 2) 0 0}
+.wf-phone{display:grid;gap:var(--space-3);width:100%;max-width:calc(var(--space-7) * 4.25);margin:0 auto}
+.wf-bar-fill{display:block;height:var(--space-2);width:calc(var(--n) * 1%);border-radius:var(--radius-small);background:var(--fill,var(--kind-child))}
+.wf-yard{color:var(--ink-muted);font-size:var(--text-caption)}
+@media (max-width:700px){
+  .wf-note{padding:var(--space-2) var(--space-3)}
+  .wf-app{grid-template-columns:minmax(0,1fr)}
+  .wf-menu{display:none}
+  .wf-menubtn{display:inline-flex}
+  .wf-bar{padding:0 var(--space-3);gap:var(--space-2)}
+  .wf-search{min-width:0;flex:1}
+  .wf-bar .wf-wide,.wf-hide-phone{display:none}
+  .wf-main{grid-template-columns:minmax(0,1fr);padding:var(--space-3) var(--space-3) var(--space-6)}
+  .wf-panel{width:auto}
+  .wf-split{grid-template-columns:minmax(0,1fr)}
+  .wf-split > * + *{border-left:0;border-top:1px solid var(--line)}
+  .wf-table thead{display:none}
+  .wf-table,.wf-table tbody,.wf-table tr,.wf-table td{display:block}
+  .wf-table tr{padding:var(--space-1) 0;border-bottom:1px solid var(--line)}
+  .wf-table td{padding:var(--space-0) var(--space-2);border:0}
+  .wf-table td.n{text-align:start}
+  .wf-table td[data-label]::before{content:attr(data-label) " · ";color:var(--ink-muted)}
+  .wf-states{padding:var(--space-3)}
+}
+}
+"""
+
+MENU = [
+    ("", "Daily work", None, None),
+    ("today", "Today", "T", "7"),
+    ("inbox", "Inbox", "I", None),
+    ("pipeline", "Pipeline", "P", None),
+    ("contacts", "Parents", "C", None),
+    ("notifications", "Notifications", "N", "3"),
+    ("", "Oversight", None, None),
+    ("report", "Report", "R", None),
+    ("dashboard", "Dashboard", "D", None),
+    ("", "Set up", None, None),
+    ("admissions-settings", "Admissions settings", "A", None),
+    ("flows", "Flows", "F", None),
+    ("automations", "Automations", "Z", None),
+    ("settings", "Account settings", "S", None),
+]
+
+
+def menu(cur):
+    out = ['<nav class="wf-menu" aria-label="Sections">']
+    for key, label, ic, count in MENU:
+        if not key:
+            out.append(f"<h4>{label}</h4>")
+            continue
+        attrs = ' aria-current="page"' if key == cur else ""
+        src = "notifications.read_at" if key == "notifications" else "lead_activity.due_at, leads (untouched)"
+        badge = f' <b data-source="{src}">{count}</b>' if count else ""
+        out.append(f'<a href="#"{attrs}><i aria-hidden="true">{ic}</i>{label}{badge}</a>')
+    out.append("</nav>")
+    return "\n".join(out)
+
+
+def bar(full):
+    left = '<a class="wf-menubtn" href="#">☰ Menu</a><a class="wf-mark" href="#"><i aria-hidden="true">C</i><span class="wf-wide">Cornerstone Admissions</span></a>'
+    if not full:
+        return f'<header class="wf-bar">{left}<span class="wf-grow"></span><span>Ravi K. · staff</span><a href="#">Sign out</a></header>'
+    return (f'<header class="wf-bar">{left}<span class="wf-grow"></span>'
+            '<span class="wf-search">Search parents, children, phone…</span>'
+            '<span class="wf-wide">Meera S. · admin</span><a class="wf-wide" href="#">?</a><a href="#">Sign out</a></header>')
+
+
+def build(path):
+    raw = open(path, encoding="utf-8").read()
+    head, body = raw.split("\n---\n", 1)
+    meta = dict(l.split(": ", 1) for l in head.strip().splitlines())
+    sid = os.path.basename(path)[:-5]
+    frame = meta.get("frame", "full")
+    kind = "New screen" if meta["kind"] == "new" else "Snapshot of a built screen (upstream wacrm, as it will look after the M1 restyle; layout not redesigned)"
+    note = (f'<div class="wf-note"><b>{sid} · {meta["title"]}</b><span>{kind}. {meta["note"]}</span>'
+            '<span>Low-fidelity wireframe. Sample names and numbers are invented. Narrow the window below 700 px to see the phone layout. '
+            'Glyphs stand in for Lucide icons. Dashed amber outline = a number the database cannot give yet (<code>data-gap</code>).</span></div>')
+    if frame == "none":
+        app = body
+    else:
+        side = menu(meta.get("nav", "")) if frame == "full" else ""
+        main, _, states = body.partition('<section class="wf-states"')
+        states = '<section class="wf-states"' + states if states else ""
+        app = f'<div class="wf-app" data-frame="{frame}">{bar(frame == "full")}{side}{main}</div>{states}'
+    html = f"""<!doctype html>
+<html lang="en" data-scheme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{sid} · {meta["title"]}</title>
+<style>@layer wf, components;</style>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../platform/components/blocks.css">
+<style>{CSS}</style>
+</head>
+<body data-block="Wireframe">
+{note}
+{app}
+</body>
+</html>
+"""
+    # guard: wireframes may not carry raw colours or px sizes (DESIGN.md §1, §8); 1px hairlines and media breakpoints only
+    bad = re.findall(r"#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(|(?<![\w-])(?!1px)\d+px", html.replace("max-width:700px", "").replace("below 700 px", ""))
+    assert not bad, f"{sid}: raw values {bad[:5]}"
+    assert "<script" not in html.lower(), sid
+    open(os.path.join(OUT, f"{sid}.html"), "w", encoding="utf-8").write(html)
+    return sid
+
+
+if __name__ == "__main__":
+    bodies = sorted(os.listdir(os.path.join(HERE, "body")))
+    print("\n".join(build(os.path.join(HERE, "body", b)) for b in bodies if b.endswith(".html")))

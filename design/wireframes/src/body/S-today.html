@@ -1,0 +1,92 @@
+title: Today list
+kind: new
+nav: today
+note: Milestone M6. The admissions head's day on one screen: who to call, who is visiting, who is stuck. Choosing a row opens that lead in the right-side panel (S-lead). When she is away, the "Everyone" filter gives the same list to the admin covering for her.
+---
+<main class="wf-main">
+<div class="wf-col">
+  <div class="wf-trail">Today</div>
+  <div class="wf-head">
+    <div>
+      <span class="wf-eyebrow"><span data-block="Kind" data-kind="note"><span class="wf-kind">☎ Calls</span></span> Wed 25 Nov · <span data-source="lead_activity.due_at">7 calls</span> · <span data-source="visits.starts_at">3 visits</span></span>
+      <h1>Today</h1>
+      <p class="wf-lead">Call the red ones first, then today's calls. Visits and stuck leads are below.</p>
+    </div>
+    <div class="wf-row">
+      <span class="wf-seg" aria-label="Whose calls"><span aria-pressed="true">Mine</span><span>Everyone</span></span>
+      <a class="b-btn b-btn-main" href="#">+ Add a lead</a>
+    </div>
+  </div>
+
+  <div class="b-strip" data-block="AttentionStrip">
+    <div class="card b-att" data-state="late"><span class="b-n" data-source="leads + lead_activity (untouched)">2</span><span class="b-w">● Untouched</span><span class="b-caption">no action in 24 h (Settings › Alerts)</span></div>
+    <div class="card b-att" data-state="wait"><span class="b-n" data-source="lead_activity.due_at (call_task, today)">5</span><span class="b-w">◐ Calls due today</span><span class="b-caption">3 from rules · 2 parents replied</span></div>
+    <div class="card b-att" data-state="ok"><span class="b-n" data-source="visits.starts_at (today)">3</span><span class="b-w">✓ Visiting today</span><span class="b-caption">2 confirmed · 1 to confirm</span></div>
+    <div class="card b-att" data-state="wait"><span class="b-n" data-source="lead_stage_history.entered_at vs alert">4</span><span class="b-w">◐ Stuck</span><span class="b-caption">longer in stage than the limit</span></div>
+  </div>
+
+  <section class="wf-sec" data-block="CallList">
+    <header><h2>Call now</h2><p>7 calls · worst first</p></header>
+    <p class="wf-take">Two families have waited over a day with no call. Start with Kavya's mother: she asked for a call back yesterday morning.</p>
+    <div class="card" data-flush>
+    <table class="wf-table">
+      <thead><tr><th>Why it's here</th><th>Family</th><th>Stage</th><th>Reason</th><th class="n">Last contact ↓</th></tr></thead>
+      <tbody>
+        <tr data-state="late"><td data-label="Why"><span class="wf-chip" data-state="late">● Untouched 31 h</span></td><td data-label="Family"><a href="#">Kavya (Nursery)</a><br><span class="b-caption">Priya Menon · WhatsApp</span></td><td data-label="Stage">Enquiry</td><td data-label="Reason">Asked "call me back"</td><td class="n" data-label="Last contact" data-source="messages.created_at">24 Nov, 09:12</td></tr>
+        <tr data-state="late"><td data-label="Why"><span class="wf-chip" data-state="late">● Untouched 26 h</span></td><td data-label="Family"><a href="#">Arjun (Grade 1)</a><br><span class="b-caption">Sameer Joshi · Gate QR</span></td><td data-label="Stage">Enquiry</td><td data-label="Reason">New walk-in, no welcome reply</td><td class="n" data-label="Last contact" data-source="leads.created_at">24 Nov, 14:40</td></tr>
+        <tr data-open><td data-label="Why"><span class="wf-chip" data-state="wait">◐ Due 11:00</span></td><td data-label="Family"><a href="#">Ira (Grade 2)</a><br><span class="b-caption">Neha Kulkarni · Instagram</span></td><td data-label="Stage">Visited</td><td data-label="Reason">Rule: Visited, day 7 call</td><td class="n" data-label="Last contact">18 Nov, 16:05</td></tr>
+        <tr><td data-label="Why"><span class="wf-chip" data-state="wait">◐ Due 12:30</span></td><td data-label="Family"><a href="#">Vihaan (Nursery)</a><br><span class="b-caption">Anita Rao · Website</span></td><td data-label="Stage">Deciding</td><td data-label="Reason">Parent replied: "fees?"</td><td class="n" data-label="Last contact">25 Nov, 08:47</td></tr>
+        <tr><td data-label="Why"><span class="wf-chip" data-state="wait">◐ Due 15:00</span></td><td data-label="Family"><a href="#">Myra (Jr KG)</a><br><span class="b-caption">Rohit Shah · Referral call</span></td><td data-label="Stage">Enquiry</td><td data-label="Reason">Rule: Enquiry, day 3 call</td><td class="n" data-label="Last contact">22 Nov, 11:30</td></tr>
+        <tr><td data-label="Why"><span class="wf-chip" data-state="wait">◐ Due 17:00</span></td><td data-label="Family"><a href="#">Advik (Sr KG)</a><br><span class="b-caption">Farah Khan · Gate QR</span></td><td data-label="Stage">Visit booked</td><td data-label="Reason">Visit tomorrow, not confirmed</td><td class="n" data-label="Last contact">23 Nov, 10:02</td></tr>
+        <tr><td data-label="Why"><span class="wf-chip" data-state="wait">◐ Due 18:00</span></td><td data-label="Family"><a href="#">Zoya (Grade 1)</a><br><span class="b-caption">Imran Sheikh · WhatsApp</span></td><td data-label="Stage">Deciding</td><td data-label="Reason">Rule: Deciding, day 30 final call</td><td class="n" data-label="Last contact">27 Oct, 12:15</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <div class="wf-two">
+    <section class="wf-sec" data-block="VisitList">
+      <header><h2>Visiting today</h2><p>3 visits · by time</p></header>
+      <ul class="b-rlist card">
+        <li class="b-ritem"><span class="b-num">10:00</span><span data-block="Kind" data-kind="period"><span class="wf-kind">Neev</span></span><a href="#">Aanya (Nursery)</a><span class="wf-chip" data-state="ok">✓ Confirmed</span></li>
+        <li class="b-ritem"><span class="b-num">11:30</span><span data-block="Kind" data-kind="period"><span class="wf-kind">Gurukul</span></span><a href="#">Reyansh (Grade 3)</a><span class="wf-chip" data-state="ok">✓ Confirmed</span></li>
+        <li class="b-ritem"><span class="b-num">16:00</span><span data-block="Kind" data-kind="period"><span class="wf-kind">Neev</span></span><a href="#">Diya (Jr KG)</a><span class="wf-chip" data-state="wait">◐ To confirm</span></li>
+      </ul>
+      <p class="b-caption">After a visit: open the lead and mark it Visited, or No-show.</p>
+    </section>
+
+    <section class="wf-sec" data-block="StuckList">
+      <header><h2>Stuck</h2><p>4 leads · longest over limit first</p></header>
+      <div class="card" data-flush>
+      <table class="wf-table">
+        <thead><tr><th>Family</th><th>Stage</th><th class="n">Days in stage ↓</th></tr></thead>
+        <tbody>
+          <tr><td data-label="Family"><a href="#">Kabir (Grade 4)</a></td><td data-label="Stage">Applied</td><td class="n" data-label="Days" data-source="lead_stage_history.entered_at">19 d <span class="wf-yard">limit 10</span></td></tr>
+          <tr><td data-label="Family"><a href="#">Sara (Nursery)</a></td><td data-label="Stage">Deciding</td><td class="n" data-label="Days">24 d <span class="wf-yard">limit 21</span></td></tr>
+          <tr><td data-label="Family"><a href="#">Ishaan (Jr KG)</a></td><td data-label="Stage">Visited</td><td class="n" data-label="Days">9 d <span class="wf-yard">limit 7</span></td></tr>
+          <tr><td data-label="Family"><a href="#">Anvi (Grade 1)</a></td><td data-label="Stage">Visit booked</td><td class="n" data-label="Days">8 d <span class="wf-yard">limit 7</span></td></tr>
+        </tbody>
+      </table>
+      </div>
+    </section>
+  </div>
+
+  <section class="wf-sec" data-block="DoneToday">
+    <header><h2>Done today</h2><p>3 calls logged</p></header>
+    <ol class="b-timeline card">
+      <li class="b-tli"><span class="b-tile" data-block="Kind" data-kind="note">☎</span><div><b>Ruhi (Grade 2)</b> · Talked, wants a second visit with grandparents<p>Moved to Deciding</p></div><span class="b-caption" data-source="lead_activity.done_at">09:40</span></li>
+      <li class="b-tli"><span class="b-tile" data-block="Kind" data-kind="note">☎</span><div><b>Om (Nursery)</b> · No answer<p>Next call tomorrow 11:00</p></div><span class="b-caption">09:25</span></li>
+      <li class="b-tli"><span class="b-tile" data-block="Kind" data-kind="note">☎</span><div><b>Tara (Jr KG)</b> · Chose another school<p>Lost · reason: distance</p></div><span class="b-caption">09:10</span></li>
+    </ol>
+  </section>
+</div>
+</main>
+<section class="wf-states" aria-label="Other states">
+  <h2>Other states</h2>
+  <div class="b-strip">
+    <div class="card"><h3>Nothing to do</h3><div class="b-empty"><p>No calls left today. Tomorrow: 4 calls and 2 visits.</p></div><p class="b-caption">The strip shows 0 in grey; Visiting today still shows if any.</p></div>
+    <div class="card"><h3>Loading</h3><span class="wf-skel"></span><span class="wf-skel"></span><span class="wf-skel"></span><p class="b-caption">Strip and table rows as grey bars; no spinner.</p></div>
+    <div class="card"><h3>Couldn't load</h3><p><span class="wf-chip" data-state="late">● Couldn't load today's list</span></p><p>Check the connection.</p><a class="b-btn" href="#">Try again</a></div>
+    <div class="card"><h3>Row chosen</h3><p>The row is highlighted (Ira, above) and the lead opens on the right as in S-lead. Escape closes it.</p></div>
+  </div>
+</section>
