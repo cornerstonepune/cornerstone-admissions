@@ -9,11 +9,13 @@ async function fill(t: Tx, a: Awaited<ReturnType<typeof account>>) {
   const { leadId } = await lead(t, a);
   const settingId = await setting(t, a, "campus", "baner");
   await t`insert into visits (account_id, lead_id, cal_booking_id, starts_at) values (${a.accountId}, ${leadId}, ${"cal_" + leadId}, now())`;
-  const [h] = await t`insert into lead_stage_history (account_id, lead_id, stage_id) values (${a.accountId}, ${leadId}, ${a.stageIds[0]}) returning id`;
+  const [h] = await t`select id from lead_stage_history where lead_id = ${leadId}`; // written by 104's trigger
   await t`insert into lead_activity (account_id, lead_id, kind) values (${a.accountId}, ${leadId}, 'call_task')`;
+  // 105's trigger writes this row once it exists; insert it only when it's missing.
   await t`
     insert into settings_changes (account_id, setting_id, kind, key, action)
-    values (${a.accountId}, ${settingId}, 'campus', 'baner', 'insert')`;
+    select ${a.accountId}, ${settingId}, 'campus', 'baner', 'insert'
+    where not exists (select 1 from settings_changes where setting_id = ${settingId})`;
   return { leadId, settingId, historyId: h.id as string };
 }
 
@@ -127,7 +129,7 @@ describe("RLS edge cases (hidden)", () => {
       const { leadId } = (await t`select lead_id as "leadId" from lead_stage_history where id = ${historyId}`)[0];
       const add = (s: Tx) =>
         s`insert into lead_stage_history (account_id, lead_id, stage_id) values (${a.accountId}, ${leadId}, ${a.stageIds[1]})`;
-      expect(await errorOf(t, add)).toBeNull();
+      expect((await errorOf(t, add))?.code).toBe("42501"); // only 104's triggers write history: ADR 0013 §2
       await actAsSuperuser(t);
       await actAs(t, a.ownerId);
       expect((await t`update lead_stage_history set stage_id = ${a.stageIds[2]} where id = ${historyId}`).count).toBe(0);
