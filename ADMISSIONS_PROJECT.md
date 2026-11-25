@@ -3,7 +3,7 @@
 The single source document for the build. Read this first, then `DESIGN.md`, then `handoff`, then the open ticket.
 Source of requirements: `ops/calls/admissions-call-2026-11-25-transcript.md` in the Cornerstone project (call between Nimish, Akanksha, Lakshmi ma'am).
 
-Changes from v1: settings screen for templates and thresholds; build and test locally, hosting decided last; isolation rules tightened; design comes from `DESIGN.md` (the Argus design language); explicit list of what Nimish must provide.
+Changes from v1: settings screen for templates and thresholds; build and test locally, hosting decided last; isolation rules tightened; design comes from `DESIGN.md` (the Argus design language; since ADR 0003, the Cornerstone platform's); explicit list of what Nimish must provide.
 
 ## 1. Goal
 
@@ -23,14 +23,14 @@ Users: Lakshmi ma'am (daily), Akanksha (visits, oversight), Nimish (admin). Staf
 |---|---|
 | D1 | Build on a fork of `ArnasDon/wacrm` (MIT, Next.js 16, Supabase, Meta Cloud API). Do not build inbox, pipeline board, chatbot flows or the automation engine from scratch. |
 | D2 | New private repo `cornerstonepune/cornerstone-admissions`. Upstream stays as git remote `upstream` so fixes can be pulled. |
-| D3 | This is a fresh, standalone product. It shares no code, repo, deploy, env file or data with the Cornerstone platform or any other product. |
+| D3 | This is a fresh, standalone product. It shares no code, repo, deploy, env file or data with the Cornerstone platform or any other product. Single exception: the platform's design files, copied once on 2026-11-25, no link back (ADR 0003). |
 | D4 | Database: all objects in a schema called `admissions`. During the build this lives in local Supabase only. At go-live the same schema is created in the `cornerstone-cloud` Supabase project (ref `ruznbyngtfjsaymuylhm`, Mumbai). |
 | D5 | Build and test locally. No hosting work until M7. Hosting choice (Cloudflare first, Docker on a small server as fallback) is made then. |
 | D6 | Booking through Cal.com hosted free plan, one admissions calendar, two event types (Neev visit, Gurukul visit). |
 | D7 | WhatsApp direct on Meta Cloud API. Build against Meta's free test number. The real admin number is connected only at go-live. |
 | D8 | Six stages: Enquiry, Visit booked, Visited, Deciding, Applied, Admitted. Two exits: Lost (reason required), Dormant. |
 | D9 | Everything Lakshmi ma'am or Akanksha may want to change is a setting on a Settings screen, changeable without a developer (section 7). |
-| D10 | Visual design comes from `DESIGN.md` in the repo root, copied from Argus. It is the only design authority. |
+| D10 | Visual design comes from `DESIGN.md` in the repo root: the Cornerstone platform's design language, copied once (ADR 0003, superseding the Argus copy). It is the only design authority. |
 
 ## 3. What wacrm gives us, and what we add
 
@@ -50,7 +50,7 @@ Leave out in v1: the AI reply module (needs pgvector, not needed), broadcasts UI
 
 ## 4. Isolation rules
 
-The product must not touch, read or depend on anything outside itself. The agent must not open, clone or reference the platform repo, the website repo or any other Cornerstone codebase.
+The product must not touch, read or depend on anything outside itself. The agent must not open, clone or reference the platform repo, the website repo or any other Cornerstone codebase. The one exception, a read-only copy of the platform's design files (ADR 0003), was made on 2026-11-25 and is finished.
 
 **During the build (M0 to M6): zero contact with the live Supabase project.**
 1. All database work runs on local Supabase (`supabase start`, Docker). wacrm ships a `supabase/config.toml`.
@@ -116,8 +116,8 @@ Rules: every change is logged with who and when. A change takes effect on the ne
 
 ## 8. Design
 
-- `DESIGN.md` in the repo root (copied from Argus by Nimish) is the design authority. If anything here conflicts with it, `DESIGN.md` wins.
-- wacrm styles everything through CSS variables in `src/app/globals.css`, one block per theme, dark by default. Add one theme, `cornerstone`, built from the `DESIGN.md` tokens, make it the default and make light mode the default. Remove the theme picker. This restyles all existing screens without rewriting them.
+- `DESIGN.md` in the repo root (the Cornerstone platform's design language, ADR 0003) is the design authority. If anything here conflicts with it, `DESIGN.md` wins.
+- wacrm styles everything through CSS variables in `src/app/globals.css`, one block per theme, dark by default. Add one theme, `cornerstone`, built from `design/tokens.css` (see `DESIGN.md`), make it the default and make light mode the default. Remove the theme picker. This restyles all existing screens without rewriting them.
 - New screens (Today, quick-add, card additions, report, Settings) follow `DESIGN.md` fully.
 - Standing rules: mostly white background, cards, soft shadows, three font types, no oversized type; action first, detail one click away in a right-side panel that opens on click; tables always sortable and filterable; highlight what is off or overdue, never a flat list.
 - Gate: no new screen is built until Nimish has approved its wireframe.
@@ -167,7 +167,7 @@ Nothing else is needed. Items are grouped by the milestone they block.
 
 **Before M0 (to start at all)**
 1. Create the empty private repo `cornerstonepune/cornerstone-admissions`.
-2. Copy `DESIGN.md` from the Argus repo into it.
+2. ~~Copy `DESIGN.md` from the Argus repo into it.~~ Replaced by ADR 0003 (platform design, copied once).
 3. Docker Desktop running on the Mac (already installed).
 
 **Before M2 (WhatsApp test)**

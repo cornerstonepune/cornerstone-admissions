@@ -1,7 +1,6 @@
-/* Project brand — the ~20% that may differ from the global design kit.
+/* Project brand: the ~20% that may differ from design/tokens.css (the Cornerstone tokens, ADR 0003).
    Only tokens listed in .loop.json → brand_overridable may appear here; CI rejects anything else.
-   Load order: tokens.css, then this file. Leave empty to use the global look unchanged. */
+   Load order: tokens.css, then this file. Empty on purpose: admissions wears the Cornerstone brand unchanged. */
 :root {
-  /* --accent: #25394A; */
-  /* --accent-2: #B8860B; */
+  /* --action: <colour>; */
 }

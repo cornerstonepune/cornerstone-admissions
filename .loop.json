@@ -55,13 +55,12 @@
     "**/brand.css"
   ],
   "brand_overridable": [
-    "--accent",
-    "--accent-2",
-    "--accent-soft",
-    "--accent-rule",
-    "--wash-1",
-    "--wash-2",
-    "--wash-3",
+    "--action",
+    "--action-ink",
+    "--action-hover",
+    "--action-soft",
+    "--action-soft-ink",
+    "--link",
     "--font-serif",
     "--font-sans"
   ],
