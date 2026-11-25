@@ -17,11 +17,55 @@
 --        (now() AT TIME ZONE 'Asia/Kolkata')::date - (entered_at AT TIME ZONE 'Asia/Kolkata')::date.
 --        NULL when the lead has no history.
 
-CREATE OR REPLACE FUNCTION public.lead_days_in_stage(p_lead_id uuid) RETURNS integer
-LANGUAGE plpgsql STABLE
-SET search_path = public
+DROP POLICY lead_stage_history_insert ON public.lead_stage_history;
+REVOKE INSERT ON public.lead_stage_history FROM authenticated;
+
+CREATE OR REPLACE FUNCTION public.record_first_stage() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
 AS $$
 BEGIN
-  RAISE EXCEPTION 'not implemented';
+  INSERT INTO lead_stage_history (account_id, lead_id, stage_id, moved_by)
+  SELECT NEW.account_id, NEW.id, d.stage_id, auth.uid() FROM deals d WHERE d.id = NEW.deal_id;
+  RETURN NULL;
 END;
+$$;
+
+CREATE TRIGGER leads_record_first_stage AFTER INSERT ON public.leads
+  FOR EACH ROW EXECUTE FUNCTION public.record_first_stage();
+
+CREATE OR REPLACE FUNCTION public.record_stage_change() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+BEGIN
+  INSERT INTO lead_stage_history (account_id, lead_id, stage_id, moved_by)
+  SELECT l.account_id, l.id, NEW.stage_id, auth.uid() FROM leads l WHERE l.deal_id = NEW.id;
+  RETURN NULL;
+END;
+$$;
+
+CREATE TRIGGER deals_record_stage_change AFTER UPDATE OF stage_id ON public.deals
+  FOR EACH ROW WHEN (NEW.stage_id IS DISTINCT FROM OLD.stage_id)
+  EXECUTE FUNCTION public.record_stage_change();
+
+-- Writes deals.status only; deals_record_stage_change watches stage_id, so the two triggers never call each other.
+CREATE OR REPLACE FUNCTION public.sync_deal_status() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  v_status text := CASE WHEN NEW.admitted_at IS NOT NULL THEN 'won' WHEN NEW.exit IS NOT NULL THEN 'lost' ELSE 'open' END;
+BEGIN
+  UPDATE deals SET status = v_status WHERE id = NEW.deal_id AND status IS DISTINCT FROM v_status;
+  RETURN NULL;
+END;
+$$;
+
+CREATE TRIGGER leads_sync_deal_status AFTER INSERT OR UPDATE OF exit, admitted_at ON public.leads
+  FOR EACH ROW EXECUTE FUNCTION public.sync_deal_status();
+
+CREATE OR REPLACE FUNCTION public.lead_days_in_stage(p_lead_id uuid) RETURNS integer
+LANGUAGE sql STABLE
+SET search_path = public
+AS $$
+  SELECT (now() AT TIME ZONE 'Asia/Kolkata')::date - (max(entered_at) AT TIME ZONE 'Asia/Kolkata')::date
+  FROM lead_stage_history WHERE lead_id = p_lead_id;
 $$;
