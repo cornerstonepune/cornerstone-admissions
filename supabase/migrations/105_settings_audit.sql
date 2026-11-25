@@ -15,6 +15,15 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  RAISE EXCEPTION 'not implemented';
+  INSERT INTO public.settings_changes (account_id, setting_id, kind, key, action, old_value, new_value, changed_by)
+  VALUES (
+    COALESCE(NEW.account_id, OLD.account_id), COALESCE(NEW.id, OLD.id),
+    COALESCE(NEW.kind, OLD.kind), COALESCE(NEW.key, OLD.key),
+    lower(TG_OP)::public.settings_change_action, to_jsonb(OLD), to_jsonb(NEW), auth.uid()
+  );
+  RETURN NULL;
 END;
 $$;
+
+CREATE TRIGGER audit_admissions_settings AFTER INSERT OR UPDATE OR DELETE ON public.admissions_settings
+  FOR EACH ROW EXECUTE FUNCTION public.audit_admissions_settings();
