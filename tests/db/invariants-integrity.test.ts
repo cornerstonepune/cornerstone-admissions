@@ -40,4 +40,15 @@ describe("lead integrity", () => {
       const [l] = await t`select contact_id from leads where id = ${leadId}`;
       expect(l.contact_id).toBe(other);
     }));
+  it("rejects a visit for a lead in another account", () =>
+    tx(async (t) => {
+      const a = await account(t);
+      const b = await account(t);
+      const { leadId: theirs } = await lead(t, b);
+      const err = await errorOf(
+        t,
+        (s) => s`insert into visits (account_id, lead_id, cal_booking_id, starts_at) values (${a.accountId}, ${theirs}, 'cal_x', now())`,
+      );
+      expect(err?.code).toBe("23514");
+    }));
 });

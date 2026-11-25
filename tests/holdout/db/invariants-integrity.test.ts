@@ -1,6 +1,6 @@
 // Hidden: lead integrity edge cases (ticket 103).
 import { afterAll, describe, expect, it } from "vitest";
-import { account, contact, errorOf, lead, setting, sql, tx } from "../../db/db";
+import { account, actAs, contact, errorOf, lead, member, setting, sql, tx } from "../../db/db";
 
 afterAll(() => sql.end());
 
@@ -124,5 +124,71 @@ describe("lead integrity edge cases (hidden)", () => {
       const second = await lead(t, a);
       const err = await errorOf(t, (s) => s`update deals set contact_id = ${first.contactId} where id = ${second.dealId}`);
       expect(err?.code).toBe("23505");
+    }));
+  it("rejects a visit for another account's lead, as an agent, with the same error as a missing lead", () =>
+    tx(async (t) => {
+      const a = await account(t);
+      const b = await account(t);
+      const { leadId: mine } = await lead(t, a);
+      const { leadId: theirs } = await lead(t, b);
+      const agent = await member(t, a.accountId, "agent");
+      await actAs(t, agent);
+      const book = (id: string, leadId: string) => (s: typeof t) =>
+        s`insert into visits (account_id, lead_id, cal_booking_id, starts_at) values (${a.accountId}, ${leadId}, ${id}, now())`;
+      const cross = await errorOf(t, book("cal_x", theirs));
+      const missing = await errorOf(t, book("cal_y", "00000000-0000-0000-0000-000000000001"));
+      expect(cross?.code).toBe("23514");
+      expect(missing?.code).toBe("23514");
+      expect(missing?.message).toBe(cross?.message);
+      expect(await errorOf(t, book("cal_z", mine))).toBeNull();
+      const [v] = await t`select id from visits where cal_booking_id = 'cal_z'`;
+      expect((await errorOf(t, (s) => s`update visits set lead_id = ${theirs} where id = ${v.id}`))?.code).toBe("23514");
+    }));
+
+  it("rejects an activity for another account's lead, as an agent", () =>
+    tx(async (t) => {
+      const a = await account(t);
+      const b = await account(t);
+      const { leadId: theirs } = await lead(t, b);
+      const agent = await member(t, a.accountId, "agent");
+      await actAs(t, agent);
+      const err = await errorOf(
+        t,
+        (s) => s`insert into lead_activity (account_id, lead_id, kind) values (${a.accountId}, ${theirs}, 'call_task')`,
+      );
+      expect(err?.code).toBe("23514");
+    }));
+
+  it("rejects an activity whose stage entry belongs to another lead", () =>
+    tx(async (t) => {
+      const a = await account(t);
+      const { leadId: one } = await lead(t, a);
+      const { leadId: two } = await lead(t, a);
+      const [h] = await t`
+        insert into lead_stage_history (account_id, lead_id, stage_id) values (${a.accountId}, ${two}, ${a.stageIds[1]})
+        returning id`;
+      const task = (leadId: string) => (s: typeof t) =>
+        s`insert into lead_activity (account_id, lead_id, kind, stage_history_id) values (${a.accountId}, ${leadId}, 'call_task', ${h.id})`;
+      expect((await errorOf(t, task(one)))?.code).toBe("23514");
+      expect(await errorOf(t, task(two))).toBeNull();
+    }));
+
+  it("rejects an activity linked to another account's message", () =>
+    tx(async (t) => {
+      const a = await account(t);
+      const b = await account(t);
+      const { leadId } = await lead(t, a);
+      const message = async (x: typeof a) => {
+        const c = await contact(t, x);
+        const [conv] = await t`insert into conversations (user_id, contact_id, account_id) values (${x.ownerId}, ${c}, ${x.accountId}) returning id`;
+        const [m] = await t`insert into messages (conversation_id, sender_type, content_text) values (${conv.id}, 'agent', 'Hi') returning id`;
+        return m.id as string;
+      };
+      const theirs = await message(b);
+      const mine = await message(a);
+      const task = (id: string) => (s: typeof t) =>
+        s`insert into lead_activity (account_id, lead_id, kind, message_id) values (${a.accountId}, ${leadId}, 'call_task', ${id})`;
+      expect((await errorOf(t, task(theirs)))?.code).toBe("23514");
+      expect(await errorOf(t, task(mine))).toBeNull();
     }));
 });
