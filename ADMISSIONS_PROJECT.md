@@ -1,6 +1,6 @@
 # Cornerstone Admissions — project brief (v2.1, 25 Nov 2026)
 
-The single source document for the build. Read this first, then `DESIGN.md`, then `handoff`, then the open ticket.
+> **History.** Superseded as the blueprint by `PROJECT.md` on 2026-11-25 (ADR 0004). Where they differ, `PROJECT.md` and its ADRs win. Known correction: rule 5 below names `admissions.account_members`, which does not exist; membership is `profiles` (ADR 0006). Since ADR 0009, admissions has its own Supabase project, so D4, the go-live list in §4 and §4 rules 3, 4, 6, 7, 8 (schema `admissions`, rewrite script, buckets) no longer apply; tables stay in `public` and M0 adds 6 (ADR 0010).
 Source of requirements: `ops/calls/admissions-call-2026-11-25-transcript.md` in the Cornerstone project (call between Nimish, Akanksha, Lakshmi ma'am).
 
 Changes from v1: settings screen for templates and thresholds; build and test locally, hosting decided last; isolation rules tightened; design comes from `DESIGN.md` (the Argus design language; since ADR 0003, the Cornerstone platform's); explicit list of what Nimish must provide.
