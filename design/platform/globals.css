@@ -1,0 +1,626 @@
+/* The layers, lowest first. `tokens` is design-system/tokens.css, generated from tokens.json by scripts/tokens.mjs
+   (UI-14): every colour, font, size, shape, shadow and the press on every page comes from it. */
+@layer theme, tokens, base, components, utilities;
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "../design-system/tokens.css" layer(tokens);
+@import "../components/blocks.css";
+
+/* Hover changes colour only, and only where there is a real pointer (a mouse or a trackpad), never on a touch screen. */
+@custom-variant hover {
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      @slot;
+    }
+  }
+}
+
+/* The old material names the screens' classes still use (text-basalt/55, bg-chalk…), each on the token of its role,
+   until each screen is rebuilt on the tokens' own names. No colour is written here: tokens.css holds them all. */
+:root {
+  --lime: var(--ground);
+  --basalt: var(--ink);
+  --terracotta: var(--state-late);
+  --neem: var(--state-ok);
+  --bamboo: var(--state-wait);
+  --mud: var(--kind-note);
+  --monsoon: var(--state-quiet);
+  --chalk: var(--panel);
+  --ink-62: color-mix(in srgb, var(--ink) 62%, transparent);
+  --ink-55: color-mix(in srgb, var(--ink) 55%, transparent);
+  --ink-30: color-mix(in srgb, var(--ink) 30%, transparent);
+  --ink-16: color-mix(in srgb, var(--ink) 16%, transparent);
+  --ink-14: color-mix(in srgb, var(--ink) 14%, transparent);
+  --ink-12: color-mix(in srgb, var(--ink) 12%, transparent);
+  --ink-09: color-mix(in srgb, var(--ink) 9%, transparent);
+  --ink-03: color-mix(in srgb, var(--ink) 3%, transparent);
+  --focus-ring: 2px solid var(--focus);
+  /* shadcn/ui's theme names (components/ui), each on the token of its role: the stock look is gone (UI-14). */
+  --background: var(--ground);
+  --foreground: var(--ink);
+  --card: var(--panel);
+  --card-foreground: var(--ink);
+  --popover: var(--panel);
+  --popover-foreground: var(--ink);
+  --primary: var(--action);
+  --primary-foreground: var(--action-ink);
+  --secondary: var(--surface);
+  --secondary-foreground: var(--ink);
+  --muted: var(--surface);
+  --muted-foreground: var(--ink-muted);
+  --accent: var(--highlight);
+  --accent-foreground: var(--ink);
+  --destructive: var(--state-late);
+  --border: var(--line);
+  --input: var(--line-control);
+  --ring: var(--focus);
+}
+
+/* The type scale as utilities (CP-65): `text-<name>` is the token's size and line height. Until now these classes were written in
+   ~225 places and defined nowhere, so they did nothing; the tokens live outside Tailwind's theme, so each is declared here. */
+@utility text-title-page {
+  font-size: var(--text-title-page);
+  line-height: var(--lh-title-page);
+  letter-spacing: var(--tracking-title-page);
+}
+@utility text-title-section {
+  font-size: var(--text-title-section);
+  line-height: var(--lh-title-section);
+  letter-spacing: var(--tracking-title-section);
+}
+@utility text-title-small {
+  font-size: var(--text-title-small);
+  line-height: var(--lh-title-small);
+  letter-spacing: var(--tracking-title-small);
+}
+@utility text-lead {
+  font-size: var(--text-lead);
+  line-height: var(--lh-lead);
+}
+@utility text-body {
+  font-size: var(--text-body);
+  line-height: var(--lh-body);
+}
+@utility text-label {
+  font-size: var(--text-label);
+  line-height: var(--lh-label);
+}
+@utility text-eyebrow {
+  font-size: var(--text-eyebrow);
+  line-height: var(--lh-eyebrow);
+}
+@utility text-caption {
+  font-size: var(--text-caption);
+  line-height: var(--lh-caption);
+}
+
+@theme inline {
+  --color-lime: var(--lime);
+  --color-basalt: var(--basalt);
+  --color-terracotta: var(--terracotta);
+  --color-neem: var(--neem);
+  --color-bamboo: var(--bamboo);
+  --color-mud: var(--mud);
+  --color-monsoon: var(--monsoon);
+  --color-chalk: var(--chalk);
+  --font-body: var(--font-sans);
+  --font-heading: var(--font-serif);
+  --radius: 0;
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+}
+
+html {
+  background: var(--ground);
+}
+
+/* Source Sans 3 for everything a person reads; Source Serif 4 for titles (tokens.json, type). */
+body {
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  line-height: var(--lh-body);
+  font-variant-numeric: lining-nums;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* In the base layer, so a heading's own utility (the menu's sans section names) wins: unlayered, this beat every font-sans. */
+@layer base {
+  b,
+  strong,
+  th {
+    font-weight: 600;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-serif);
+    font-weight: 600;
+    letter-spacing: var(--tracking-title-small);
+    margin: 0;
+  }
+  h1 {
+    letter-spacing: var(--tracking-title-page);
+    text-wrap: balance;
+  }
+}
+
+/* In the base layer, so a link's own utility colours win: unlayered, this `a:hover` beat the
+   sidebar's `hover:text-chalk` and turned a menu item basalt on basalt — it vanished on hover. */
+@layer base {
+  a {
+    color: var(--link);
+  }
+  /* a placeholder is read, so it is the muted ink at full strength (4.5:1 or better on white), never the browser's faint grey */
+  ::placeholder {
+    color: var(--ink-muted);
+    opacity: 1;
+  }
+  /* Keyboard focus is always visible: a ring of 2 px in the focus token on anything focusable (docs/ux-rules.md, the keyboard check). */
+  :focus-visible {
+    outline: var(--focus-ring);
+    outline-offset: 2px;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    a:hover {
+      color: var(--ink);
+    }
+  }
+
+  /* Press and ease (tokens.json, motion): anything pressable gives way on :active, and its colour, edge and shadow ease under the pointer. */
+  button,
+  a,
+  summary,
+  [role="button"],
+  [role="tab"],
+  [data-press] {
+    transition: var(--press-transition);
+  }
+  button:active,
+  a:active,
+  summary:active,
+  [role="button"]:active,
+  [role="tab"]:active,
+  [data-press]:active {
+    transform: var(--press-transform);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    button:active,
+    a:active,
+    summary:active,
+    [role="button"]:active,
+    [role="tab"]:active,
+    [data-press]:active {
+      transform: none;
+    }
+  }
+}
+
+/* A phone's floor for any other action, a toggle or a select: 24 px (WCAG 2.2 AA, 2.5.8). In the base layer, so a
+   control's own size (the school's screens' 44 px taps) wins: unlayered, this floor beat every utility and shrank them. */
+@layer base {
+  @media (max-width: 767px) {
+    main summary,
+    main button,
+    main select,
+    main input:not([type="hidden"]),
+    main label:has(> input[type="checkbox"]),
+    main label:has(> input[type="radio"]) {
+      min-height: 24px;
+    }
+  }
+}
+
+/* Labels: small letter-spaced capitals. Facts — ids, counts, dates — in figures that line up. */
+.label {
+  font-size: var(--text-caption);
+ 
+ 
+  color: var(--ink-muted);
+  font-weight: 600;
+}
+.fact {
+  font-size: var(--text-label);
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* `grid` is also Tailwind's `display: grid` utility. Without `display: table` here, every table drew
+   its header row as a separate box, out of line with the columns under it. */
+table.grid {
+  display: table;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-label);
+}
+table.grid th {
+  text-align: left;
+  font-size: var(--text-caption);
+ 
+ 
+  color: var(--ink-55);
+  font-weight: 600;
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--ink-16);
+  background: var(--ink-03);
+}
+table.grid td {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--ink-09);
+  vertical-align: middle;
+}
+/* Dense rows (Nimish, 11 Nov 2026: "things should look properly dense"): on a desktop with a mouse a row's own button is a compact
+   control, so a row is about 44 px, not 70; on a phone or a touch screen it keeps the thumb's 44 px (the rule below). */
+@media (min-width: 768px) and (hover: hover) and (pointer: fine) {
+  table.grid td .btn,
+  table.grid td .chip,
+  summary .btn,
+  summary .chip {
+    min-height: 32px;
+    padding: 0 var(--space-2);
+    font-size: var(--text-label);
+  }
+}
+/* A row's own heading (the skill a row of the approval table is) reads as its first cell, not as a column heading. */
+table.grid tbody th {
+  font-size: var(--text-label);
+ 
+  text-transform: none;
+  color: inherit;
+  font-weight: 600;
+  border-bottom: 1px solid var(--ink-09);
+  background: none;
+  vertical-align: top;
+}
+/* A column that stays put while a wide table scrolls sideways (a class's children against every step). The
+   header's tint is see-through, so a pinned heading lays it over chalk; otherwise the scrolled cells show through. */
+table.grid .pin {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--chalk);
+}
+table.grid th.pin {
+  background: linear-gradient(var(--ink-03), var(--ink-03)), var(--chalk);
+}
+/* One alignment rule for the whole site (docs/ux-rules.md, rule 2): text on the left, numbers on the right, a state in
+   the middle, each heading with its column. `table.steady` keeps a column the same width on every page of its kind. */
+table.grid .a-left {
+  text-align: left;
+}
+table.grid .a-right,
+table.grid th.num,
+table.grid td.num {
+  text-align: right;
+}
+table.grid .a-center {
+  text-align: center;
+}
+table.grid td.num,
+table.grid td.a-right {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+table.grid.steady {
+  table-layout: fixed;
+}
+table.grid.steady td {
+  overflow-wrap: anywhere;
+}
+/* a table of many narrow columns (an assessment's steps): less room beside each cell */
+table.grid.dense th,
+table.grid.dense td {
+  padding-left: var(--space-1);
+  padding-right: var(--space-1);
+}
+/* a heading is never split inside a word: a column too narrow for its heading is widened, not broken ("ROL L") */
+table.grid.steady th {
+  overflow-wrap: normal;
+  hyphens: manual;
+}
+/* the head stays at the top while a long table is read (rows are paged to ten, so this is for a short window) */
+table.grid.steady thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: linear-gradient(var(--ink-03), var(--ink-03)), var(--chalk);
+}
+@media (hover: hover) and (pointer: fine) {
+  table.grid.steady tbody tr:not(.under):hover td {
+    background: var(--highlight);
+  }
+}
+table.grid.steady tr.under td {
+  background: var(--ink-03);
+  padding-left: var(--space-4);
+}
+
+/* Pills carry a material, never a red or a green. */
+.pill {
+  display: inline-block;
+  padding: var(--space-0) var(--space-2);
+  font-size: var(--text-caption);
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+}
+.pill-neem {
+  background: var(--state-ok-bg);
+  color: var(--state-ok);
+}
+.pill-bamboo {
+  background: var(--state-wait-bg);
+  color: var(--state-wait);
+}
+.pill-terracotta {
+  background: var(--state-late-bg);
+  color: var(--state-late);
+}
+.pill-monsoon {
+  background: var(--state-quiet-bg);
+  color: var(--state-quiet);
+}
+
+/* Buttons (CP-68): three, and no black slab. `.btn` is the one main action of a view, filled terracotta. `.btn.secondary` and `.chip`
+   (the older pages' quiet button) are an outline. `.btn.tertiary` is text. A chosen chip (`.chip.on`) is the accent as a wash. */
+.btn,
+.chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--tap);
+  padding: 0 var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  font-family: var(--font-sans);
+  font-size: var(--text-label);
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+.btn {
+  background: var(--action);
+  color: var(--action-ink);
+}
+.chip,
+.btn.secondary {
+  background: var(--panel);
+  color: var(--ink);
+  border-color: var(--line-control);
+}
+.chip {
+  justify-content: flex-start;
+}
+.btn.tertiary {
+  background: transparent;
+  color: var(--link);
+  padding: 0 var(--space-2);
+}
+.chip.on {
+  background: var(--action-soft);
+  color: var(--action-soft-ink);
+  border-color: var(--action);
+}
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover {
+    background: var(--action-hover);
+    color: var(--action-ink);
+  }
+  .chip:hover,
+  .btn.secondary:hover {
+    background: var(--surface);
+    color: var(--ink);
+    border-color: var(--ink-muted);
+  }
+  .btn.tertiary:hover {
+    background: var(--highlight);
+    color: var(--link);
+  }
+  .chip.on:hover {
+    background: var(--action-soft);
+    color: var(--action-soft-ink);
+    border-color: var(--action);
+  }
+}
+.btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* On a phone every action is big enough for a thumb (goals/ux8d-phone-and-one-action.yaml): a button or chip 44 px tall,
+   as a phone's own controls are; any other action, a toggle or a table's one link, 24 px (WCAG 2.2 AA, 2.5.8). */
+@media (max-width: 767px) {
+  .btn,
+  .chip {
+    min-height: 44px;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+  }
+  main td > a:only-child {
+    display: inline-block;
+    min-height: 24px;
+    line-height: 24px;
+  }
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.input,
+.select,
+.textarea {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--line-control);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  color: var(--ink);
+  width: 100%;
+}
+.textarea {
+  min-height: 72px;
+  line-height: 1.5;
+}
+.input:focus,
+.select:focus,
+.textarea:focus {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+/* The chalk line: one hand-made stroke per surface. */
+.chalkline {
+  width: 64px;
+  height: 2px;
+  background: var(--basalt);
+  opacity: 0.25;
+  margin-top: var(--space-2);
+}
+
+.note {
+  font-size: var(--text-caption);
+  color: var(--ink-55);
+  line-height: 1.5;
+}
+
+/* A table is a list on a phone (docs/ux-rules.md rule 7): the head is read by a screen reader only, each row is a card,
+   each cell says which column it is, and a link in a cell is a thumb's size. */
+@media (max-width: 767px) {
+  table.grid.list thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  table.grid.list,
+  table.grid.list tbody,
+  table.grid.list tr,
+  table.grid.list td {
+    display: block;
+  }
+  /* the head is for a screen reader: its cells stack, so a wide column never carries a heading's link off the screen */
+  table.grid.list thead th {
+    display: block;
+  }
+  table.grid.list tr {
+    border-bottom: 1px solid var(--ink-16);
+    padding: var(--space-1) 0;
+  }
+  table.grid.list td {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-2);
+    border-bottom: 0;
+    padding: var(--space-1) var(--space-2);
+  }
+  table.grid.list td::before {
+    content: attr(data-label);
+    color: var(--ink-55);
+    font-size: var(--text-caption);
+   
+   
+    /* a wide cell (a bar and its counts) never squeezes its label to a letter a line */
+    flex-shrink: 0;
+  }
+  /* a row opened under its row (a topic's skills) is the full width, not a labelled cell */
+  table.grid.list tr.under > td {
+    display: block;
+    padding: var(--space-0) 0;
+  }
+  table.grid.list td a {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+  }
+}
+
+/* a table is never narrower than its columns need (components/data-table.tsx sets --table-least); on a phone it is a list of cards */
+@media (min-width: 768px) {
+  table.grid.steady {
+    min-width: var(--table-least, 0);
+  }
+}
+
+/* More filters, closed, holds no box at all: Chromium lays out a closed <details>' content (hidden, yet measured where it would hang) */
+details[data-more-filters]:not([open]) > :not(summary) {
+  display: none;
+}
+
+/* a table never makes its page wider than the screen: it scrolls inside its own box instead */
+.data-table {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  /* its width never comes from the table inside: a parent sized by its content (a grid or flex item) grew to the table's width, past
+     the page's column and under the rail, instead of letting the table scroll here */
+  contain: inline-size;
+}
+
+/* The old screens' faint text (text-basalt/35 … /55, an ink at a fraction of its strength) measured 3.9:1 on white, under the 4.5:1 of
+   docs/design-tokens-contrast.md and axe's color-contrast. Each reads as the one muted ink until the screen is rebuilt on the tokens. */
+@layer utilities {
+  .text-basalt\/35,
+  .text-basalt\/45,
+  .text-basalt\/50,
+  .text-basalt\/55 {
+    color: var(--ink-muted);
+  }
+}
+
+
+/* The shared DataTable's look (components/data-table.tsx), inside a flush Card (the box is the card's): a tinted head in small capitals, rows with room and a
+   hairline between them, a faint band on every other row, and the first column (the row's name) in full ink. */
+.data-table table.grid th {
+  background: var(--surface);
+  color: var(--ink-muted);
+  padding: var(--space-2) var(--space-2);
+  border-bottom: 1px solid var(--line);
+}
+.data-table table.grid td {
+  padding: var(--space-2) var(--space-2);
+  border-bottom: 1px solid var(--line);
+}
+.data-table table.grid tbody tr:last-child td {
+  border-bottom: 0;
+}
+.data-table table.grid tbody tr:not(.under):nth-child(even) td {
+  background: color-mix(in srgb, var(--surface) 40%, var(--panel));
+}
+.data-table table.grid tbody td:first-child {
+  font-weight: 600;
+  color: var(--ink);
+}
+@media (hover: hover) and (pointer: fine) {
+  .data-table table.grid tbody tr:not(.under):hover td {
+    background: var(--highlight);
+  }
+}
+
+/* One gap between the blocks of a page (CP-65): the column is a grid with the token gap, and a block's own margin never adds to it, so a
+   notice, a filter bar, a table and a card are all one scale step apart whatever page they are on (tests/u90-design-system.spec.ts). */
+[data-column] > * {
+  margin-block: 0 !important;
+}

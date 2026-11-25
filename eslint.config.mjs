@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Vendored minified opus-recorder encoder worker (served statically).
     "public/opus/**",
+    // Frozen reference copy of the platform's UI source (ADR 0003); ported into src/ by tickets, never built.
+    "design/platform/**",
   ]),
 ]);
 

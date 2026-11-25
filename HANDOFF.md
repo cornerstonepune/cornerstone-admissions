@@ -2,23 +2,26 @@
 
 _Overwritten at the end of every session. Keep under 30 lines. Facts only._
 
-**Updated:** 2026-11-25 20:10 · **By:** Plan · **Model:** claude-opus-5-5
-**Milestone:** M0 — repo, harness, runs locally · **Branch:** plan/loop-init · **PR:** none yet
+**Updated:** 2026-11-25 · **By:** Plan · **Model:** claude-opus-5-5
+**Milestone:** M0 — repo, harness, runs locally · **Branch:** plan/design-source-platform · **PR:** see below
 
 ## State
-- Tests: 1728 passing / 0 failing — `npm test` (one timing-flaky test, see LESSONS.md). `npm run typecheck` clean. `npm run lint` 0 errors, 40 upstream warnings.
-- Last thing done: loop harness installed on `plan/loop-init` (CLAUDE.md, .loop.json commands, loop CI, ADRs 0001–0002, root DESIGN.md). Branch pushed; session stopped at the 150k context budget.
+- Design source switched to the Cornerstone platform (ADR 0003, supersedes 0002). One-time copy done at platform commit `dfedfe27c`: tokens in `design/tokens.css`, root `DESIGN.md` rewritten, frozen snapshot in `design/platform/` (manifest in its README), `brand_overridable` renamed to this kit's tokens.
+- Inventory: `docs/design/platform-components.md`. Port tickets #7–#18 (labels `design-port`, `queued`; #9 `size:small`). No seeds yet: they're frontend code, blocked until a screen is approved (ADR 0003 §6).
+- `tsconfig.json` and ESLint exclude `design/platform/`. `npm run typecheck` exits 0; `npm run lint` 0 errors / 40 upstream warnings. `npm test` not re-run (no source changed).
+- Session stopped at the 150k context budget.
 
 ## Next step
-Open the PR for `plan/loop-init` → main (body lists removed: `AGENTS.md`, old `CLAUDE.md`), wait for `loop-guard`, `loop-tests` and `CI` to go green, merge. Then run the printed branch-protection `gh api` call for `cornerstonepune/cornerstone-admissions` (expect refusal: private repo on a free org plan). Then `loop-adopt`: write PROJECT.md from `ADMISSIONS_PROJECT.md` v2.1 plus the code as it is.
+Merge this PR when `loop-guard`, `loop-tests` and `CI` are green. Then continue M0: run stock wacrm against local Supabase, check sign-in, then `loop-adopt` (PROJECT.md from ADMISSIONS_PROJECT.md v2.1).
 
 ## Blocked / open questions
-- Root `DESIGN.md` is Argus's "Uptimo" doc copied verbatim. Nimish to confirm it is the right file, or rename the product wording (ADR 0002).
-- M0 checks not yet run: stock wacrm against local Supabase (`supabase start`), a user can sign in.
+- M0 checks not yet run: stock wacrm on local Supabase (`supabase start`), a user can sign in.
+- Assumption to confirm with Nimish: admissions holds light mode (brief §8), although the platform follows the system setting.
 
 ## Don't repeat
-- The loop guard blocks any Bash command that names a frontend path (`src/app/**`, `*.css`), even read-only ones. Filter tests by name (`vitest run -t "<name>"`).
-- `gh` without `repo set-default` may target upstream wacrm. The default is already set; keep it.
+- Never open the platform repo again (ADR 0003). Port only from `design/platform/`.
+- The loop guard reads every token of a Bash command as a path, including unexpanded `$VARS`, `p="x.css"` and heredoc text. Use literal absolute paths, or write scripts to the scratchpad with the Write tool.
+- `gh` default repo is set to `cornerstonepune/cornerstone-admissions`; keep it.
 
 ## Files touched this session
-- CLAUDE.md, .loop.json, .github/workflows/loop.yml, vitest.config.ts, DESIGN.md, docs/adr/0001–0002, LESSONS.md, HANDOFF.md, ADMISSIONS_PROJECT.md (brief, now tracked); AGENTS.md deleted; init scaffold files added.
+- DESIGN.md, design/tokens.css (new), design/brand.css, design/platform/** (new), .loop.json, CLAUDE.md, ADMISSIONS_PROJECT.md, docs/adr/0002 (status), docs/adr/0003 (new), docs/design/platform-components.md (new), tsconfig.json, eslint.config.mjs, HANDOFF.md.

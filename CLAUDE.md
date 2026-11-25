@@ -9,7 +9,7 @@ The SessionStart hook has already given you your role, HANDOFF.md, PROJECT.md §
 - `PROJECT.md` — locked blueprint: product, architecture, data model, screens, milestones with yes/no goals.
 - `db/schema.sql` (or ORM schema) — the data model as runnable code. `GLOSSARY.md` — domain terms; use them exactly.
 - `docs/adr/` — one file per decision and why. GitHub Issues — tickets from `to-tickets`.
-- `design/` — `tokens.css` + `DESIGN.md` (global kit, never edited here), `brand.css` (this project's ~20%), `wireframes/`, `approved.json` (Nimish's approvals).
+- `design/` — `tokens.css` (Cornerstone tokens, ADR 0003; change only with an ADR), `brand.css` (this project's ~20%), `platform/` (frozen reference snapshot, never edited or imported), `wireframes/`, `approved.json` (Nimish's approvals).
 - `HANDOFF.md` — where the last session stopped. Overwritten and committed every session.
 - `LESSONS.md` — every failure, the layer it came from, and the durable fix. Corrections live in files, never only in chat.
 
@@ -55,12 +55,12 @@ Hooks + CI `loop-guard`: no commits to main, no `--no-verify`; protected files a
 
 ## Project specifics
 - Fork of `ArnasDon/wacrm` (MIT). `origin` = `cornerstonepune/cornerstone-admissions` (private); `upstream` = wacrm (fetch only, push disabled). Our code lives in `src/admissions/`, our migrations are numbered from 100; touch upstream files as little as possible.
-- Product spec: `ADMISSIONS_PROJECT.md` (v2.1) until loop-adopt folds it into `PROJECT.md`. Design authority: root `DESIGN.md` (copied from Argus, decision D10) — see ADR 0002.
+- Product spec: `ADMISSIONS_PROJECT.md` (v2.1) until loop-adopt folds it into `PROJECT.md`. Design authority: root `DESIGN.md` (the Cornerstone platform's design language, copied once) — see ADR 0003, which supersedes ADR 0002. Components to port: `docs/design/platform-components.md`.
 - Stack: Next.js 16 (App Router) + React 19, Supabase (Postgres + RLS), Meta WhatsApp Cloud API, next-intl (`messages/`), Vitest. This Next.js has breaking changes vs. training data: read `node_modules/next/dist/docs/` before writing Next code.
 - Commands: `npm ci` · `npm run dev` · `npm test` · `npm run typecheck` · `npm run lint` · `npm run build`. Local DB: `supabase start` (Docker).
 - Folders: `src/app` routes · `src/components` UI · `src/lib` domain logic (whatsapp, automations, flows, pipelines, supabase clients) · `supabase/migrations` schema · `mcp-server/` separate package.
 - Data rules (hard): every DB object in schema `admissions`; local Supabase only until M7 — no live keys in env files, never use the Supabase MCP on `ruznbyngtfjsaymuylhm` before M7; never `supabase db push`; no trigger on `auth.users`; access only via `admissions.account_members`; buckets prefixed `admissions-`.
-- Isolation (hard): never open, clone or reference any other Cornerstone repo (platform, website, brain).
+- Isolation (hard): never open, clone or reference any other Cornerstone repo (platform, website, brain). The one exception, a read-only copy of the platform's design files on 2026-11-25 (ADR 0003), is finished: port from `design/platform/`, never from the platform repo.
 
 ## graphify
 

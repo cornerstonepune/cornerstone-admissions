@@ -1,6 +1,6 @@
 # 0002 — Design authority is root DESIGN.md (from Argus), not the global kit
 
-**Date:** 2026-11-25 · **Status:** accepted
+**Date:** 2026-11-25 · **Status:** superseded by [0003](0003-design-copied-once-from-cornerstone-platform.md)
 
 ## Context
 Brief D10: `DESIGN.md` in the repo root, copied from Argus, is the only design authority. The loop's init normally copies the global kit (`~/.claude/design`, the Atlas "ivory paper" language) into `design/`. Two design documents would conflict.
