@@ -25,7 +25,8 @@ describe("settings in use (hidden)", () => {
       const b = await account(t);
       const { leadId } = await lead(t, a);
       const rule = await setting(t, a, "follow_up_rule", "enquiry_day_2", { stage: "Enquiry", days: 2, action: "call_task" });
-      await t`insert into lead_activity (account_id, lead_id, kind, rule_id) values (${a.accountId}, ${leadId}, 'call_task', ${rule})`;
+      await t`insert into lead_activity (account_id, lead_id, kind, rule_id, stage_history_id)
+              select ${a.accountId}, ${leadId}, 'call_task', ${rule}, id from lead_stage_history where lead_id = ${leadId}`;
       const err = await errorOf(t, (s) => s`update admissions_settings set account_id = ${b.accountId} where id = ${rule}`);
       expect(err?.code).toBe("23514");
       expect(err?.message).toMatch(IN_USE);

@@ -3,25 +3,29 @@
 _Overwritten at the end of every session. Keep under 30 lines. Facts only._
 
 **Updated:** 2026-11-26 · **By:** Plan · **Model:** claude-opus-5-5
-**Milestone:** M0 — data model · **Branch:** plan/rls-fill-audit-either
+**Milestone:** M1 — look and frame (M0 done) · **Branch:** plan/m0-done
 
 ## State
-- CI runs `tests/holdout` from main, so PR #41 (#26, 105 settings audit) stayed red: main's hidden `rls.test.ts` `fill()` inserted a settings_changes row by hand and 105's trigger wrote a second. PR #40 (drop the insert) couldn't pass before 105 exists; closed.
-- Fix (this PR): `fill()` inserts the audit row only `where not exists` one for that setting, so it yields exactly 1 row with or without 105.
-- Proof (local `npm run db:reset`): main as is → rls.test.ts 10/10. With PR #41's `105_settings_audit.sql` copied in → 10/10. Old main fill() with 105 → 2 failed (the bug, reproduced).
+- M0 **done**: #56 (111) merged as PR #58; `db/schema.sql` regenerated after 111; `npm run test:db` 23 files / 157 tests pass. PROJECT.md: M0 Done, M1 current (ADR 0018).
+- New label `ready` = blockers closed, seed exists, no wireframe gate. Applied to **#52** (hidden routes; seed `plan/t52`, touches `src/admissions/` + middleware only).
+- Design ports #7–#12, #18 stay `queued`, unseeded: they change stylesheets/components, so they wait on Nimish approving S-frame. Seed order after approval: #7 → #8, #9 → #10, #18 → #11 → #12.
+- `design/approved.json` is still empty.
+- Stale PR #49 (`plan/handoff`) still OPEN; superseded. Close it.
 
 ## Next step
-1. After this merges: `loop ci 41`, then review and merge #41.
-2. After #41 merges: merge main into plan/t30 and plan/t36 before their builds.
-3. Still open: plan/wireframes PR (16 wireframes, ADR 0015) not opened; #36 seed not proven red; #37 has no seed.
+1. `loop run-ticket 52` → review → merge (ticks G1.2).
+2. Close PR #49.
+3. After Nimish approves S-frame: plan job to seed #7 (then its dependants).
+
+## Blocked / open questions
+- Nimish: approve the S-frame wireframe (and the built-screen snapshots) so the M1 ports can be seeded and built.
 
 ## Don't repeat
-- Hidden tests run from main: a test fix that must hold across a pending migration has to work both before and after it.
-- When a seed adds a trigger, re-prove every older test that writes to its tables against the real migration.
+- Seed hidden tests must also pass against a correct implementation, not only fail on main.
+- A BEFORE trigger fires before RLS WITH CHECK: new lead_activity checks go in an AFTER trigger.
+- `db/schema.sql` is protected: never list it in a ticket's files; the plan job regenerates it after the merge.
+- `/signup?invite=` must never be hidden: invited people sign up there.
+- The loop guard hook blocks any Bash command whose text contains the approve command or a frontend file pattern; write such text with the Write tool.
 
-## Coordinator session 2026-11-26 (appended)
-- Merged: #23 (102), #24 (103), #25 (104), #26 (105), PR #44 (all 16 wireframes, still unapproved: Nimish signs each off himself). Follow-up tickets for #24 review findings: #36, #37 (#37 has no seed).
-- ESCALATED #30 (107): the builder wrote "## Blocked / - none" and `loop finish` treats the heading as a block (5 attempts failed). Fix with a plan job on the ticket, or rebuild with a handoff that omits the Blocked heading. The migration is in the #30 build folder.
-- Lessons: CI runs tests/holdout from main, so seed test fixes land on main first. Builders can't merge; Builders are NOT Bash-denied: only commands starting with `(`, heredocs or `python3 -` are refused (loop BUILDER_RULES fixed 2026-11-26, nimishshah1989/loop PR #8). Never put orchestrator advice like "git merge" in a ticket's Don't. loop-guard blames a PR for planning commits merged after its Plan-base: refresh seeds from main before building.
-- #27 (106): attempts 1–2 failed only on the Bash trap (a `( npm …` and a python3 heredoc refused), not on code. The edit to 106 is on disk in .loop/wt/27, unverified. Last attempt: `loop prep 27` then `loop build 27`; the builder rule now covers it. Session 2's 'NEEDS NIMISH: allow Bash' was a misdiagnosis: don't change permission settings.
-- Next: #30, #27 (merge main into plan/t27 first), #36, seed #37, then M0 close: regenerate db/schema.sql.
+## Files touched this session
+- db/schema.sql, PROJECT.md, docs/adr/0018, HANDOFF.md — plan/m0-done. GitHub: label `ready` created, added to #52.
