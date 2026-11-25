@@ -2,24 +2,28 @@
 
 _Overwritten at the end of every session. Keep under 30 lines. Facts only._
 
-**Updated:** 2026-11-25 · **By:** Plan · **Model:** claude-opus-5-5
-**Milestone:** M0 — data model · **Branch:** plan/m0-rls-gaps · **PR:** this PR (ADR 0013, refusal tests, lesson)
+**Updated:** 2026-11-25 23:59 · **By:** Plan · **Model:** claude-opus-5-5
+**Milestone:** M0 — data model · **Branch:** plan/m0-rls-gaps · **PR:** #31 (CI green, NOT merged: merge was blocked by the permission classifier)
 
 ## State
-- #22 (101 RLS) merged. Its reviewer's 5 gaps are closed in plan, per ADR 0013:
-  1. cross-account links → #24 (103) extended: `visits_check_refs`, `lead_activity_check_refs` (lead, stage entry, message).
-  2. forged stage history → #25 (104) drops `lead_stage_history_insert`, revokes INSERT; triggers SECURITY DEFINER.
-  3. send turned into task → new #30 (107, size:small): lead_activity insert/update/delete policies add `kind = 'call_task'`.
-  4. refusal tests → `tests/db/rls-refusals.test.ts` on main (green; red against loosened policies).
-  5. `docs/loop/handoff/22.md`: 20 → 19 policies.
-- Seeds plan/t24, t25 had main merged in and were re-proven: new tests red on assertions, green with a throwaway
-  reference (not committed). plan/t30 pushed: 5 red → 6/6 green with reference. t24/t25/t30 merge cleanly pairwise.
-- Hidden `tests/holdout/db/rls.test.ts` is edited on t24 and t25 (different hunks; see ADR 0013 Consequences).
+- Tests: `vitest run --config vitest.db.config.ts tests/db/rls-refusals.test.ts` 2/2 pass on main; 2/2 fail with the 4 policies loosened. Seeds t24/t25/t30: new tests red on assertions, green with a throwaway reference (not committed); t30 6/6.
+- Last thing done: PR #31 had the five review gaps of PR #29 closed in plan (ADR 0013): #24 extended (same-account link triggers), #25 extended (trigger-only stage history), new #30 (107, agents write call tasks only, size:small), refusal tests, handoff 22 says 19 policies.
 
 ## Next step
-Coordinator: build #23, #24, #25, #26, #30 one at a time (shared local Supabase), then #27.
-After the last: `loop plan "M0 close: regenerate db/schema.sql"`.
+Coordinator: merge PR #31 (`gh pr merge 31 --squash --delete-branch`), then build #23, #24, #25, #26, #30 one at a time, then #27. After the last: `loop plan "M0 close: regenerate db/schema.sql"`.
 
-## Blocked / open questions (need Nimish)
-- ADR 0013 §3 assumes no person ever edits a follow-up send by hand (server only). Overturn if wrong.
+## Blocked / open questions
+- ADR 0013 §3 assumes no person ever edits a follow-up send by hand (server only). Nimish can overturn it.
 - Dependabot PRs #1–#5: recommended closing all and deleting `.github/dependabot.yml`. Unanswered.
+
+## Don't repeat
+- Seeds branched before 101 merged lack the table grants: merge main into a seed before proving RLS tests (agents get 42501 otherwise).
+- 103's BEFORE triggers fire ahead of RLS WITH CHECK; 104's first-stage trigger adds a history row on every lead insert. Tests that insert history by hand or expect 42501 must allow for both (done on t24/t25).
+- Local Supabase `authenticated` has no grants on upstream `deals`: test deal moves as superuser with jwt claims set.
+
+## Files touched this session
+- docs/adr/0013-rls-same-account-and-server-only-writes.md — the decisions
+- tests/db/rls-refusals.test.ts — gap 4 regression tests
+- docs/loop/handoff/22.md — 20 → 19 policies
+- LESSONS.md — spec lesson
+- seeds plan/t24, plan/t25, plan/t30 — stubs and tests (pushed, no PRs)
