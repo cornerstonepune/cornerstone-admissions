@@ -7,7 +7,8 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+    // tests/** holds the loop's hidden (holdout) tests, which CI must run too.
+    include: ["src/**/*.test.ts", "src/**/*.test.tsx", "tests/**/*.test.ts"],
     // Dummy secrets — encryption.ts / webhook-signature.ts read these
     // at module load. Tests never hit a real Meta/Supabase service, so
     // any 32-byte hex / non-empty string will do; keep them lexically
