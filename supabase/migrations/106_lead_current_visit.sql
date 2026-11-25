@@ -1,12 +1,9 @@
 -- 106 — the current visit (spec docs/spec/m0-data-model.md; ADR 0011 §3).
 --
--- Replace the placeholder view below with the real one, same name, same columns in the same order:
---   per lead, its latest visit by created_at (ties: higher id) among visits whose status is NOT 'cancelled' or
---   'rescheduled' (filter first, then pick the latest). Booked, visited and no-show count.
---   DISTINCT ON (v.lead_id) ... ORDER BY v.lead_id, v.created_at DESC, v.id DESC.
--- Keep WITH (security_invoker = true) so RLS on visits applies to whoever reads the view.
--- After the view: GRANT SELECT ON public.lead_current_visit TO authenticated, service_role;
---   (this Supabase grants nothing on new views; readers also need 101's grant on visits, so build after #22).
+-- Per lead, its latest visit by created_at (ties: higher id) among visits whose status is NOT 'cancelled' or
+-- 'rescheduled' (filter first, then pick the latest). Booked, visited and no-show count.
+-- security_invoker = true so RLS on visits applies to whoever reads the view.
+-- This Supabase grants nothing on new views, hence the explicit GRANT; readers also need 101's grant on visits.
 
 CREATE VIEW public.lead_current_visit WITH (security_invoker = true) AS
 SELECT DISTINCT ON (v.lead_id)
