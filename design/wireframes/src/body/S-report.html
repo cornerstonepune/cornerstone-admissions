@@ -1,0 +1,105 @@
+title: Funnel report
+kind: new
+nav: report
+note: Milestone M7. Where families drop out, which sources bring admissions, how long each stage takes and why leads are lost. Every number comes from leads and stage history; choosing any bar lists its leads in the right-side panel.
+---
+<main class="wf-main">
+<div class="wf-col">
+  <div class="wf-trail">Report</div>
+  <div class="wf-head">
+    <div>
+      <span class="wf-eyebrow"><span data-block="Kind" data-kind="child"><span class="wf-kind">◉ Leads</span></span> 1 Jun – 25 Nov 2026 · <span data-source="leads (created in range)">412 leads</span></span>
+      <h1>Admissions report</h1>
+      <p class="wf-lead">Visits are the leak: 6 in 10 enquiries never book one. Families who visit mostly decide within three weeks.</p>
+    </div>
+    <div class="wf-row">
+      <span class="wf-seg" aria-label="Period"><span>30 days</span><span>90 days</span><span aria-pressed="true">This year</span></span>
+      <span class="wf-input">Campus: All ▾</span>
+      <a class="b-btn" href="#">Download CSV</a>
+    </div>
+  </div>
+
+  <div class="b-strip">
+    <div class="card b-stat"><span class="b-stat-n" data-source="leads (Admitted)">58</span><span class="b-stat-l">Admitted</span><span class="wf-yard">14% of leads · last year 11%</span></div>
+    <div class="card b-stat"><span class="b-stat-n">39%</span><span class="b-stat-l">Booked a visit</span><span class="wf-yard">target 50%</span></div>
+    <div class="card b-stat"><span class="b-stat-n">41</span><span class="b-stat-l">Days to admit</span><span class="wf-yard">median</span></div>
+    <div class="card b-att" data-state="wait"><span class="b-n">96</span><span class="b-w">◐ Still open</span><span class="b-caption">23 stuck</span></div>
+  </div>
+
+  <section class="wf-sec" data-block="Funnel">
+    <header><h2>Funnel</h2><p>leads that reached each stage</p></header>
+    <p class="wf-take">Biggest drop: Enquiry → Visit booked (61% lost). Next: Deciding → Applied (35%).</p>
+    <div class="card" data-flush>
+    <table class="wf-table">
+      <thead><tr><th>Stage</th><th class="n">Reached</th><th>Share of leads</th><th class="n">Lost from previous</th></tr></thead>
+      <tbody>
+        <tr><td data-label="Stage">Enquiry</td><td class="n" data-label="Reached" data-source="lead_stage_history">412</td><td><span class="wf-bar-fill" style="--n:100"></span></td><td class="n" data-label="Lost">—</td></tr>
+        <tr data-state="late"><td data-label="Stage">Visit booked</td><td class="n" data-label="Reached">161</td><td><span class="wf-bar-fill" style="--n:39"></span></td><td class="n" data-label="Lost"><span class="wf-chip" data-state="late">● 61%</span></td></tr>
+        <tr><td data-label="Stage">Visited</td><td class="n" data-label="Reached">132</td><td><span class="wf-bar-fill" style="--n:32"></span></td><td class="n" data-label="Lost">18% <span class="wf-yard">no-shows 21</span></td></tr>
+        <tr><td data-label="Stage">Deciding</td><td class="n" data-label="Reached">104</td><td><span class="wf-bar-fill" style="--n:25"></span></td><td class="n" data-label="Lost">21%</td></tr>
+        <tr><td data-label="Stage">Applied</td><td class="n" data-label="Reached">68</td><td><span class="wf-bar-fill" style="--n:17"></span></td><td class="n" data-label="Lost"><span class="wf-chip" data-state="wait">◐ 35%</span></td></tr>
+        <tr><td data-label="Stage">Admitted</td><td class="n" data-label="Reached">58</td><td><span class="wf-bar-fill" style="--n:14" ></span></td><td class="n" data-label="Lost">15%</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <div class="wf-two">
+    <section class="wf-sec" data-block="BySource">
+      <header><h2>By source</h2><p>admitted per 100 leads · best first</p></header>
+      <p class="wf-take">Referral calls convert 3× better than Instagram.</p>
+      <div class="card" data-flush>
+      <table class="wf-table">
+        <thead><tr><th>Source</th><th class="n">Leads</th><th class="n">Admitted</th><th class="n">Rate ↓</th></tr></thead>
+        <tbody>
+          <tr><td data-label="Source">Referral call</td><td class="n" data-label="Leads" data-source="leads.source_id">48</td><td class="n" data-label="Admitted">13</td><td class="n" data-label="Rate">27%</td></tr>
+          <tr><td data-label="Source">Walk-in</td><td class="n" data-label="Leads">61</td><td class="n" data-label="Admitted">12</td><td class="n" data-label="Rate">20%</td></tr>
+          <tr><td data-label="Source">Website</td><td class="n" data-label="Leads">83</td><td class="n" data-label="Admitted">11</td><td class="n" data-label="Rate">13%</td></tr>
+          <tr><td data-label="Source">WhatsApp</td><td class="n" data-label="Leads">97</td><td class="n" data-label="Admitted">11</td><td class="n" data-label="Rate">11%</td></tr>
+          <tr><td data-label="Source">Gate QR</td><td class="n" data-label="Leads">52</td><td class="n" data-label="Admitted">5</td><td class="n" data-label="Rate">10%</td></tr>
+          <tr><td data-label="Source">Instagram</td><td class="n" data-label="Leads">71</td><td class="n" data-label="Admitted">6</td><td class="n" data-label="Rate"><span class="wf-chip" data-state="wait">◐ 8%</span></td></tr>
+        </tbody>
+      </table>
+      </div>
+    </section>
+
+    <section class="wf-sec" data-block="DaysPerStage">
+      <header><h2>Days per stage</h2><p>median · against the stuck limit</p></header>
+      <p class="wf-take">Applied runs over its limit: documents are slow.</p>
+      <div class="card" data-flush>
+      <table class="wf-table">
+        <thead><tr><th>Stage</th><th class="n">Median days</th><th class="n">Stuck limit</th></tr></thead>
+        <tbody>
+          <tr><td data-label="Stage">Enquiry</td><td class="n" data-label="Median" data-source="lead_stage_history.entered_at">3</td><td class="n" data-label="Limit">5</td></tr>
+          <tr><td data-label="Stage">Visit booked</td><td class="n" data-label="Median">5</td><td class="n" data-label="Limit">7</td></tr>
+          <tr><td data-label="Stage">Visited</td><td class="n" data-label="Median">4</td><td class="n" data-label="Limit">7</td></tr>
+          <tr><td data-label="Stage">Deciding</td><td class="n" data-label="Median">16</td><td class="n" data-label="Limit">21</td></tr>
+          <tr data-state="late"><td data-label="Stage">Applied</td><td class="n" data-label="Median"><span class="wf-chip" data-state="wait">◐ 12</span></td><td class="n" data-label="Limit">10</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </section>
+
+    <section class="wf-sec" data-block="LostReasons">
+      <header><h2>Why leads were lost</h2><p>173 Lost · 85 Dormant</p></header>
+      <p class="wf-take">Distance is half of all lost reasons; most are Gurukul enquiries from beyond 8 km.</p>
+      <ul class="b-rlist card">
+        <li class="b-ritem">Distance <span class="wf-bar-fill" style="--n:49"></span><span class="b-num" data-source="leads.lost_reason_id">85</span></li>
+        <li class="b-ritem">Fees <span class="wf-bar-fill" style="--n:24"></span><span class="b-num">41</span></li>
+        <li class="b-ritem">Chose another school <span class="wf-bar-fill" style="--n:18"></span><span class="b-num">31</span></li>
+        <li class="b-ritem">Moved city <span class="wf-bar-fill" style="--n:9"></span><span class="b-num">16</span></li>
+      </ul>
+      <p class="b-caption"><span class="wf-gap" data-gap="leads.area has no distance">"beyond 8 km" needs a distance per area</span>; until then the line names areas.</p>
+    </section>
+  </div>
+</div>
+</main>
+<section class="wf-states" aria-label="Other states">
+  <h2>Other states</h2>
+  <div class="b-strip">
+    <div class="card"><h3>Too few leads</h3><div class="b-empty"><p>Fewer than 20 leads in this period: rates are hidden, counts still show.</p></div></div>
+    <div class="card"><h3>Bar chosen</h3><p>Choosing "Visit booked · 61%" opens the 251 leads that stopped at Enquiry on the right, newest first.</p></div>
+    <div class="card"><h3>Loading</h3><span class="wf-skel"></span><span class="wf-skel"></span><span class="wf-skel"></span></div>
+    <div class="card"><h3>Couldn't load</h3><p><span class="wf-chip" data-state="late">● Couldn't load the report</span></p><a class="b-btn" href="#">Try again</a></div>
+  </div>
+</section>
