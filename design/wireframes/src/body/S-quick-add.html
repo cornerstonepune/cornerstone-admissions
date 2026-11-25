@@ -1,0 +1,40 @@
+title: Staff quick-add
+kind: new
+frame: bare
+note: Milestone M4. What staff (kakas, didis; role agent) see after signing in, on a phone: three fields and one choice, done in 30 seconds. Saving finds or creates the parent by phone and opens one lead in Enquiry with the source (ADR 0014 §5). Staff see no sidebar and no other screen.
+---
+<main class="wf-main">
+<div class="wf-phone">
+  <div class="wf-head">
+    <div>
+      <span class="wf-eyebrow"><span data-block="Kind" data-kind="child"><span class="wf-kind">◉ New lead</span></span> <span data-source="leads.created_by (today)">You added 3 today</span></span>
+      <h1>Add a family</h1>
+      <p class="wf-lead">Someone walked in or phoned? Note them here. The admissions office calls them back.</p>
+    </div>
+  </div>
+  <form class="card b-form" data-block="QuickAdd">
+    <div class="b-field"><label>How did they reach us?</label><span class="wf-seg" aria-label="Source"><span aria-pressed="true">Walk-in</span><span>Phone call</span></span></div>
+    <div class="b-field"><label>Parent's phone</label><span class="wf-input">+91 98xxx xxx45</span><span class="b-caption">10 digits. This is how we find them again.</span></div>
+    <div class="b-field"><label>Parent's name</label><span class="wf-input">Sunita Patil</span></div>
+    <div class="b-field"><label>Child's name <span class="b-caption">(optional)</span></label><span class="wf-input">Aarav</span></div>
+    <a class="b-btn b-btn-main" href="#">Save</a>
+  </form>
+  <section class="wf-sec">
+    <header><h2>Added today</h2><p>by you</p></header>
+    <ul class="b-rlist card">
+      <li class="b-ritem"><span class="b-num">11:20</span>Aarav · Sunita Patil<span class="wf-chip">Walk-in</span></li>
+      <li class="b-ritem"><span class="b-num">10:05</span>Child not given · Deepa Iyer<span class="wf-chip">Phone call</span></li>
+    </ul>
+  </section>
+</div>
+</main>
+<section class="wf-states" aria-label="Other states">
+  <h2>Other states</h2>
+  <div class="b-strip">
+    <div class="card"><h3>Saved</h3><p><span class="wf-chip" data-state="ok">✓ Added Aarav · Sunita Patil</span></p><p>Form clears for the next family. The lead is in Enquiry, source Walk-in.</p></div>
+    <div class="card"><h3>Number already known</h3><p><span class="wf-chip" data-state="ok">✓ This family is already with us</span></p><p>No second lead. Their open lead gets a note "Came in again, 25 Nov, Ravi K." and the office is told.</p></div>
+    <div class="card"><h3>Phone wrong</h3><div class="b-field"><label>Parent's phone</label><span class="wf-input">98xxx 12</span><span data-error>● Enter a 10-digit mobile number.</span></div></div>
+    <div class="card"><h3>Couldn't save</h3><p><span class="wf-chip" data-state="late">● Couldn't save. Nothing was lost.</span></p><p>Fields keep what was typed.</p><a class="b-btn" href="#">Try again</a></div>
+    <div class="card"><h3>Saving</h3><p>Button reads "Saving…" and can't be pressed twice.</p></div>
+  </div>
+</section>

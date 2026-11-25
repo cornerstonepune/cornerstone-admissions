@@ -1,0 +1,28 @@
+title: Sign in, forgot and reset password
+kind: snapshot
+frame: none
+note: Routes /login, /forgot-password, /reset-password. Centred card, no sidebar. "Don't have an account? Create account" is hidden in v1: people join only by invitation (S-join).
+---
+<main class="wf-main">
+<div class="wf-phone">
+  <span class="wf-row"><span class="wf-mark"><i aria-hidden="true">C</i></span><b>Cornerstone Admissions</b></span>
+  <form class="card b-form">
+    <h2>Welcome back</h2>
+    <p class="b-caption">Sign in to your account</p>
+    <div class="b-field"><label>Email</label><span class="wf-input">meera.s@…</span></div>
+    <div class="b-field"><label>Password</label><span class="wf-input">••••••••</span><a href="#">Forgot password?</a></div>
+    <a class="b-btn b-btn-main" href="#">Sign in</a>
+  </form>
+  <p class="b-caption">No account? Ask an admin for an invitation link.</p>
+</div>
+</main>
+<section class="wf-states" aria-label="Other pages and states">
+  <h2>Other pages and states</h2>
+  <div class="b-strip">
+    <div class="card"><h3>Wrong password</h3><p><span class="wf-chip" data-state="late">● Invalid email or password</span></p></div>
+    <div class="card"><h3>Link expired</h3><p><span class="wf-chip" data-state="wait">◐ That link has expired</span></p><p>Sign in or request a new one.</p></div>
+    <div class="card"><h3>Forgot password</h3><p><b>Reset password</b></p><div class="b-field"><label>Email</label><span class="wf-input">meera.s@…</span></div><a class="b-btn b-btn-main" href="#">Send reset link</a><p class="b-caption">Then: "Check your email".</p></div>
+    <div class="card"><h3>Choose a new password</h3><div class="b-field"><label>New password</label><span class="wf-input">••••••••</span></div><div class="b-field"><label>Confirm</label><span class="wf-input">••••••••</span></div><a class="b-btn b-btn-main" href="#">Update password</a></div>
+    <div class="card"><h3>Reset link states</h3><p>"Checking your link..." · "This link is no longer valid" [Request a new link] · "Password updated" [Continue to dashboard]</p></div>
+  </div>
+</section>

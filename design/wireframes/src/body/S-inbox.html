@@ -1,0 +1,48 @@
+title: Inbox
+kind: snapshot
+nav: inbox
+note: Route /inbox. Three panes: conversations, the thread, the parent. Upstream wording stays (ADR 0014 §4). AI draft and AI banners are hidden in v1. M3 adds the lead's stage to the parent pane through S-lead; nothing else changes here.
+---
+<main class="wf-main">
+<div class="wf-col">
+  <div class="wf-split" data-block="Inbox">
+    <div>
+      <span class="wf-input">Search conversations...</span>
+      <div class="wf-row"><span class="wf-input">Status: All ▾</span><span class="wf-input">Tags ▾</span></div>
+      <ul class="b-rlist">
+        <li class="b-ritem" data-open><b>Priya Menon</b><span class="b-caption">"Please call me back"</span><span class="b-num">09:12</span><span class="wf-chip" data-state="late">2</span></li>
+        <li class="b-ritem"><b>Anita Rao</b><span class="b-caption">"What are the fees for nursery?"</span><span class="b-num">08:47</span><span class="wf-chip" data-state="wait">1</span></li>
+        <li class="b-ritem"><b>Neha Kulkarni</b><span class="b-caption">You: Thank you for visiting…</span><span class="b-num">Yesterday</span></li>
+        <li class="b-ritem"><b>+91 99xxx xxx08</b><span class="b-caption">"Hi"</span><span class="b-num">Mon</span></li>
+      </ul>
+    </div>
+    <div>
+      <div class="wf-row"><b>Priya Menon</b><span class="b-caption">+91 98xxx xxx10</span><span class="wf-grow"></span><span class="wf-chip" data-state="wait">◐ 3h remaining</span><span class="wf-input">Open ▾</span><span class="wf-input">Assign ▾</span></div>
+      <a class="b-caption" href="#">Load older messages</a>
+      <p class="b-caption">— 24 Nov —</p>
+      <p class="wf-bubble">Hi, I want admission for my daughter in nursery</p>
+      <p class="wf-bubble" data-out>Namaste! Thank you for writing to Cornerstone. Book a visit · Call me back · Send me details</p>
+      <p class="wf-bubble">Please call me back</p>
+      <span class="wf-input">Type a message... (Shift+Enter for new line)</span>
+      <div class="wf-row"><span class="b-btn">📎</span><span class="b-btn">More ▾</span><span class="b-btn">Templates</span><span class="wf-grow"></span><a class="b-btn b-btn-main" href="#">Send</a></div>
+    </div>
+    <div>
+      <b>Priya Menon</b>
+      <dl class="b-kv"><dt>Phone</dt><dd>+91 98xxx xxx10 ⧉</dd><dt>Email</dt><dd>—</dd></dl>
+      <h3>Tags</h3><p><span class="wf-chip">gate</span> <a href="#">+ Add tags</a></p>
+      <h3>Deals</h3><p class="b-caption">Kavya · Enquiry (becomes the lead in M3)</p>
+      <h3>Notes</h3><span class="wf-input">Add a note...</span>
+    </div>
+  </div>
+</div>
+</main>
+<section class="wf-states" aria-label="Other states">
+  <h2>Other states</h2>
+  <div class="b-strip">
+    <div class="card"><h3>Not connected</h3><p><span class="wf-chip" data-state="wait">◐ WhatsApp® is not connected…</span></p><p class="b-caption">Banner above the panes until M5 connects the number.</p></div>
+    <div class="card"><h3>No conversation chosen</h3><div class="b-empty"><p>Select a conversation</p></div></div>
+    <div class="card"><h3>Window closed</h3><p><span class="wf-chip" data-state="late">● Expired</span> 24-hour session expired. Use a template to re-engage.</p></div>
+    <div class="card"><h3>Empty list</h3><div class="b-empty"><p>No conversations found</p></div></div>
+    <div class="card"><h3>Phone</h3><p>One pane at a time: list → thread → parent, with Back.</p></div>
+  </div>
+</section>
