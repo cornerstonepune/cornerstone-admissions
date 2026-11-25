@@ -45,3 +45,11 @@ next-env.d.ts
 
 # supabase
 supabase/.temp/
+graphify-out/
+.loop/
+*.graphify-bak
+__pycache__/
+.venv/
+.pytest_cache/
+.ruff_cache/
+node_modules/
