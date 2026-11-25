@@ -1,0 +1,50 @@
+title: Pipeline board (as built)
+kind: snapshot
+nav: pipeline
+note: Route /pipelines. Upstream deal board after the M1 restyle, before M3. In M3 the Admissions pipeline's cards become leads and the deal sheet becomes the lead panel: that is S-lead. Value columns stay until then.
+---
+<main class="wf-main">
+<div class="wf-col">
+  <div class="wf-trail">Pipeline</div>
+  <div class="wf-head">
+    <div><h1>Pipelines</h1></div>
+    <div class="wf-row"><span class="wf-input">Admissions ▾</span><a class="b-btn" href="#">Add Pipeline</a><a class="b-btn b-btn-main" href="#">Add Deal</a></div>
+  </div>
+  <div class="b-strip">
+    <div class="card b-stat"><span class="b-stat-n">38</span><span class="b-stat-l">Total Deals</span></div>
+    <div class="card b-stat"><span class="b-stat-n">₹0</span><span class="b-stat-l">Pipeline Value</span></div>
+    <div class="card b-stat"><span class="b-stat-n">₹0</span><span class="b-stat-l">Avg Deal Size</span></div>
+    <div class="card b-stat"><span class="b-stat-n">₹0</span><span class="b-stat-l">Weighted Value</span></div>
+    <div class="card b-stat"><span class="b-stat-n">2</span><span class="b-stat-l">Won This Month</span></div>
+    <div class="card b-stat"><span class="b-stat-n">5</span><span class="b-stat-l">Lost This Month</span></div>
+  </div>
+  <div class="wf-board">
+    <section class="wf-lane"><header>Enquiry <span>12 · ₹0</span></header>
+      <a class="card" href="#"><b>Kavya</b><span class="b-caption">Priya Menon</span><span class="b-caption">₹0 · —</span></a>
+      <a class="card" href="#"><b>Myra</b><span class="b-caption">Rohit Shah</span><span class="b-caption">₹0 · —</span></a>
+      <span class="b-caption">+ Add Deal</span>
+    </section>
+    <section class="wf-lane"><header>Visit booked <span>8 · ₹0</span></header>
+      <a class="card" href="#"><b>Aanya</b><span class="b-caption">Kiran Desai</span><span class="b-caption">₹0 · Meera S.</span></a>
+    </section>
+    <section class="wf-lane"><header>Visited <span>7 · ₹0</span></header>
+      <a class="card" href="#"><b>Ira</b><span class="b-caption">Neha Kulkarni</span></a>
+    </section>
+    <section class="wf-lane"><header>Deciding <span>6 · ₹0</span></header><span class="b-caption">Drop a deal here</span></section>
+    <section class="wf-lane"><header>Applied <span>3 · ₹0</span></header>
+      <a class="card" href="#"><b>Kabir</b><span class="b-caption">Asha Nair</span></a>
+    </section>
+    <section class="wf-lane"><header>Admitted <span>2 · ₹0</span></header>
+      <a class="card" href="#"><b>Ruhi</b> <span class="wf-chip" data-state="ok">Won</span><span class="b-caption">Farah Khan</span></a>
+    </section>
+  </div>
+</div>
+</main>
+<section class="wf-states" aria-label="Other states">
+  <h2>Other states</h2>
+  <div class="b-strip">
+    <div class="card"><h3>Card opened</h3><p>"Edit Deal" sheet: Title, Contact, Link to Conversation, Value, Currency, Expected Close Date, Stage, Assigned To, Notes; [Mark as Won] [Mark as Lost]; [Cancel] [Save Changes]; [Delete Deal].</p></div>
+    <div class="card"><h3>No pipeline</h3><div class="b-empty"><p>No pipelines yet</p><a class="b-btn b-btn-main" href="#">Create Pipeline</a></div></div>
+    <div class="card"><h3>Phone</h3><p>Lanes scroll sideways, one lane wide.</p></div>
+  </div>
+</section>
