@@ -1,10 +1,10 @@
-// Hidden: lead move guard edge cases (ticket 109) and rpc probing of 103's definer helpers (ADR 0015 §2–3).
+// Hidden: a lead's account and deal never change (ADR 0016 §3) and rpc probing of 103's definer helpers (ADR 0015 §3).
 import { afterAll, describe, expect, it } from "vitest";
 import { account, actAs, actAsSuperuser, contact, errorOf, lead, member, sql, tx, type Account, type Tx } from "../../db/db";
 
 afterAll(() => sql.end());
 
-const MOVE = "A lead with stage history, visits or activity cannot move to another account or deal";
+const MOVE = "A lead's account and deal never change";
 
 async function plainDeal(t: Tx, a: Account, contactId: string): Promise<string> {
   const [d] = await t`

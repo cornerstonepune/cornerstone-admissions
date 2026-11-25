@@ -94,7 +94,8 @@ describe("lead integrity edge cases (hidden)", () => {
       const campus = await setting(t, a, "campus", "baner");
       const rule = await setting(t, a, "follow_up_rule", "enquiry_day_2", { stage: "enquiry", days: 2, action: "call_task" });
       const task = (ruleId: string) => (s: typeof t) =>
-        s`insert into lead_activity (account_id, lead_id, kind, rule_id) values (${a.accountId}, ${leadId}, 'call_task', ${ruleId})`;
+        s`insert into lead_activity (account_id, lead_id, kind, rule_id, stage_history_id)
+          select ${a.accountId}, ${leadId}, 'call_task', ${ruleId}, id from lead_stage_history where lead_id = ${leadId}`;
       expect((await errorOf(t, task(campus)))?.code).toBe("23514");
       expect(await errorOf(t, task(rule))).toBeNull();
     }));

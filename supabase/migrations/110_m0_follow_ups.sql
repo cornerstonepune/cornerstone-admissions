@@ -1,0 +1,28 @@
+-- 110 — M0 reviewer follow-ups (ADR 0016; supersedes ADR 0015 §2).
+--
+-- Write the SQL for each step below, in this order, in this file only.
+--
+-- 1. A used follow-up rule can't be deleted (it is turned off instead):
+--      ALTER TABLE public.lead_activity DROP CONSTRAINT lead_activity_rule_id_fkey,
+--        ADD CONSTRAINT lead_activity_rule_id_fkey FOREIGN KEY (rule_id) REFERENCES public.admissions_settings(id);
+--    (no ON DELETE clause = NO ACTION, so deleting a whole account still cascades)
+--
+-- 2. Rule-made activity names its stage entry:
+--      ALTER TABLE public.lead_activity ADD CONSTRAINT lead_activity_rule_has_entry
+--        CHECK (rule_id IS NULL OR stage_history_id IS NOT NULL);
+--
+-- 3. One activity per (lead, rule, stage entry), any kind (invariant 6 widened):
+--      DROP INDEX public.lead_activity_one_send_per_rule_entry;
+--      CREATE UNIQUE INDEX lead_activity_one_per_rule_entry ON public.lead_activity (lead_id, rule_id, stage_history_id)
+--        WHERE rule_id IS NOT NULL;
+--
+-- 4. People add call tasks only without a rule: DROP and re-CREATE lead_activity_insert exactly as in 107, with
+--    WITH CHECK (public.is_account_member(account_id, 'agent') AND kind = 'call_task' AND rule_id IS NULL).
+--    Leave the select, update and delete policies alone.
+--
+-- 5. A lead's account and deal never change: CREATE OR REPLACE public.check_lead_integrity(), copied whole from 109,
+--    with its first IF block replaced by (no lookups):
+--      IF TG_OP = 'UPDATE' AND (NEW.account_id IS DISTINCT FROM OLD.account_id OR NEW.deal_id IS DISTINCT FROM OLD.deal_id) THEN
+--        RAISE EXCEPTION 'A lead''s account and deal never change' USING ERRCODE = '23514';
+--      END IF;
+--    Keep the other two IF blocks, LANGUAGE plpgsql and SET search_path = public exactly as in 109.
