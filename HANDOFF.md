@@ -11,6 +11,9 @@ _Overwritten at the end of every session. Keep under 30 lines. Facts only._
 - PROJECT.md §4 Wireframe column now lists every file (cites ADR 0014). GLOSSARY.md: "Kind colours" (lead=child, visit=period, call=note).
 - design/approved.json untouched.
 
+## Tests
+- No code tests touched. Wireframe guard (`python3 design/wireframes/src/gen.py design/wireframes`) passes for all 16 at ee68485.
+
 ## Next step
 1. Render and eyeball the 7 unchecked screens (`bash design/wireframes/src/render.sh <ID> 2600`, shots in $TMPDIR); fix bodies only.
 2. Open ONE PR from plan/wireframes → main (title "Wireframes: all 16 screens"), `loop ci <pr>`, merge when green. Nimish then signs off each screen himself.
