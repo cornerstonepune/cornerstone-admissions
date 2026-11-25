@@ -22,7 +22,7 @@ School staff (kakas, didis) who only log walk-ins with quick-add.
 ## Leads
 
 **Lead**:
-One family's admissions journey for one child, from enquiry until Admitted, Lost or Dormant. One open lead per phone number.
+One family's admissions journey for one child, from enquiry until Admitted, Lost or Dormant. One open lead per phone number. A lead is **open** until it is Admitted or exits.
 _Avoid_: deal (in the UI), enquiry (that's a stage), prospect, opportunity
 
 **Enquiry**:

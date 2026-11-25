@@ -53,3 +53,7 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 node_modules/
+
+# Supabase CLI local state
+supabase/.branches
+supabase/.temp
