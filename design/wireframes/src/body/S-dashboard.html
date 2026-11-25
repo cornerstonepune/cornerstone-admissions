@@ -1,0 +1,44 @@
+title: Dashboard (as built)
+kind: snapshot
+nav: dashboard
+note: Route /dashboard. Upstream overview of WhatsApp work. Broadcast read rate and the broadcasts part of "Campaigns and automations" are hidden in v1. Admissions numbers live on Today (S-today) and Report (S-report), not here.
+---
+<main class="wf-main">
+<div class="wf-col">
+  <div class="wf-trail">Dashboard</div>
+  <div class="wf-head">
+    <div>
+      <h1>Good morning, Meera</h1>
+      <p class="wf-lead">3 customers are waiting for a reply, the oldest for 26 h.</p>
+    </div>
+    <div class="wf-row"><span class="wf-chip" data-state="ok">✓ Number healthy</span><span class="wf-seg"><span>Today</span><span aria-pressed="true">7 days</span><span>30 days</span><span>90 days</span></span><a class="b-btn b-btn-main" href="#">New ▾</a></div>
+  </div>
+  <div class="b-strip">
+    <div class="card b-att" data-state="late"><span class="b-n">3</span><span class="b-w">Waiting for a reply</span></div>
+    <div class="card b-att" data-state="wait"><span class="b-n">5</span><span class="b-w">Unassigned</span></div>
+    <div class="card b-att" data-state="wait"><span class="b-n">2</span><span class="b-w">Reply windows closing</span></div>
+    <div class="card b-att" data-state="ok"><span class="b-n">0</span><span class="b-w">Failed messages</span></div>
+  </div>
+  <div class="b-strip">
+    <div class="card b-stat"><span class="b-stat-n">47</span><span class="b-stat-l">New conversations</span></div>
+    <div class="card b-stat"><span class="b-stat-n">18m</span><span class="b-stat-l">Median first reply</span></div>
+    <div class="card b-stat"><span class="b-stat-n">39</span><span class="b-stat-l">Resolved</span></div>
+    <div class="card b-stat"><span class="b-stat-n">2</span><span class="b-stat-l">Deals won</span></div>
+  </div>
+  <div class="wf-two">
+    <section class="wf-sec card"><h3>Message volume</h3><span class="wf-skel"></span><span class="wf-skel"></span><p class="b-caption">Bar per day, in and out.</p></section>
+    <section class="wf-sec card"><h3>Reply queue</h3><p class="b-caption">Longest wait first</p><ul class="b-rlist"><li class="b-ritem">Priya Menon <span class="b-num">26 h</span></li><li class="b-ritem">Anita Rao <span class="b-num">2 h</span></li></ul></section>
+    <section class="wf-sec card"><h3>Pipeline</h3><p class="b-caption">Open deals by stage</p><span class="wf-skel"></span></section>
+    <section class="wf-sec card"><h3>Team</h3><table class="wf-table"><thead><tr><th>Member</th><th class="n">Open</th><th class="n">Replies</th><th class="n">Median</th></tr></thead><tbody><tr><td data-label="Member">Meera S.</td><td class="n" data-label="Open">12</td><td class="n" data-label="Replies">88</td><td class="n" data-label="Median">14m</td></tr></tbody></table></section>
+    <section class="wf-sec card"><h3>Automations</h3><p class="b-caption">Runs this week per automation.</p></section>
+    <section class="wf-sec card"><h3>Recent Activity</h3><p class="b-caption">Latest assignments, status changes, deals.</p></section>
+  </div>
+</div>
+</main>
+<section class="wf-states" aria-label="Other states">
+  <h2>Other states</h2>
+  <div class="b-strip">
+    <div class="card"><h3>Setup incomplete</h3><p>Checklist on top: Connect WhatsApp · Add contacts · Template approved · Invite a teammate.</p></div>
+    <div class="card"><h3>Loading</h3><span class="wf-skel"></span><span class="wf-skel"></span></div>
+  </div>
+</section>

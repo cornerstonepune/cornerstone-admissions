@@ -1,0 +1,44 @@
+title: Automations (list and builder)
+kind: snapshot
+nav: automations
+note: Routes /automations, /automations/[id], logs. Upstream rule engine. Follow-up rules are edited in Admissions settings, not here; this screen is for the owner and stays as built.
+---
+<main class="wf-main">
+<div class="wf-col">
+  <div class="wf-trail">Automations</div>
+  <div class="wf-head">
+    <div><h1>Automations</h1><p class="wf-lead">Build workflows that react to WhatsApp® events automatically.</p></div>
+    <a class="b-btn b-btn-main" href="#">Create Automation</a>
+  </div>
+  <section class="wf-sec"><header><h2>Quick-start templates</h2></header>
+    <div class="wf-row"><span class="card">Welcome Message</span><span class="card">Out of Office</span><span class="card">Lead Qualifier</span><span class="card">Follow-up Reminder</span></div>
+  </section>
+  <div class="card" data-flush>
+  <table class="wf-table">
+    <thead><tr><th>Automation</th><th>Trigger</th><th class="n">Runs</th><th>Last run</th><th>On</th><th></th></tr></thead>
+    <tbody>
+      <tr><td data-label="Automation"><b>Tag gate QR</b><br><span class="b-caption">Tags contacts who scan the gate QR</span></td><td data-label="Trigger"><span class="wf-chip">Keyword Match</span></td><td class="n" data-label="Runs">52</td><td data-label="Last">5m ago</td><td data-label="On"><span class="wf-switch" role="switch" aria-checked="true"></span></td><td>⋯</td></tr>
+      <tr><td data-label="Automation"><b>Assign new chats</b><br><span class="b-caption">Assigns first messages to the admissions office</span></td><td data-label="Trigger"><span class="wf-chip">First Message from Contact</span></td><td class="n" data-label="Runs">214</td><td data-label="Last">1h ago</td><td data-label="On"><span class="wf-switch" role="switch" aria-checked="true"></span></td><td>⋯</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="b-caption">⋯ = Edit, Duplicate, View Logs, Delete.</p>
+
+  <section class="wf-sec">
+    <header><h2>Builder</h2></header>
+    <div class="card">
+      <div class="wf-row"><a href="#">‹ Automations</a><b>Tag gate QR</b><span class="wf-grow"></span>Active <span class="wf-switch" role="switch" aria-checked="true"></span><a class="b-btn b-btn-main" href="#">Save</a></div>
+      <div class="card"><span class="wf-eyebrow">Trigger</span><p>Keyword Match · "gate"</p></div>
+      <div class="card"><span class="wf-eyebrow">Step 1</span><p>Add Tag · gate</p></div>
+      <a class="b-btn b-btn-text" href="#">+ Add step</a>
+    </div>
+  </section>
+</div>
+</main>
+<section class="wf-states" aria-label="Other states">
+  <h2>Other states</h2>
+  <div class="b-strip">
+    <div class="card"><h3>None yet</h3><div class="b-empty"><p>No automations yet</p></div></div>
+    <div class="card"><h3>Logs</h3><p>"Execution logs": contact, <span class="wf-chip" data-state="ok">success</span> / <span class="wf-chip" data-state="wait">partial</span> / <span class="wf-chip" data-state="late">failed</span>, "{n} steps".</p></div>
+  </div>
+</section>

@@ -61,13 +61,13 @@ _The locked blueprint. Agents read §1–4 and the current milestone every sessi
 
 | ID | Screen | Who | Job | Wireframe | State |
 |---|---|---|---|---|---|
-| S-login | Sign in, forgot/reset password | all | get in | snapshot pending | built |
-| S-join | Accept invitation | new member | join the account | snapshot pending | built |
-| S-inbox | Inbox | Lakshmi ma'am | read and answer parents | snapshot pending | built |
-| S-contacts | Contacts | Lakshmi ma'am | find a parent | snapshot pending | built |
-| S-board | Pipeline board | Lakshmi ma'am, Akanksha | move leads between stages | snapshot pending | built; card changes in M3 |
-| S-flows, S-automations | Flow and automation editors | Nimish | edit welcome flow, rules | snapshot pending | built |
-| S-dashboard, S-notifications, S-settings-upstream | Overview, notifications, account settings | admin | | snapshot pending | built |
+| S-login | Sign in, forgot/reset password | all | get in | `design/wireframes/S-login.html` | built |
+| S-join | Accept invitation | new member | join the account | `design/wireframes/S-join.html` | built |
+| S-inbox | Inbox | Lakshmi ma'am | read and answer parents | `design/wireframes/S-inbox.html` | built |
+| S-contacts | Contacts | Lakshmi ma'am | find a parent | `design/wireframes/S-contacts.html` | built |
+| S-board | Pipeline board | Lakshmi ma'am, Akanksha | move leads between stages | `design/wireframes/S-board.html` | built; card changes in M3 |
+| S-flows, S-automations | Flow and automation editors | Nimish | edit welcome flow, rules | `S-flows.html`, `S-automations.html` | built |
+| S-dashboard, S-notifications, S-settings-upstream | Overview, notifications, account settings | admin | | `S-dashboard.html`, `S-notifications.html`, `S-settings-upstream.html` | built |
 | S-frame | Cornerstone frame: sidebar, top bar, theme | all | the restyle | `design/wireframes/S-frame.html` | new, M1 |
 | S-lead | Lead card and its right-side panel | Lakshmi ma'am | child details, stage history, calls | `design/wireframes/S-lead.html` | new, M3 |
 | S-quick-add | Staff quick-add (3 fields, phone) | staff | log a walk-in in 30 s | `design/wireframes/S-quick-add.html` | new, M4 |
@@ -75,7 +75,7 @@ _The locked blueprint. Agents read §1–4 and the current milestone every sessi
 | S-admissions-settings | Admissions Settings (8 tabs, brief §7) | Nimish, Akanksha, Lakshmi ma'am | change rules without a developer | `design/wireframes/S-admissions-settings.html` | new, M6 |
 | S-report | Funnel report | Nimish, Akanksha | funnel by stage and source, days per stage, lost reasons | `design/wireframes/S-report.html` | new, M7 |
 
-  Hidden in v1: signup, broadcasts, agents (AI). The built screens get static snapshots in `design/wireframes/` and one `loop approve --all` from Nimish; until then they're not changed.
+  Hidden in v1: signup, broadcasts, agents (AI). The built screens get static snapshots in `design/wireframes/` (one file per ID, ADR 0014) and one `loop approve --all` from Nimish; until then they're not changed.
 - **Key flows:** (1) Parent says "Hi" → welcome flow → details → campus by date of birth → Cal.com link → S-board shows Visit booked. (2) Staff quick-add on a phone → lead in Enquiry with source. (3) Lakshmi ma'am opens S-today → calls → logs on S-lead → moves stage. (4) Admin changes a day count on S-admissions-settings → next scheduler run uses it.
 - **Gate:** no frontend code for a screen until Nimish runs `loop approve <ID>`. Editing a wireframe voids its approval.
 
