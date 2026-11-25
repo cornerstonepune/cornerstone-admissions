@@ -11,9 +11,11 @@ async function fill(t: Tx, a: Awaited<ReturnType<typeof account>>) {
   await t`insert into visits (account_id, lead_id, cal_booking_id, starts_at) values (${a.accountId}, ${leadId}, ${"cal_" + leadId}, now())`;
   const [h] = await t`select id from lead_stage_history where lead_id = ${leadId}`; // written by 104's trigger
   await t`insert into lead_activity (account_id, lead_id, kind) values (${a.accountId}, ${leadId}, 'call_task')`;
+  // 105's trigger writes this row once it exists; insert it only when it's missing.
   await t`
     insert into settings_changes (account_id, setting_id, kind, key, action)
-    values (${a.accountId}, ${settingId}, 'campus', 'baner', 'insert')`;
+    select ${a.accountId}, ${settingId}, 'campus', 'baner', 'insert'
+    where not exists (select 1 from settings_changes where setting_id = ${settingId})`;
   return { leadId, settingId, historyId: h.id as string };
 }
 
