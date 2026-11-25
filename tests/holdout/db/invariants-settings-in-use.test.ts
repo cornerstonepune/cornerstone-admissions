@@ -36,7 +36,7 @@ describe("settings in use (hidden)", () => {
       const a = await account(t);
       const { leadId } = await lead(t, a);
       const reason = await setting(t, a, "lost_reason", "fees");
-      await t`update leads set lost_reason_id = ${reason}, exit = 'lost' where id = ${leadId}`;
+      await t`update leads set lost_reason_id = ${reason}, exit = 'lost', exited_at = now() where id = ${leadId}`;
       const err = await errorOf(t, (s) => s`update admissions_settings set kind = 'source' where id = ${reason}`);
       expect(err?.code).toBe("23514");
     }));
