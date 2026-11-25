@@ -95,12 +95,12 @@ _M0 is the data model. Every later milestone is a vertical slice Nimish can clic
 - **Delivers:** the 6 admissions tables (ADR 0010) beside upstream's in `public`, upstream migrations untouched; `db/schema.sql` regenerated; every §3 invariant has a passing test in CI.
 - **Goals (yes/no):**
   - [x] G0.1 A fresh local DB (`supabase db reset`: upstream 001–060 unchanged, then ours from 100) applies with zero errors and has the 6 new tables — test: `tests/db/migrations.test.ts`
-  - [ ] G0.2 Self sign-up off: a sign-up without an invitation gets no account or profile; an invited user gets a profile on first sign-in — test: `tests/db/access.test.ts`
-  - [ ] G0.3 RLS on every table; a non-member reads zero rows everywhere — test: `tests/db/rls.test.ts`
-  - [ ] G0.4 Invariants 3–7 enforced by the database — tests: `tests/db/invariants-*.test.ts`, `tests/db/visits.test.ts`
-  - [ ] G0.5 The upstream suite still passes (clients stay on `public`, ADR 0009) — test: `npm test`
+  - [x] G0.2 Self sign-up off: a sign-up without an invitation gets no account or profile; an invited user gets a profile on first sign-in — test: `tests/db/access.test.ts`
+  - [x] G0.3 RLS on every table; a non-member reads zero rows everywhere — test: `tests/db/rls.test.ts`
+  - [x] G0.4 Invariants 3–7 enforced by the database — tests: `tests/db/invariants-*.test.ts`, `tests/db/visits.test.ts`
+  - [x] G0.5 The upstream suite still passes (clients stay on `public`, ADR 0009) — test: `npm test`
   - [x] G0.6 `loop-tests` CI starts a local Postgres and runs `tests/db/` (`npm run test:db`, ADR 0011) — test: CI run on the M0 spec PR
-- **Issues:** label `M0`
+- **Issues:** label `M0`. Last: #51 (migration 110, reviewer follow-ups, ADR 0016); then regenerate `db/schema.sql` once more and mark M0 done.
 - **Out of scope:** any UI; Cal.com and WhatsApp wiring (tables only).
 
 ### M1 — Look and frame · Not started
@@ -108,6 +108,7 @@ _M0 is the data model. Every later milestone is a vertical slice Nimish can clic
 - **Screens:** S-frame (plus snapshots of built screens approved with `loop approve --all`).
 - **Goals:** [ ] G1.1 no theme picker, `<html data-scheme="light">` · [ ] G1.2 hidden routes return 404 and are not in the menu · [ ] G1.3 CI token check passes on all `src/` (no raw colours) · [ ] G1.4 upstream tests pass.
 - **Depends on:** M0.
+- **Issues:** label `M1`: #52 (hidden routes, seeded, no wireframe needed); #7–#12, #18 (ports, seeded when S-frame is approved). G1.3 (token check on all `src/`) is checked after the ports land.
 
 ### M2 — WhatsApp on the test number · Not started
 - **Delivers:** tunnel, Meta test app, webhook; written finding on connecting the real number.
