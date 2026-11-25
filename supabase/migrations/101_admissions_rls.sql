@@ -1,0 +1,20 @@
+-- 101 — RLS policies on the six admissions tables (G0.3, invariant 2; ADR 0006, spec docs/spec/m0-data-model.md).
+--
+-- RLS is already ON for all six (migration 100). Write exactly these policies, nothing else:
+--
+--   table                 select            insert            update            delete
+--   admissions_settings   member (viewer)   admin             admin             admin
+--   leads                 member            agent             agent             admin
+--   visits                member            agent             agent             admin
+--   lead_stage_history    member            agent             (none: append-only)  (none)
+--   lead_activity         member            agent             agent             admin
+--   settings_changes      member            (none: written only by 105's trigger)
+--
+-- Names: <table>_select, <table>_insert, <table>_update, <table>_delete.
+-- "member" = public.is_account_member(account_id); "agent"/"admin" = public.is_account_member(account_id, '<role>').
+-- INSERT: WITH CHECK. UPDATE: USING and WITH CHECK, same role. Copy the deals_* policies in db/schema.sql.
+--
+-- GRANTS FIRST. This Supabase gives new public tables no SELECT/INSERT/UPDATE/DELETE for `authenticated`
+-- (check: `\dp deals` shows authenticated=Dxtm), so policies alone return "permission denied". Grant
+-- SELECT, INSERT, UPDATE, DELETE on all six tables to authenticated, and ALL to service_role; nothing to anon.
+-- RLS then narrows access: a refused UPDATE/DELETE must touch 0 rows, not raise.
