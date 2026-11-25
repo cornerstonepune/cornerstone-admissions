@@ -43,7 +43,7 @@ _The locked blueprint. Agents read §1–4 and the current milestone every sessi
 | broadcasts, broadcast_recipients | bulk sends | | 0 | hidden in v1 |
 | ai_configs, ai_knowledge_documents, ai_knowledge_chunks, ai_usage_log | AI replies | | 0 | hidden in v1 |
 
-- **Entities M0 adds (6, in `public`, names final in the M0 spec; ADR 0010):** `leads` (1:1 with a deal in the Admissions pipeline: child name, date of birth, grade, campus, area, source, exit, lost reason; ADR 0007), `visits` (every Cal.com booking, reschedule, cancel and no-show for a lead, Cal.com booking id unique; the lead's current visit is derived from it), `lead_stage_history`, `admissions_settings` (one row per campus, source, lost reason, follow-up rule or alert, by `kind`), `lead_activity` (follow-up sends, call tasks and their call log), `settings_changes` (audit).
+- **Entities M0 adds (6, in `public`; spec `docs/spec/m0-data-model.md`, ADR 0010, ADR 0011):** `leads` (1:1 with a deal in the Admissions pipeline: child name, date of birth, grade, campus, area, source, exit, lost reason; ADR 0007), `visits` (every Cal.com booking, reschedule, cancel and no-show for a lead, Cal.com booking id unique; the lead's current visit is derived from it), `lead_stage_history`, `admissions_settings` (one row per campus, source, lost reason, follow-up rule or alert, by `kind`), `lead_activity` (follow-up sends, call tasks and their call log), `settings_changes` (audit).
 - **Core flow:** a message, form or quick-add finds-or-creates the contact by phone → one open lead (deal + `leads` row) in Enquiry → each stage move writes one history row → rules read settings and queue sends or call tasks → a parent reply pauses them → Admitted, Lost (with reason) or Dormant closes the lead.
 - **Invariants (each becomes a test in M0):**
   1. Self sign-up is off: a sign-up without an invitation creates no account and no profile.
@@ -94,12 +94,12 @@ _M0 is the data model. Every later milestone is a vertical slice Nimish can clic
 ### M0 — Data model · In progress
 - **Delivers:** the 6 admissions tables (ADR 0010) beside upstream's in `public`, upstream migrations untouched; `db/schema.sql` regenerated; every §3 invariant has a passing test in CI.
 - **Goals (yes/no):**
-  - [ ] G0.1 A fresh local DB (`supabase db reset`: upstream 001–060 unchanged, then ours from 100) applies with zero errors and has the 6 new tables — test: `tests/db/migrations.test.ts`
+  - [x] G0.1 A fresh local DB (`supabase db reset`: upstream 001–060 unchanged, then ours from 100) applies with zero errors and has the 6 new tables — test: `tests/db/migrations.test.ts`
   - [ ] G0.2 Self sign-up off: a sign-up without an invitation gets no account or profile; an invited user gets a profile on first sign-in — test: `tests/db/access.test.ts`
   - [ ] G0.3 RLS on every table; a non-member reads zero rows everywhere — test: `tests/db/rls.test.ts`
-  - [ ] G0.4 Invariants 3–7 enforced by the database — test: `tests/db/invariants.test.ts`
+  - [ ] G0.4 Invariants 3–7 enforced by the database — tests: `tests/db/invariants-*.test.ts`, `tests/db/visits.test.ts`
   - [ ] G0.5 The upstream suite still passes (clients stay on `public`, ADR 0009) — test: `npm test`
-  - [ ] G0.6 `loop-tests` CI starts a local Postgres and runs `tests/db/` — test: CI run on the M0 PR
+  - [ ] G0.6 `loop-tests` CI starts a local Postgres and runs `tests/db/` (`npm run test:db`, ADR 0011) — test: CI run on the M0 spec PR
 - **Issues:** label `M0`
 - **Out of scope:** any UI; Cal.com and WhatsApp wiring (tables only).
 
@@ -136,7 +136,7 @@ _M0 is the data model. Every later milestone is a vertical slice Nimish can clic
 - **Goals:** [ ] G7.1 imported leads dedupe by phone · [ ] G7.2 report counts match the board · [ ] G7.3 the hosted project has the same tables as `db/schema.sql` · [ ] G7.4 a signed-in non-member reads zero rows on live.
 
 ## 6. Open questions (Plan resolves before the milestone they block)
-- Local Supabase ports: the defaults (54321–54324) are used by another project on this Mac. M0 gives this repo its own ports in `supabase/config.toml`, or Nimish stops the other stack while testing. Default: own ports. — blocks M0 G0.6 locally.
+- ~~Local Supabase ports~~ resolved (ADR 0011): the defaults are free on this Mac; `config.toml` unchanged.
 - Siblings: one lead per phone number, but a parent may enquire for two children. Default: one child per lead; a sibling is a note on the card (ADR 0007). — blocks M0.
 - Date-of-birth cut-off, reference date and grades per campus for 2027–28. — blocks M4.
 - Cal.com account, visit days and times, API key. — blocks M5.

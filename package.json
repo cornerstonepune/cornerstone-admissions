@@ -37,7 +37,10 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:db": "vitest run --config vitest.db.config.ts",
+    "db:reset": "supabase db start && supabase db reset --local --no-seed",
+    "db:schema": "bash supabase/ci/dump-schema.sh"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
@@ -72,6 +75,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.8",
+    "postgres": "4.1.1",
     "prettier": "^3.10.1",
     "prettier-plugin-tailwindcss": "^0.8.1",
     "tailwindcss": "^4",
