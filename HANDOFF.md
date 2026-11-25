@@ -3,7 +3,7 @@
 _Overwritten at the end of every session. Keep under 30 lines. Facts only._
 
 **Updated:** 2026-11-25 · **By:** Plan · **Model:** claude-opus-5-5
-**Milestone:** M0 — data model · **Branch:** plan/adopt · **PR:** the loop-adopt PR
+**Milestone:** M0 — data model · **Branch:** plan/adopt · **PR:** #20 (CI green, not merged: waits for Nimish's OK)
 
 ## State
 - loop-adopt done: `PROJECT.md` §1–6 written (brief v2.1 is now history), `db/schema.sql` generated from a real replay, `GLOSSARY.md`, ADRs 0004–0008.
@@ -13,7 +13,7 @@ _Overwritten at the end of every session. Keep under 30 lines. Facts only._
 - Milestones resequenced: M-done = fork/harness/design copy; M0 = whole admissions data model; M1 = look and frame (ADR 0004).
 
 ## Next step
-Nimish reads PROJECT.md and corrects it on the PR. Then `loop plan "M0: to-spec + loop-ticket"`.
+Nimish reads PROJECT.md on PR #20 and corrects it; merge after his OK. Then `loop plan "M0: to-spec + loop-ticket"`.
 
 ## Blocked / open questions
 - Local Supabase can't start on default ports: another project (`supabase_db_assessment-engine`) holds 54322. Today's replay used a scratch copy on port 54392. M0 should give this repo its own ports (PROJECT.md §6).
