@@ -99,7 +99,7 @@ _M0 is the data model. Every later milestone is a vertical slice Nimish can clic
   - [ ] G0.3 RLS on every table; a non-member reads zero rows everywhere — test: `tests/db/rls.test.ts`
   - [ ] G0.4 Invariants 3–7 enforced by the database — tests: `tests/db/invariants-*.test.ts`, `tests/db/visits.test.ts`
   - [ ] G0.5 The upstream suite still passes (clients stay on `public`, ADR 0009) — test: `npm test`
-  - [ ] G0.6 `loop-tests` CI starts a local Postgres and runs `tests/db/` (`npm run test:db`, ADR 0011) — test: CI run on the M0 spec PR
+  - [x] G0.6 `loop-tests` CI starts a local Postgres and runs `tests/db/` (`npm run test:db`, ADR 0011) — test: CI run on the M0 spec PR
 - **Issues:** label `M0`
 - **Out of scope:** any UI; Cal.com and WhatsApp wiring (tables only).
 

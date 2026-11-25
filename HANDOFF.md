@@ -10,10 +10,14 @@ _Overwritten at the end of every session. Keep under 30 lines. Facts only._
 - This PR: M0 spec `docs/spec/m0-data-model.md`, ADR 0011, migration 100 (six tables, RLS on, no policies), DB test
   harness (`npm run db:reset && npm run test:db`, `tests/db/db.ts`), CI DB job. Local: 13/13 DB tests, 1728/1728 unit
   tests, typecheck clean, lint 0 errors.
-- M0 tickets (migrations 101–106, one each): being written now; numbers go here before merge.
+- M0 tickets (label M0), one migration each: #22 RLS (101) · #23 invite-only (102) · #24 lead integrity (103) ·
+  #25 stage history + deal status (104) · #26 settings audit (105, size:small) · #27 current visit view (106).
+  None depends on another. Seeds `plan/t22`–`plan/t27` are pushed from main right after this PR merges.
+- G0.1 and G0.6 ticked (CI ran the DB tests on a fresh Supabase).
 
 ## Next step
-Merge this PR when CI is green → seed branches `plan/t<N>` from main → coordinator runs the M0 tickets.
+Coordinator: `loop run-ticket` #22–#27 **one at a time** (all share the local Supabase container). After the last
+merges: `loop plan "M0 close: regenerate db/schema.sql, tick G0.2–G0.5"` (builders can't touch db/schema.sql).
 
 ## Blocked / open questions (need Nimish)
 - Dependabot PRs #1–#5: recommended closing all and deleting `.github/dependabot.yml`. Unanswered.
