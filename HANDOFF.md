@@ -10,7 +10,9 @@ _Overwritten at the end of every session. Keep under 30 lines. Facts only._
 - Last thing done: PR #31 had the five review gaps of PR #29 closed in plan (ADR 0013): #24 extended (same-account link triggers), #25 extended (trigger-only stage history), new #30 (107, agents write call tasks only, size:small), refusal tests, handoff 22 says 19 policies.
 
 ## Next step
-#31 is merged (CI green). Coordinator: build #23, #24, #25, #26, #30 one at a time, then #27. After the last: `loop plan "M0 close: regenerate db/schema.sql"`.
+1. FIRST, one `loop plan` job: "Draw wireframes for every screen in PROJECT.md §4: the new ones (S-frame, S-lead, S-quick-add, S-today, S-admissions-settings, S-report) as design/wireframes/<ID>.html, and static snapshots for the built ones (S-login, S-join, S-inbox, S-contacts, S-board, S-flows/S-automations, S-dashboard/S-notifications/S-settings-upstream)". One PR. Nimish asked (2026-11-25) for ALL wireframes up front; he signs each off himself in his own terminal.
+2. Then M0 build, one ticket at a time (shared local DB): #23, #24, #25, #26, #30, then #27. After the last: `loop plan "M0 close: regenerate db/schema.sql"`. Then M1, M2 in PROJECT.md section 5 order; backend tickets never wait on wireframe sign-off.
+3. At context full: write handoff, end `LOOP: CONTEXT FULL`. `loop auto` starts the next session; don't ask Nimish to /clear.
 
 ## Blocked / open questions
 - Upstream: all 43 `public` tables give `authenticated` no read access locally; plan a grants migration before any milestone that clicks through upstream screens.
