@@ -48,3 +48,14 @@ jobs:
                   print(f'echo "::group::{name}: {cmd}"; bash -c {shlex.quote(cmd)} || exit 1; echo "::endgroup::"')
           PY
           bash /tmp/loop_cmds.sh
+      # Database tests, visible and hidden (G0.6, ADR 0011): replay every migration on a local Supabase Postgres.
+      - if: hashFiles('vitest.db.config.ts') != ''
+        uses: supabase/setup-cli@v3
+        with:
+          version: 2.113.0
+      - name: Database tests (tests/db and tests/holdout/db) on a fresh local Supabase
+        if: hashFiles('vitest.db.config.ts') != ''
+        run: |
+          supabase db start
+          supabase db reset --local --no-seed
+          npm run test:db

@@ -1,25 +1,21 @@
 -- db/schema.sql — the data model as it is today, as runnable SQL. Source of truth for PROJECT.md §3 (ADR 0005).
 --
--- GENERATED, never hand-edited. Produced on 2026-11-25 by replaying supabase/migrations/001–060 (upstream wacrm,
--- unmodified) on a fresh Supabase Postgres 17 (`supabase db reset --local --no-seed`), then:
---   pg_dump "<local db url>" --schema-only --no-owner --no-privileges --schema=public
--- with pg_dump's `\restrict` / `\unrestrict` lines removed.
---
--- Today every object is still in schema `public` (upstream's layout). M0 moves all of it into schema `admissions`
--- and adds the admissions tables; this file is regenerated from that result (`--schema=admissions`) in the same PR.
+-- GENERATED, never hand-edited: `npm run db:reset && npm run db:schema` (supabase/ci/dump-schema.sh) replays
+-- supabase/migrations/ (upstream 001–060 unmodified, then ours from 100) on the local Supabase Postgres 17 and runs
+--   pg_dump --schema-only --no-owner --no-privileges --schema=public
+-- Every migration PR regenerates it. Upstream and admissions tables both live in `public` (ADR 0009, ADR 0010).
 --
 -- Not in this dump, but created by the same migrations:
---   * trigger `on_auth_user_created` on auth.users → public.handle_new_user()  (M0 removes it, ADR 0006)
---   * storage buckets `avatars`, `flow-media`, `chat-media` and their storage.objects policies (M0 renames them
---     to `admissions-…`)
---
+--   * trigger `on_auth_user_created` on auth.users → public.handle_new_user()  (removed by migration 102, ADR 0006)
+--   * storage buckets `avatars`, `flow-media`, `chat-media` and their storage.objects policies
+-- END HEADER
 --
 -- PostgreSQL database dump
 --
 
 
 -- Dumped from database version 17.6
--- Dumped by pg_dump version 18.3
+-- Dumped by pg_dump version 17.6
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -56,6 +52,63 @@ CREATE TYPE public.account_role_enum AS ENUM (
     'admin',
     'agent',
     'viewer'
+);
+
+
+--
+-- Name: admissions_setting_kind; Type: TYPE; Schema: public; Owner: -
+--
+
+CREATE TYPE public.admissions_setting_kind AS ENUM (
+    'campus',
+    'source',
+    'lost_reason',
+    'follow_up_rule',
+    'alert'
+);
+
+
+--
+-- Name: lead_activity_kind; Type: TYPE; Schema: public; Owner: -
+--
+
+CREATE TYPE public.lead_activity_kind AS ENUM (
+    'follow_up_send',
+    'call_task'
+);
+
+
+--
+-- Name: lead_exit; Type: TYPE; Schema: public; Owner: -
+--
+
+CREATE TYPE public.lead_exit AS ENUM (
+    'lost',
+    'dormant'
+);
+
+
+--
+-- Name: settings_change_action; Type: TYPE; Schema: public; Owner: -
+--
+
+CREATE TYPE public.settings_change_action AS ENUM (
+    'insert',
+    'update',
+    'delete'
+);
+
+
+--
+-- Name: visit_status; Type: TYPE; Schema: public; Owner: -
+--
+
+CREATE TYPE public.visit_status AS ENUM (
+    'booked',
+    'rescheduled',
+    'cancelled',
+    'no_show',
+    'visited'
 );
 
 
@@ -1498,6 +1551,12 @@ BEGIN
     UNION ALL SELECT 1 FROM contact_notes WHERE account_id = v_old_account_id
     UNION ALL SELECT 1 FROM whatsapp_config WHERE account_id = v_old_account_id
     UNION ALL SELECT 1 FROM api_keys WHERE account_id = v_old_account_id
+    UNION ALL SELECT 1 FROM admissions_settings WHERE account_id = v_old_account_id
+    UNION ALL SELECT 1 FROM leads WHERE account_id = v_old_account_id
+    UNION ALL SELECT 1 FROM visits WHERE account_id = v_old_account_id
+    UNION ALL SELECT 1 FROM lead_stage_history WHERE account_id = v_old_account_id
+    UNION ALL SELECT 1 FROM lead_activity WHERE account_id = v_old_account_id
+    UNION ALL SELECT 1 FROM settings_changes WHERE account_id = v_old_account_id
     UNION ALL SELECT 1 FROM webhook_endpoints WHERE account_id = v_old_account_id
     UNION ALL SELECT 1 FROM quick_replies WHERE account_id = v_old_account_id
     UNION ALL SELECT 1 FROM notifications WHERE account_id = v_old_account_id
@@ -2072,6 +2131,29 @@ CREATE TABLE public.accounts (
 
 
 --
+-- Name: admissions_settings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.admissions_settings (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    account_id uuid NOT NULL,
+    kind public.admissions_setting_kind NOT NULL,
+    key text NOT NULL,
+    label text NOT NULL,
+    value jsonb DEFAULT '{}'::jsonb NOT NULL,
+    active boolean DEFAULT true NOT NULL,
+    sort_order integer DEFAULT 0 NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT admissions_settings_alert_value CHECK (((kind <> 'alert'::public.admissions_setting_kind) OR ((jsonb_typeof((value -> 'threshold'::text)) = 'number'::text) AND (((value ->> 'threshold'::text))::numeric >= (0)::numeric)))),
+    CONSTRAINT admissions_settings_follow_up_rule_value CHECK (((kind <> 'follow_up_rule'::public.admissions_setting_kind) OR ((jsonb_typeof((value -> 'stage'::text)) = 'string'::text) AND (jsonb_typeof((value -> 'days'::text)) = 'number'::text) AND ((value ->> 'days'::text) ~ '^[0-9]+$'::text) AND ((value ->> 'action'::text) = ANY (ARRAY['send_template'::text, 'call_task'::text, 'dormant'::text])) AND (((value ->> 'action'::text) <> 'send_template'::text) OR (jsonb_typeof((value -> 'template'::text)) = 'string'::text))))),
+    CONSTRAINT admissions_settings_key_check CHECK ((key ~ '^[a-z0-9_]+$'::text)),
+    CONSTRAINT admissions_settings_label_check CHECK ((btrim(label) <> ''::text)),
+    CONSTRAINT admissions_settings_value_check CHECK ((jsonb_typeof(value) = 'object'::text))
+);
+
+
+--
 -- Name: ai_configs; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2501,6 +2583,71 @@ CREATE TABLE public.flows (
 
 
 --
+-- Name: lead_activity; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.lead_activity (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    account_id uuid NOT NULL,
+    lead_id uuid NOT NULL,
+    kind public.lead_activity_kind NOT NULL,
+    rule_id uuid,
+    stage_history_id uuid,
+    message_id uuid,
+    due_at timestamp with time zone DEFAULT now() NOT NULL,
+    done_at timestamp with time zone,
+    assigned_to uuid,
+    outcome text,
+    notes text,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT lead_activity_send_has_rule CHECK (((kind <> 'follow_up_send'::public.lead_activity_kind) OR ((rule_id IS NOT NULL) AND (stage_history_id IS NOT NULL))))
+);
+
+
+--
+-- Name: lead_stage_history; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.lead_stage_history (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    account_id uuid NOT NULL,
+    lead_id uuid NOT NULL,
+    stage_id uuid NOT NULL,
+    entered_at timestamp with time zone DEFAULT now() NOT NULL,
+    moved_by uuid
+);
+
+
+--
+-- Name: leads; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.leads (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    account_id uuid NOT NULL,
+    deal_id uuid NOT NULL,
+    contact_id uuid NOT NULL,
+    child_name text,
+    child_dob date,
+    grade text,
+    campus_id uuid,
+    area text,
+    source_id uuid,
+    exit public.lead_exit,
+    lost_reason_id uuid,
+    exited_at timestamp with time zone,
+    admitted_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT leads_admitted_or_exited CHECK (((exit IS NULL) OR (admitted_at IS NULL))),
+    CONSTRAINT leads_exit_has_time CHECK (((exit IS NULL) = (exited_at IS NULL))),
+    CONSTRAINT leads_lost_has_reason CHECK (((NOT (exit IS DISTINCT FROM 'lost'::public.lead_exit)) = (lost_reason_id IS NOT NULL)))
+);
+
+
+--
 -- Name: member_presence; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2726,6 +2873,24 @@ CREATE TABLE public.quick_replies (
 
 
 --
+-- Name: settings_changes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.settings_changes (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    account_id uuid NOT NULL,
+    setting_id uuid NOT NULL,
+    kind public.admissions_setting_kind NOT NULL,
+    key text NOT NULL,
+    action public.settings_change_action NOT NULL,
+    old_value jsonb,
+    new_value jsonb,
+    changed_by uuid,
+    changed_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
 -- Name: tags; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2736,6 +2901,24 @@ CREATE TABLE public.tags (
     color text DEFAULT '#3b82f6'::text NOT NULL,
     created_at timestamp with time zone DEFAULT now(),
     account_id uuid NOT NULL
+);
+
+
+--
+-- Name: visits; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.visits (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    account_id uuid NOT NULL,
+    lead_id uuid NOT NULL,
+    cal_booking_id text NOT NULL,
+    starts_at timestamp with time zone NOT NULL,
+    campus_id uuid,
+    status public.visit_status DEFAULT 'booked'::public.visit_status NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT visits_cal_booking_id_check CHECK ((btrim(cal_booking_id) <> ''::text))
 );
 
 
@@ -2810,6 +2993,22 @@ ALTER TABLE ONLY public.account_invitations
 
 ALTER TABLE ONLY public.accounts
     ADD CONSTRAINT accounts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: admissions_settings admissions_settings_account_id_kind_key_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.admissions_settings
+    ADD CONSTRAINT admissions_settings_account_id_kind_key_key UNIQUE (account_id, kind, key);
+
+
+--
+-- Name: admissions_settings admissions_settings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.admissions_settings
+    ADD CONSTRAINT admissions_settings_pkey PRIMARY KEY (id);
 
 
 --
@@ -3029,6 +3228,38 @@ ALTER TABLE ONLY public.flows
 
 
 --
+-- Name: lead_activity lead_activity_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lead_activity
+    ADD CONSTRAINT lead_activity_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: lead_stage_history lead_stage_history_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lead_stage_history
+    ADD CONSTRAINT lead_stage_history_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: leads leads_deal_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.leads
+    ADD CONSTRAINT leads_deal_id_key UNIQUE (deal_id);
+
+
+--
+-- Name: leads leads_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.leads
+    ADD CONSTRAINT leads_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: member_presence member_presence_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3141,11 +3372,35 @@ ALTER TABLE ONLY public.quick_replies
 
 
 --
+-- Name: settings_changes settings_changes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.settings_changes
+    ADD CONSTRAINT settings_changes_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: tags tags_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.tags
     ADD CONSTRAINT tags_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: visits visits_cal_booking_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.visits
+    ADD CONSTRAINT visits_cal_booking_id_key UNIQUE (cal_booking_id);
+
+
+--
+-- Name: visits visits_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.visits
+    ADD CONSTRAINT visits_pkey PRIMARY KEY (id);
 
 
 --
@@ -3727,6 +3982,41 @@ CREATE INDEX idx_whatsapp_config_registered_at ON public.whatsapp_config USING b
 
 
 --
+-- Name: lead_activity_one_send_per_rule_entry; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX lead_activity_one_send_per_rule_entry ON public.lead_activity USING btree (lead_id, rule_id, stage_history_id) WHERE (kind = 'follow_up_send'::public.lead_activity_kind);
+
+
+--
+-- Name: lead_activity_open_calls_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX lead_activity_open_calls_idx ON public.lead_activity USING btree (account_id, due_at) WHERE ((kind = 'call_task'::public.lead_activity_kind) AND (done_at IS NULL));
+
+
+--
+-- Name: lead_stage_history_lead_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX lead_stage_history_lead_idx ON public.lead_stage_history USING btree (lead_id, entered_at DESC);
+
+
+--
+-- Name: leads_account_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX leads_account_id_idx ON public.leads USING btree (account_id);
+
+
+--
+-- Name: leads_one_open_per_contact; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX leads_one_open_per_contact ON public.leads USING btree (contact_id) WHERE ((exit IS NULL) AND (admitted_at IS NULL));
+
+
+--
 -- Name: member_presence_account_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -3738,6 +4028,20 @@ CREATE INDEX member_presence_account_idx ON public.member_presence USING btree (
 --
 
 CREATE UNIQUE INDEX message_templates_account_name_language_key ON public.message_templates USING btree (account_id, name, language);
+
+
+--
+-- Name: settings_changes_account_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX settings_changes_account_idx ON public.settings_changes USING btree (account_id, changed_at DESC);
+
+
+--
+-- Name: visits_lead_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX visits_lead_id_idx ON public.visits USING btree (lead_id, created_at DESC);
 
 
 --
@@ -3895,6 +4199,34 @@ CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.whatsapp_config FOR EACH R
 
 
 --
+-- Name: admissions_settings update_admissions_settings_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_admissions_settings_updated_at BEFORE UPDATE ON public.admissions_settings FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: lead_activity update_lead_activity_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_lead_activity_updated_at BEFORE UPDATE ON public.lead_activity FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: leads update_leads_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_leads_updated_at BEFORE UPDATE ON public.leads FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: visits update_visits_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_visits_updated_at BEFORE UPDATE ON public.visits FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
 -- Name: account_invitations account_invitations_accepted_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3924,6 +4256,14 @@ ALTER TABLE ONLY public.account_invitations
 
 ALTER TABLE ONLY public.accounts
     ADD CONSTRAINT accounts_owner_user_id_fkey FOREIGN KEY (owner_user_id) REFERENCES auth.users(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: admissions_settings admissions_settings_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.admissions_settings
+    ADD CONSTRAINT admissions_settings_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(id) ON DELETE CASCADE;
 
 
 --
@@ -4407,6 +4747,142 @@ ALTER TABLE ONLY public.flows
 
 
 --
+-- Name: lead_activity lead_activity_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lead_activity
+    ADD CONSTRAINT lead_activity_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(id) ON DELETE CASCADE;
+
+
+--
+-- Name: lead_activity lead_activity_assigned_to_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lead_activity
+    ADD CONSTRAINT lead_activity_assigned_to_fkey FOREIGN KEY (assigned_to) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: lead_activity lead_activity_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lead_activity
+    ADD CONSTRAINT lead_activity_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: lead_activity lead_activity_lead_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lead_activity
+    ADD CONSTRAINT lead_activity_lead_id_fkey FOREIGN KEY (lead_id) REFERENCES public.leads(id) ON DELETE CASCADE;
+
+
+--
+-- Name: lead_activity lead_activity_message_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lead_activity
+    ADD CONSTRAINT lead_activity_message_id_fkey FOREIGN KEY (message_id) REFERENCES public.messages(id) ON DELETE SET NULL;
+
+
+--
+-- Name: lead_activity lead_activity_rule_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lead_activity
+    ADD CONSTRAINT lead_activity_rule_id_fkey FOREIGN KEY (rule_id) REFERENCES public.admissions_settings(id) ON DELETE SET NULL;
+
+
+--
+-- Name: lead_activity lead_activity_stage_history_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lead_activity
+    ADD CONSTRAINT lead_activity_stage_history_id_fkey FOREIGN KEY (stage_history_id) REFERENCES public.lead_stage_history(id) ON DELETE CASCADE;
+
+
+--
+-- Name: lead_stage_history lead_stage_history_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lead_stage_history
+    ADD CONSTRAINT lead_stage_history_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(id) ON DELETE CASCADE;
+
+
+--
+-- Name: lead_stage_history lead_stage_history_lead_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lead_stage_history
+    ADD CONSTRAINT lead_stage_history_lead_id_fkey FOREIGN KEY (lead_id) REFERENCES public.leads(id) ON DELETE CASCADE;
+
+
+--
+-- Name: lead_stage_history lead_stage_history_moved_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lead_stage_history
+    ADD CONSTRAINT lead_stage_history_moved_by_fkey FOREIGN KEY (moved_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: lead_stage_history lead_stage_history_stage_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lead_stage_history
+    ADD CONSTRAINT lead_stage_history_stage_id_fkey FOREIGN KEY (stage_id) REFERENCES public.pipeline_stages(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: leads leads_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.leads
+    ADD CONSTRAINT leads_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(id) ON DELETE CASCADE;
+
+
+--
+-- Name: leads leads_campus_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.leads
+    ADD CONSTRAINT leads_campus_id_fkey FOREIGN KEY (campus_id) REFERENCES public.admissions_settings(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: leads leads_contact_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.leads
+    ADD CONSTRAINT leads_contact_id_fkey FOREIGN KEY (contact_id) REFERENCES public.contacts(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: leads leads_deal_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.leads
+    ADD CONSTRAINT leads_deal_id_fkey FOREIGN KEY (deal_id) REFERENCES public.deals(id) ON DELETE CASCADE;
+
+
+--
+-- Name: leads leads_lost_reason_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.leads
+    ADD CONSTRAINT leads_lost_reason_id_fkey FOREIGN KEY (lost_reason_id) REFERENCES public.admissions_settings(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: leads leads_source_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.leads
+    ADD CONSTRAINT leads_source_id_fkey FOREIGN KEY (source_id) REFERENCES public.admissions_settings(id) ON DELETE RESTRICT;
+
+
+--
 -- Name: member_presence member_presence_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -4575,6 +5051,22 @@ ALTER TABLE ONLY public.quick_replies
 
 
 --
+-- Name: settings_changes settings_changes_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.settings_changes
+    ADD CONSTRAINT settings_changes_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(id) ON DELETE CASCADE;
+
+
+--
+-- Name: settings_changes settings_changes_changed_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.settings_changes
+    ADD CONSTRAINT settings_changes_changed_by_fkey FOREIGN KEY (changed_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+
+--
 -- Name: tags tags_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -4588,6 +5080,30 @@ ALTER TABLE ONLY public.tags
 
 ALTER TABLE ONLY public.tags
     ADD CONSTRAINT tags_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: visits visits_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.visits
+    ADD CONSTRAINT visits_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(id) ON DELETE CASCADE;
+
+
+--
+-- Name: visits visits_campus_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.visits
+    ADD CONSTRAINT visits_campus_id_fkey FOREIGN KEY (campus_id) REFERENCES public.admissions_settings(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: visits visits_lead_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.visits
+    ADD CONSTRAINT visits_lead_id_fkey FOREIGN KEY (lead_id) REFERENCES public.leads(id) ON DELETE CASCADE;
 
 
 --
@@ -4661,6 +5177,12 @@ CREATE POLICY accounts_select ON public.accounts FOR SELECT USING (public.is_acc
 
 CREATE POLICY accounts_update ON public.accounts FOR UPDATE USING (public.is_account_member(id, 'admin'::public.account_role_enum)) WITH CHECK (public.is_account_member(id, 'admin'::public.account_role_enum));
 
+
+--
+-- Name: admissions_settings; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.admissions_settings ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: ai_configs; Type: ROW SECURITY; Schema: public; Owner: -
@@ -5261,6 +5783,24 @@ CREATE POLICY flows_update ON public.flows FOR UPDATE USING (public.is_account_m
 
 
 --
+-- Name: lead_activity; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.lead_activity ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: lead_stage_history; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.lead_stage_history ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: leads; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.leads ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: member_presence; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -5503,6 +6043,12 @@ CREATE POLICY quick_replies_update ON public.quick_replies FOR UPDATE USING (pub
 
 
 --
+-- Name: settings_changes; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.settings_changes ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: tags; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -5535,6 +6081,12 @@ CREATE POLICY tags_select ON public.tags FOR SELECT USING (public.is_account_mem
 
 CREATE POLICY tags_update ON public.tags FOR UPDATE USING (public.is_account_member(account_id, 'admin'::public.account_role_enum));
 
+
+--
+-- Name: visits; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.visits ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: webhook_endpoints; Type: ROW SECURITY; Schema: public; Owner: -
