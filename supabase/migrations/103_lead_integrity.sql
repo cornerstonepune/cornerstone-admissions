@@ -1,6 +1,6 @@
 -- 103 — lead integrity (spec docs/spec/m0-data-model.md; ADR 0010, 0011, 0013 §1).
 -- Every rejection is 23514 with one plain sentence (a missing id and another account's id read the same).
--- Lookups run as the caller (no SECURITY DEFINER); triggers check INSERT and UPDATE.
+-- Lookups run as the caller (except the deals read in check_lead_integrity); triggers check INSERT and UPDATE.
 
 CREATE OR REPLACE FUNCTION public.admissions_setting_is(
   p_setting_id uuid, p_account_id uuid, p_kind public.admissions_setting_kind
@@ -13,8 +13,9 @@ AS $$
     WHERE s.id = p_setting_id AND s.account_id = p_account_id AND s.kind = p_kind)
 $$;
 
+-- SECURITY DEFINER only for the read of upstream deals, which agents have no grant on; nothing is granted or returned.
 CREATE FUNCTION public.check_lead_integrity() RETURNS trigger
-LANGUAGE plpgsql SET search_path = public
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
 AS $$
 DECLARE d public.deals;
 BEGIN
