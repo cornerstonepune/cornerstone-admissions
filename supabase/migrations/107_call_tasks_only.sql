@@ -8,3 +8,15 @@
 --   lead_activity_update  FOR UPDATE  USING and WITH CHECK both (is_account_member(account_id, 'agent') AND kind = 'call_task')
 --   lead_activity_delete  FOR DELETE  USING (is_account_member(account_id, 'admin') AND kind = 'call_task')
 -- Leave lead_activity_select and every grant alone.
+
+DROP POLICY lead_activity_insert ON public.lead_activity;
+DROP POLICY lead_activity_update ON public.lead_activity;
+DROP POLICY lead_activity_delete ON public.lead_activity;
+
+CREATE POLICY lead_activity_insert ON public.lead_activity FOR INSERT TO authenticated
+  WITH CHECK (public.is_account_member(account_id, 'agent') AND kind = 'call_task');
+CREATE POLICY lead_activity_update ON public.lead_activity FOR UPDATE TO authenticated
+  USING (public.is_account_member(account_id, 'agent') AND kind = 'call_task')
+  WITH CHECK (public.is_account_member(account_id, 'agent') AND kind = 'call_task');
+CREATE POLICY lead_activity_delete ON public.lead_activity FOR DELETE TO authenticated
+  USING (public.is_account_member(account_id, 'admin') AND kind = 'call_task');
