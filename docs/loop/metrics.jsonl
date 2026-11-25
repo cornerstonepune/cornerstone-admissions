@@ -1,3 +1,11 @@
 {"issue": 22, "size": "standard", "model": "sonnet", "attempts": 3, "result": "pr", "ts": "2026-11-25T22:23:55"}
 {"issue": 23, "size": "standard", "model": "sonnet", "attempts": 1, "result": "pr", "ts": "2026-11-25T22:56:34"}
 {"issue": 24, "size": "standard", "model": "sonnet", "attempts": 1, "result": "pr", "ts": "2026-11-25T23:06:36"}
+{"issue": 24, "size": "standard", "model": "sonnet", "attempts": 2, "result": "pr", "ts": "2026-11-25T23:13:19"}
+{"issue": 24, "size": "standard", "model": "sonnet", "attempts": 3, "result": "pr", "ts": "2026-11-25T23:21:43"}
+{"issue": 24, "size": "standard", "model": "sonnet", "attempts": 4, "result": "pr", "ts": "2026-11-25T23:30:38"}
+{"issue": 25, "size": "standard", "model": "sonnet", "attempts": 1, "result": "pr", "ts": "2026-11-25T23:40:15"}
+{"issue": 26, "size": "small", "model": "haiku", "attempts": 1, "result": "pr", "ts": "2026-11-25T23:46:58"}
+{"issue": 26, "size": "small", "model": "fable", "attempts": 4, "result": "pr", "ts": "2026-11-26T00:23:56"}
+{"issue": 26, "size": "standard", "model": "sonnet", "attempts": 2, "result": "pr", "ts": "2026-11-26T00:51:02"}
+{"issue": 30, "size": "small", "attempts": 5, "result": "escalated", "ts": "2026-11-26T01:12:14"}
