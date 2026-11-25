@@ -2,27 +2,28 @@
 
 _Overwritten at the end of every session. Keep under 30 lines. Facts only._
 
-**Updated:** 2026-11-25 · **By:** Plan · **Model:** claude-opus-5-5
+**Updated:** 2026-11-25 21:09 · **By:** Coordinator · **Model:** claude-opus-5-5
 **Milestone:** M0 — data model · **Branch:** plan/adopt · **PR:** #20 (CI green, not merged: waits for Nimish's OK)
 
 ## State
-- loop-adopt done: `PROJECT.md` §1–6 written (brief v2.1 is now history), `db/schema.sql` generated from a real replay, `GLOSSARY.md`, ADRs 0004–0008.
-- Proof run today: `npm test` 160 files / 1728 tests pass; typecheck exit 0; lint 0 errors / 40 warnings; all 60 upstream migrations replay on fresh Postgres 17 and `supabase/ci/verify-schema.sql` passes; 37 tables, RLS on all.
-- Found: no `account_members` table exists. Membership is `profiles.account_id` + `account_role`. CLAUDE.md and the brief are corrected (ADR 0006).
-- Found: the `on_auth_user_created` trigger makes a new account for every sign-up, and the signup page is live. M0 removes both.
-- Milestones resequenced: M-done = fork/harness/design copy; M0 = whole admissions data model; M1 = look and frame (ADR 0004).
+- Merged today: #6 loop harness, #19 platform design copied once (ADR 0003, port tickets #7–#18 queued behind wireframes).
+- PR #20 = loop-adopt: PROJECT.md, db/schema.sql (from a real replay), GLOSSARY.md, ADRs 0004–0008. CI green (`loop ci 20`). Planner's proof: 1728 tests pass, typecheck 0, lint 0 errors, 60 migrations replay on Postgres 17.
+- Found: no `account_members` table (membership = `profiles.account_id` + `account_role`, ADR 0006). Upstream `on_auth_user_created` trigger + live signup page: M0 removes both.
+- No product code written yet.
 
 ## Next step
-Nimish reads PROJECT.md on PR #20 and corrects it; merge after his OK. Then `loop plan "M0: to-spec + loop-ticket"`.
+Nimish reads PROJECT.md on #20 and confirms or corrects the 3 assumptions. Merge on his OK, then `loop plan "M0: to-spec + loop-ticket"` and build M0 tickets.
 
-## Blocked / open questions
-- Local Supabase can't start on default ports: another project (`supabase_db_assessment-engine`) holds 54322. Today's replay used a scratch copy on port 54392. M0 should give this repo its own ports (PROJECT.md §6).
-- Not verified: the app running locally, and a user signing in. Built screens have no wireframe snapshots yet; take them once the app runs, then Nimish runs `loop approve --all`.
-- Assumptions for Nimish: light mode only (ADR 0008); one child per lead (ADR 0007); role mapping (ADR 0006).
+## Blocked / open questions (need Nimish)
+- Assumptions on #20: light mode only (ADR 0008), one child per lead (ADR 0007), role mapping (ADR 0006).
+- Local Supabase port clash: `assessment-engine` stack holds 54322. Nimish picks: stop that stack, or move this repo's ports to 553xx in supabase/config.toml via PR (recommended; PROJECT.md §6 plans it). Until then: app-runs-locally and sign-in checks are unverified.
+- Dependabot PRs #1–#5 untouched (#2 xyflow 13 and #4 eslint 10 are majors).
 
 ## Don't repeat
+- A helper's edit of supabase/config.toml ports (scratch worktree) was refused by the permission system on 2026-11-25. Don't retry or route around it without Nimish's OK.
 - Never open the platform repo (ADR 0003). Don't stop other projects' Docker containers.
-- The loop guard blocks any Bash command that mentions `design/approved.json`, even to read it.
+- Loop guard blocks Bash naming frontend paths or `design/approved.json`, even read-only.
+- `loop plan` runs in the main checkout and switches branches: don't switch branches there while it runs.
 
 ## Files touched this session
-PROJECT.md, GLOSSARY.md, HANDOFF.md, CLAUDE.md (2 lines), ADMISSIONS_PROJECT.md (history note), db/schema.sql (new), docs/adr/0004–0008 (new).
+HANDOFF.md (coordinator). Planner sessions: see #19, #20.
