@@ -17,6 +17,15 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  RAISE EXCEPTION 'not implemented';
+  IF (NEW.kind IS DISTINCT FROM OLD.kind OR NEW.account_id IS DISTINCT FROM OLD.account_id)
+     AND (EXISTS (SELECT 1 FROM leads WHERE campus_id = OLD.id OR source_id = OLD.id OR lost_reason_id = OLD.id)
+       OR EXISTS (SELECT 1 FROM visits WHERE campus_id = OLD.id)
+       OR EXISTS (SELECT 1 FROM lead_activity WHERE rule_id = OLD.id)) THEN
+    RAISE EXCEPTION 'A setting in use cannot change its kind or account' USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
 END;
 $$;
+
+CREATE TRIGGER admissions_settings_check_in_use BEFORE UPDATE OF kind, account_id ON public.admissions_settings
+  FOR EACH ROW EXECUTE FUNCTION public.check_setting_in_use();
