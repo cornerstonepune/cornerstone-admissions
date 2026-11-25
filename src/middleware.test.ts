@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { NextRequest } from "next/server";
+import { HIDDEN_PREFIXES } from "@/admissions/hidden-routes";
 
 // --- Scenario knobs the mock reads -----------------------------------------
 // `mockUser`         — what getUser() resolves to (a refreshed session ⇒ user,
@@ -129,11 +130,18 @@ describe("middleware — every dashboard route requires a session", () => {
     expect(dashboardRoutes).toContain("/dashboard");
   });
 
-  it.each(dashboardRoutes)("redirects a signed-out visitor from %s to /login", async (route) => {
+  // Screens hidden in v1 (M1 G1.2) answer 404 instead; a signed-out visitor still never sees them.
+  const hidden = new Set<string>(HIDDEN_PREFIXES);
+
+  it.each(dashboardRoutes)("keeps a signed-out visitor out of %s", async (route) => {
     mockUser = null;
 
     const res = await middleware(new NextRequest(`https://app.test${route}`));
 
+    if (hidden.has(route)) {
+      expect(res.status).toBe(404);
+      return;
+    }
     expect(res.status).toBe(307);
     expect(new URL(res.headers.get("location")!).pathname).toBe("/login");
   });
