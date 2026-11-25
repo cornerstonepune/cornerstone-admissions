@@ -2,32 +2,29 @@
 
 _Overwritten at the end of every session. Keep under 30 lines. Facts only._
 
-**Updated:** 2026-11-25 21:40 · **By:** Coordinator · **Model:** claude-opus-5-5
-**Milestone:** M0 — data model · **Branch:** plan/adopt · **PR:** #20 (approved by Nimish, CI green on 78e06f3; NOT merged: GitHub outage)
+**Updated:** 2026-11-25 · **By:** Coordinator · **Model:** claude-opus-5-5
+**Milestone:** M0 — data model · **Branch:** plan/handoff · **PR:** this one (handoff only)
 
 ## State
-- Merged: #6 loop harness, #19 platform design copy (ADR 0003; port tickets #7–#18 queued behind wireframes).
-- #20 = loop-adopt: PROJECT.md, db/schema.sql, GLOSSARY.md, ADRs 0004–0010. Nimish answered all four points in chat on 2026-11-25; all are in the files:
-  - 6 new tables (ADR 0010): leads, visits (every Cal.com booking; booking id unique), lead_stage_history, admissions_settings, lead_activity, settings_changes.
-  - Light mode only (ADR 0008), one child per lead (ADR 0007), Nimish = owner + Akanksha and Lakshmi ma'am = admin (ADR 0006): accepted.
-- Merge of #20 failed 5+ times (GraphQL and REST: HTTP 500/502). githubstatus.com reported an active incident (Issues, Pull Requests, Actions degraded). The background retry loop was stopped at session end.
-- No product code written yet.
+- Tests: no local `npm test` this session; no product code changed. #20 merged to main (5a80c44) with CI green.
+- Last thing done: Nimish cleared M0 to start. `loop plan "M0 data model: to-spec then loop-ticket ..."` is running (Opus, in the main checkout, on branch plan/m0-spec). First attempt was killed by a 590s `timeout` wrapper and left nothing behind.
+- No M0 tickets or seed branches existed when this handoff was written.
 
 ## Next step
-Check githubstatus.com is green → `loop ci 20` (this handoff commit re-runs CI) → `gh pr merge 20 --squash --delete-branch` → `loop plan "M0: to-spec + loop-ticket"` (the M0 spec defines the "current visit" view over `visits`).
+Check the planner's result: `gh issue list` (M0 tickets) and `git branch -r | grep plan/t`. Then build loop per ticket: `loop prep N` → `loop build N` → `loop finish N` → reviewer → merge.
 
 ## Blocked / open questions (need Nimish)
-- Dependabot PRs #1–#5 (from upstream's `.github/dependabot.yml`, up to 5 a week, reviewer ArnasDon): #2/#3/#4 fail CI (major bumps), #1/#5 green. Recommended to him: close all five and delete `.github/dependabot.yml` (security alerts are on separately; automated security-fix PRs are off). He hasn't answered.
-- Assumption, open: staff (kakas, didis) = agent, quick-add only. Nimish didn't mention staff.
-- `beyond` still runs locally (db 54332) and may clash. The M0 runtime check (app on local Supabase, sign-in) has not run yet.
-- New hosted Supabase project at M7: Nimish creates it; cost not checked.
+- Dependabot PRs #1–#5: recommended close all + delete `.github/dependabot.yml`. Unanswered.
+- Assumption, open: staff (kakas, didis) = agent, quick-add only.
+- `beyond` runs locally (db 54332) and may clash with local Supabase; M0 runtime check not run.
+- M7 hosted Supabase project cost not checked.
 
 ## Don't repeat
-- A helper's port edit of supabase/config.toml was refused by the permission system (2026-11-25). Don't route around it; ask Nimish.
+- Never wrap `loop plan` in a shell `timeout` (it allows itself 90 min); run it in the background instead.
+- `loop plan` runs in the main checkout and switches branches: don't switch branches there while it runs (use a worktree).
 - Never open the platform repo (ADR 0003) or touch `ruznbyngtfjsaymuylhm` (ADR 0009). Don't stop other projects' Docker containers.
+- A helper's port edit of supabase/config.toml was refused (2026-11-25). Ask Nimish, don't route around it.
 - The loop guard blocks Bash naming frontend paths or `design/approved.json`, even read-only.
-- `loop plan` runs in the main checkout and switches branches: don't switch branches there while it runs.
-- During a GitHub incident, merges return 500 on both gh and REST: wait for githubstatus.com, don't retry in a tight loop.
 
 ## Files touched this session
-PROJECT.md, CLAUDE.md, GLOSSARY.md, ADMISSIONS_PROJECT.md, docs/adr/0005–0008, 0010 (planner); HANDOFF.md.
+HANDOFF.md.
