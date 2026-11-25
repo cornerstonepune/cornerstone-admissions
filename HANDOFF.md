@@ -3,7 +3,7 @@
 _Overwritten at the end of every session. Keep under 30 lines. Facts only._
 
 **Updated:** 2026-11-25 · **By:** Plan · **Model:** claude-opus-5-5
-**Milestone:** M0 — data model · **Branch:** plan/wireframes (pushed, NO PR yet) · **PR #31 status unchanged from last session**
+**Milestone:** M0 — data model · **Branch:** plan/wireframes (pushed at 4ba07e6, NO PR yet) · **PR #31 status unchanged from last session**
 
 ## State
 - Wireframes job is 2 of 16 done: `design/wireframes/S-today.html`, `S-lead.html`, both rendered and checked at 1440 and 500 px (headless Chrome cannot go narrower than 500).
