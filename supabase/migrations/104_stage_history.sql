@@ -8,6 +8,11 @@
 --   3. trigger leads_sync_deal_status     AFTER INSERT OR UPDATE OF exit, admitted_at ON leads: set deals.status to
 --        'won' when admitted_at is set, 'lost' when exit is set (lost or dormant), else 'open' — only when it differs.
 --        deals.closed_at is stamped by upstream's deals_stamp_closed_at; don't set it yourself.
+--   0. Only these triggers write lead_stage_history (ADR 0013 §2):
+--        DROP POLICY lead_stage_history_insert ON public.lead_stage_history;
+--        REVOKE INSERT ON public.lead_stage_history FROM authenticated;
+--      so the trigger functions of 1 and 2 are SECURITY DEFINER with SET search_path = public. They set
+--      moved_by = auth.uid() and leave entered_at to its default now(); account_id comes from the lead.
 --   4. the body of lead_days_in_stage (below): whole days on the India calendar since the lead's latest history row,
 --        (now() AT TIME ZONE 'Asia/Kolkata')::date - (entered_at AT TIME ZONE 'Asia/Kolkata')::date.
 --        NULL when the lead has no history.

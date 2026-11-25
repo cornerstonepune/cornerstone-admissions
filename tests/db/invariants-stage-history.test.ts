@@ -1,6 +1,6 @@
 // Invariant 5 (migration 104): every stage a lead enters writes one history row; the deal's status follows the lead.
 import { afterAll, describe, expect, it } from "vitest";
-import { account, lead, setting, sql, tx } from "./db";
+import { account, actAs, errorOf, lead, member, setting, sql, tx } from "./db";
 
 afterAll(() => sql.end());
 
@@ -61,5 +61,31 @@ describe("deal status follows the lead", () => {
       const [d] = await t`select status, closed_at from deals where id = ${dealId}`;
       expect(d.status).toBe("lost");
       expect(d.closed_at).not.toBeNull();
+    }));
+  it("stops anyone writing stage history directly", () =>
+    tx(async (t) => {
+      const a = await account(t);
+      const { leadId } = await lead(t, a);
+      const agent = await member(t, a.accountId, "agent");
+      await actAs(t, agent);
+      const err = await errorOf(
+        t,
+        (s) => s`insert into lead_stage_history (account_id, lead_id, stage_id) values (${a.accountId}, ${leadId}, ${a.stageIds[3]})`,
+      );
+      expect(err?.code).toBe("42501");
+    }));
+
+  it("records the first stage of a lead an agent creates, as moved by that agent", () =>
+    tx(async (t) => {
+      const a = await account(t);
+      const [c] = await t`insert into contacts (user_id, account_id, phone, name) values (${a.ownerId}, ${a.accountId}, '+919800000001', 'Parent') returning id`;
+      const [d] = await t`
+        insert into deals (user_id, account_id, pipeline_id, stage_id, contact_id, title)
+        values (${a.ownerId}, ${a.accountId}, ${a.pipelineId}, ${a.stageIds[0]}, ${c.id}, 'Lead') returning id`;
+      const agent = await member(t, a.accountId, "agent");
+      await actAs(t, agent);
+      const [l] = await t`insert into leads (account_id, deal_id, contact_id) values (${a.accountId}, ${d.id}, ${c.id}) returning id`;
+      const rows = await t`select stage_id, moved_by from lead_stage_history where lead_id = ${l.id}`;
+      expect(rows).toEqual([{ stage_id: a.stageIds[0], moved_by: agent }]);
     }));
 });

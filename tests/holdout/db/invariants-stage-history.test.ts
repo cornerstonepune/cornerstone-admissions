@@ -1,6 +1,6 @@
 // Hidden: stage history and deal status edge cases (ticket 104).
 import { afterAll, describe, expect, it } from "vitest";
-import { account, contact, lead, sql, tx } from "../../db/db";
+import { account, actAs, contact, errorOf, lead, member, sql, tx } from "../../db/db";
 
 afterAll(() => sql.end());
 
@@ -115,5 +115,32 @@ describe("deal status edge cases (hidden)", () => {
       await t`update leads set child_name = 'Aarav' where id = ${leadId}`;
       const [d] = await t`select status from deals where id = ${dealId}`;
       expect(d.status).toBe("open");
+    }));
+  it("stops even the owner writing or backdating stage history directly", () =>
+    tx(async (t) => {
+      const a = await account(t);
+      const { leadId } = await lead(t, a);
+      await actAs(t, a.ownerId);
+      const err = await errorOf(
+        t,
+        (s) => s`
+          insert into lead_stage_history (account_id, lead_id, stage_id, entered_at, moved_by)
+          values (${a.accountId}, ${leadId}, ${a.stageIds[4]}, now() - interval '30 days', ${a.ownerId})`,
+      );
+      expect(err?.code).toBe("42501");
+    }));
+
+  it("stamps a stage move with the signed-in user and the time of the move", () =>
+    tx(async (t) => {
+      const a = await account(t);
+      const { leadId, dealId } = await lead(t, a);
+      const agent = await member(t, a.accountId, "agent");
+      // upstream deals has no grants for authenticated locally (ADR 0012), so move it as the server with the agent's claims
+      await t`select set_config('request.jwt.claims', ${JSON.stringify({ sub: agent, role: "authenticated" })}, true)`;
+      await t`update deals set stage_id = ${a.stageIds[2]} where id = ${dealId}`;
+      const rows = await t`
+        select moved_by, entered_at = now() as "isNow" from lead_stage_history
+        where lead_id = ${leadId} and stage_id = ${a.stageIds[2]}`;
+      expect(rows).toEqual([{ moved_by: agent, isNow: true }]);
     }));
 });
