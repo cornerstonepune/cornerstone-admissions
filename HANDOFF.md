@@ -2,34 +2,19 @@
 
 _Overwritten at the end of every session. Keep under 30 lines. Facts only._
 
-**Updated:** 2026-11-25 23:40 · **By:** Plan · **Model:** claude-opus-5-5
-**Milestone:** M0 — data model · **Branch:** plan/m0-seeds-done · **PR:** this PR (ADR 0012, lessons, handoff)
+**Updated:** 2026-11-26 · **By:** Plan · **Model:** claude-opus-5-5
+**Milestone:** M0 — data model · **Branch:** plan/rls-fill-audit-either
 
 ## State
-- Seeds pushed (no PRs, by design): plan/t22 (101 RLS) · t23 (102 invite-only) · t24 (103 lead integrity) ·
-  t25 (104 stage history) · t26 (105 settings audit, size:small) · t27 (106 current visit). Each proven locally:
-  stub → visible+hidden tests red on assertions (not import errors); throwaway reference migration → all DB tests
-  green (28/26/27/30/21/24); reference not committed. eslint + typecheck clean on test files.
-- #23's stub also turns the `redeem_invitation` guard (`npm test`) red until the builder writes the full body: intended.
-- Found: this Supabase grants `authenticated` nothing on new tables/views. ADR 0012: explicit grants, RLS narrows.
-  #22's stub and issue now require the grants; #27 needs its view grant and is **blocked by #22**.
-- "Don't start yet" comments removed from #22–#27. #24 body updated (AFTER-trigger note). plan/m0-seeds-wip deleted.
+- CI runs `tests/holdout` from main, so PR #41 (#26, 105 settings audit) stayed red: main's hidden `rls.test.ts` `fill()` inserted a settings_changes row by hand and 105's trigger wrote a second. PR #40 (drop the insert) couldn't pass before 105 exists; closed.
+- Fix (this PR): `fill()` inserts the audit row only `where not exists` one for that setting, so it yields exactly 1 row with or without 105.
+- Proof (local `npm run db:reset`): main as is → rls.test.ts 10/10. With PR #41's `105_settings_audit.sql` copied in → 10/10. Old main fill() with 105 → 2 failed (the bug, reproduced).
 
 ## Next step
-Coordinator: run #22 first, then #23–#26 in any order, then #27, one at a time (shared local Supabase
-`supabase_db_wacrm`). After the last: `loop plan "M0 close: regenerate db/schema.sql"`.
-
-## Blocked / open questions (need Nimish)
-- Dependabot PRs #1–#5: recommended closing all and deleting `.github/dependabot.yml`. Unanswered.
-- Assumption, open: staff (kakas, didis) = agent, quick-add only.
-- New hosted Supabase project at M7: Nimish creates it; cost not checked.
-- Open (ADR 0012): all 43 upstream `public` tables lack grants for `authenticated` locally; plan a grants migration
-  before any milestone that clicks through upstream screens.
+1. After this merges: `loop ci 41`, then review and merge #41.
+2. After #41 merges: merge main into plan/t30 and plan/t36 before their builds.
+3. Still open: plan/wireframes PR (16 wireframes, ADR 0015) not opened; #36 seed not proven red; #37 has no seed.
 
 ## Don't repeat
-- Never open the platform repo (ADR 0003) or touch `ruznbyngtfjsaymuylhm` (ADR 0009). Don't stop other projects' Docker containers.
-- The loop guard blocks Bash naming frontend paths or `design/approved.json`, even read-only.
-- `loop plan` runs in the main checkout and switches branches: don't switch branches there while it runs.
-
-## Files touched this session
-docs/adr/0012, LESSONS.md, HANDOFF.md; seed branches plan/t22–t27 (migrations 101–106 stubs, tests/db, tests/holdout/db).
+- Hidden tests run from main: a test fix that must hold across a pending migration has to work both before and after it.
+- When a seed adds a trigger, re-prove every older test that writes to its tables against the real migration.
