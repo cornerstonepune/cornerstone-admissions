@@ -12,3 +12,8 @@ Assumptions made while drawing the PROJECT.md §4 wireframes, recorded because N
 6. **Admissions settings › People** shows the upstream Team members list (same API), not a second member store.
 7. **Stuck is amber, Untouched is red** (DESIGN.md §3: red only for overdue work); Lost and Dormant are grey filters, not lanes.
 8. **No real names** (DESIGN.md §6): sample members are "Meera S." (admin) and "Ravi K." (staff); notes say "admissions head", not a person's name.
+9. **Stages in Settings** can be renamed, but the six stages and their order are fixed in v1 (rules and the report depend on them).
+10. **A follow-up rule using a template Meta hasn't approved** saves but stays off until approval.
+11. **Quick-add on a known phone** makes no second lead; it adds a note to the open lead and tells the office.
+12. **Report "distance" line** is a `data-gap`: `leads.area` has no distance, so the report names areas until one is added.
+13. **Kind colours** (GLOSSARY.md): lead = `child`, visit and campus = `period`, call = `note`.

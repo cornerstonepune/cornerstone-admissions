@@ -1,0 +1,39 @@
+title: Contacts (Parents)
+kind: snapshot
+nav: contacts
+note: Route /contacts. Upstream contact list; the menu calls it Parents (ADR 0014 §4), the page keeps upstream wording until a milestone changes it. A row opens the contact sheet on the right.
+---
+<main class="wf-main">
+<div class="wf-col">
+  <div class="wf-trail">Parents</div>
+  <div class="wf-head">
+    <div>
+      <h1>Contacts</h1>
+      <p class="wf-lead">Manage your contact list. 1,284 total contacts.</p>
+    </div>
+    <div class="wf-row"><a class="b-btn" href="#">Custom fields</a><a class="b-btn" href="#">Import</a><a class="b-btn b-btn-main" href="#">Add Contact</a></div>
+  </div>
+  <div class="wf-row"><span class="wf-input wf-grow">Search by name, phone, or email...</span><span class="wf-input">Filter by tags ▾</span></div>
+  <div class="card" data-flush>
+  <table class="wf-table">
+    <thead><tr><th>☐</th><th>Name</th><th>Phone</th><th>Email</th><th>Tags</th><th>Created</th><th></th></tr></thead>
+    <tbody>
+      <tr data-open><td>☐</td><td data-label="Name"><a href="#">Priya Menon</a></td><td data-label="Phone">+91 98xxx xxx10</td><td data-label="Email">—</td><td data-label="Tags"><span class="wf-chip">gate</span></td><td data-label="Created">24 Nov 2026</td><td>⋯</td></tr>
+      <tr><td>☐</td><td data-label="Name"><a href="#">Anita Rao</a></td><td data-label="Phone">+91 97xxx xxx33</td><td data-label="Email">anita.r@…</td><td data-label="Tags"><span class="wf-chip">website</span></td><td data-label="Created">21 Nov 2026</td><td>⋯</td></tr>
+      <tr><td>☐</td><td data-label="Name"><a href="#">Neha Kulkarni</a></td><td data-label="Phone">+91 98xxx xxx21</td><td data-label="Email">—</td><td data-label="Tags"><span class="wf-chip">insta</span></td><td data-label="Created">2 Nov 2026</td><td>⋯</td></tr>
+      <tr><td>☐</td><td data-label="Name"><a href="#">Sameer Joshi</a></td><td data-label="Phone">+91 90xxx xxx77</td><td data-label="Email">—</td><td data-label="Tags">—</td><td data-label="Created">24 Nov 2026</td><td>⋯</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="wf-row b-caption"><span>Showing 1-25 of 1,284</span><span class="wf-grow"></span><span>Page 1 of 52 ‹ ›</span></div>
+</div>
+</main>
+<section class="wf-states" aria-label="Other states">
+  <h2>Other states</h2>
+  <div class="b-strip">
+    <div class="card"><h3>Row opened</h3><p>Right sheet: name, phone, [Send template]; tabs Details · Tags · Notes · Custom Fields · Deals.</p></div>
+    <div class="card"><h3>Rows ticked</h3><p>"2 selected" [Clear] [Delete selected]</p></div>
+    <div class="card"><h3>No contacts</h3><div class="b-empty"><p>No contacts yet.</p><a class="b-btn b-btn-main" href="#">Add your first contact</a></div></div>
+    <div class="card"><h3>No match</h3><div class="b-empty"><p>No contacts match your filters.</p></div></div>
+  </div>
+</section>

@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en" data-scheme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S-inbox · Inbox</title>
+<style>@layer wf, components;</style>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../platform/components/blocks.css">
+<style>@layer wf {
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font:var(--weight-body) var(--text-body)/var(--lh-body) var(--font-body)}
+h1{margin:0;font:var(--weight-title-page) var(--text-title-page)/var(--lh-title-page) var(--font-title-page);letter-spacing:var(--tracking-title-page)}
+h2{margin:0;font:var(--weight-title-section) var(--text-title-section)/var(--lh-title-section) var(--font-title-section);letter-spacing:var(--tracking-title-section)}
+h3{margin:0;font:var(--weight-title-small) var(--text-title-small)/var(--lh-title-small) var(--font-title-small)}
+p{margin:0}
+a{color:var(--link)}
+.wf-note{display:grid;gap:var(--space-0);padding:var(--space-2) var(--space-4);background:var(--highlight);border-bottom:1px solid var(--line);font-size:var(--text-label);line-height:var(--lh-label)}
+.wf-note b{font-weight:600}
+.wf-app{display:grid;grid-template-columns:calc(var(--space-7) * 2.5) minmax(0,1fr);grid-template-rows:auto 1fr;min-height:100vh}
+.wf-app[data-frame="bare"]{grid-template-columns:minmax(0,1fr)}
+.wf-bar{grid-column:1/-1;display:flex;align-items:center;gap:var(--space-3);min-height:calc(var(--tap) + var(--space-2));padding:0 var(--space-4);background:var(--bar);color:var(--bar-ink);font-size:var(--text-label)}
+.wf-bar a{color:var(--bar-ink)}
+.wf-mark{display:flex;align-items:center;gap:var(--space-2);font:var(--weight-title-small) var(--text-title-small)/var(--lh-title-small) var(--font-serif);color:var(--bar-ink);text-decoration:none}
+.wf-mark i{display:grid;place-items:center;width:var(--space-4);height:var(--space-4);border-radius:var(--radius-control);background:var(--brand-clay);color:var(--bar-ink);font-style:normal}
+.wf-grow{flex:1}
+.wf-search{display:flex;align-items:center;min-width:calc(var(--space-7) * 3);min-height:calc(var(--tap) - var(--space-1));padding:0 var(--space-3);border-radius:var(--radius-pill);background:var(--bar-pill);color:var(--bar-pill-ink)}
+.wf-bell{position:relative}
+.wf-bell b{display:inline-grid;place-items:center;min-width:var(--space-3);padding:0 var(--space-0);border-radius:var(--radius-pill);background:var(--bar-badge);color:var(--bar-ink);font-size:var(--text-caption)}
+.wf-menubtn{display:none}
+.wf-menu{display:grid;align-content:start;gap:var(--space-0);padding:var(--space-3) var(--space-2);background:var(--menu);color:var(--menu-ink)}
+.wf-menu a{display:flex;align-items:center;gap:var(--space-2);min-height:var(--tap);padding:0 var(--space-2);border-radius:var(--radius-control);color:var(--menu-ink);text-decoration:none;font-size:var(--text-label);font-weight:600}
+.wf-menu a i{display:grid;place-items:center;width:var(--space-4);height:var(--space-4);border-radius:var(--radius-control);background:var(--menu-hover);font-style:normal}
+.wf-menu a[aria-current]{background:var(--action-soft);color:var(--action-soft-ink)}
+.wf-menu a b{margin-left:auto;padding:0 var(--space-1);border-radius:var(--radius-pill);background:var(--action);color:var(--action-ink);font-size:var(--text-caption)}
+.wf-menu h4{margin:var(--space-3) 0 var(--space-0);padding:0 var(--space-2);font:var(--weight-eyebrow) var(--text-eyebrow)/var(--lh-eyebrow) var(--font-eyebrow);text-transform:uppercase;color:var(--menu-ink-muted)}
+.wf-main{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--space-5);align-content:start;padding:var(--space-4) var(--space-4) var(--space-7)}
+.wf-col{display:grid;gap:var(--space-4);align-content:start;min-width:0}
+.wf-trail{font-size:var(--text-label);color:var(--ink-muted)}
+.wf-head{display:flex;flex-wrap:wrap;align-items:flex-end;gap:var(--space-3);padding-bottom:var(--space-2)}
+.wf-head > div:first-child{display:grid;gap:var(--space-1);flex:1 1 calc(var(--space-7) * 3);min-width:0}
+.wf-eyebrow{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-1);font:var(--weight-eyebrow) var(--text-eyebrow)/var(--lh-eyebrow) var(--font-eyebrow);text-transform:uppercase;color:var(--ink-muted)}
+.wf-lead{max-width:70ch;font:var(--weight-lead) var(--text-lead)/var(--lh-lead) var(--font-lead);color:var(--ink-muted)}
+.wf-sec{display:grid;gap:var(--space-2);align-content:start;min-width:0}
+.wf-sec > header{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--space-2)}
+.wf-sec > header > p{color:var(--ink-muted);font-size:var(--text-label)}
+.wf-take{padding:var(--space-1) var(--space-2);border-radius:var(--radius-control);background:var(--highlight);font-size:var(--text-label)}
+.wf-row{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2)}
+.wf-two{display:grid;grid-template-columns:repeat(auto-fit,minmax(calc(var(--space-7) * 3.5),1fr));gap:var(--space-4);align-items:start}
+.wf-chip{display:inline-flex;align-items:center;gap:var(--space-0);min-height:calc(var(--space-3) + var(--space-0));padding:0 var(--space-2);border-radius:var(--radius-pill);background:var(--cb,var(--surface));color:var(--c,var(--ink-muted));font-size:var(--text-label);font-weight:600;white-space:nowrap}
+.wf-chip[data-state="unseen"]{border:1px dashed var(--line-control)}
+.wf-kind{display:inline-flex;align-items:center;gap:var(--space-0);padding:0 var(--space-2);border-radius:var(--radius-pill);background:var(--kb);color:var(--k);font-size:var(--text-label);font-weight:600}
+.wf-table{width:100%;border-collapse:collapse;font-size:var(--text-label)}
+.wf-table th{padding:var(--space-1) var(--space-2);border-bottom:1px solid var(--line);color:var(--ink-muted);font-weight:600;text-align:start;white-space:nowrap}
+.wf-table td{padding:var(--space-2);border-bottom:1px solid var(--line);vertical-align:middle}
+.wf-table td.n,.wf-table th.n{text-align:end;font-variant-numeric:tabular-nums}
+.wf-table tr[data-open] td{background:var(--action-soft)}
+.wf-table tr[data-state="late"] td:first-child{box-shadow:inset var(--space-0) 0 0 var(--state-late)}
+.wf-tabs{display:flex;gap:var(--space-1);overflow-x:auto;border-bottom:1px solid var(--line)}
+.wf-tabs a{display:flex;align-items:center;min-height:var(--tap);padding:0 var(--space-2);border-bottom:calc(var(--space-0) / 2) solid transparent;color:var(--ink-muted);font-size:var(--text-label);text-decoration:none;white-space:nowrap}
+.wf-tabs a[aria-current]{border-bottom-color:var(--action);color:var(--ink);font-weight:600}
+.wf-seg{display:inline-flex;border:1px solid var(--line-control);border-radius:var(--radius-control);overflow:hidden}
+.wf-seg a,.wf-seg span{display:flex;align-items:center;min-height:calc(var(--tap) - var(--space-1));padding:0 var(--space-2);color:var(--ink-muted);font-size:var(--text-label);text-decoration:none}
+.wf-seg [aria-current],.wf-seg [aria-pressed="true"]{background:var(--action-soft);color:var(--action-soft-ink);font-weight:600}
+.wf-input{display:flex;align-items:center;min-height:var(--tap);padding:0 var(--space-2);border:1px solid var(--line-control);border-radius:var(--radius-control);background:var(--ground);color:var(--ink-muted);font-size:var(--text-label)}
+.wf-board{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(calc(var(--space-7) * 2.4),1fr);gap:var(--space-3);overflow-x:auto;align-items:start}
+.wf-lane{display:grid;gap:var(--space-2);align-content:start;padding:var(--space-2);border-radius:var(--radius-card);background:var(--surface)}
+.wf-lane > header{display:flex;align-items:center;gap:var(--space-1);font-size:var(--text-label);font-weight:600}
+.wf-lane > header span{margin-left:auto}
+.wf-board .card[aria-current]{box-shadow:var(--shadow-lift);border-color:var(--action)}
+.wf-panel{display:grid;gap:var(--space-3);align-content:start;align-self:start;width:calc(var(--space-7) * 4.25);padding:var(--space-card);border-radius:var(--radius-card);background:var(--panel);box-shadow:var(--shadow-pop)}
+.wf-panel > header{display:flex;align-items:flex-start;gap:var(--space-2)}
+.wf-panel > header > div{flex:1;display:grid;gap:var(--space-0)}
+.wf-split{display:grid;grid-template-columns:calc(var(--space-7) * 3.5) minmax(0,1fr) calc(var(--space-7) * 3);min-height:calc(var(--space-7) * 6.5);border-radius:var(--radius-card);background:var(--panel);box-shadow:var(--shadow-card);overflow:hidden}
+.wf-split > *{display:grid;gap:var(--space-2);align-content:start;padding:var(--space-3);min-width:0}
+.wf-split > * + *{border-left:1px solid var(--line)}
+.wf-bubble{max-width:75%;padding:var(--space-1) var(--space-2);border-radius:var(--radius-card);background:var(--surface);font-size:var(--text-label)}
+.wf-bubble[data-out]{justify-self:end;background:var(--action-soft);color:var(--action-soft-ink)}
+.wf-skel{display:block;min-height:var(--space-2);border-radius:var(--radius-small);background:var(--surface)}
+.wf-states{display:grid;gap:var(--space-3);padding:var(--space-4);border-top:1px solid var(--line);background:var(--surface)}
+.wf-states > .b-strip > .card{align-content:start}
+.wf-gap{outline:1px dashed var(--state-wait);outline-offset:var(--space-0)}
+.wf-switch{display:inline-flex;align-items:center;width:var(--space-5);height:calc(var(--space-3) + var(--space-0));padding:0;border-radius:var(--radius-pill);background:var(--line-control)}
+.wf-switch::after{content:"";width:var(--space-3);height:var(--space-3);margin:0 var(--space-0) 0 calc(var(--space-0) / 2);border-radius:var(--radius-pill);background:var(--panel)}
+.wf-switch[aria-checked="true"]{justify-content:flex-end;background:var(--action)}
+.wf-switch[aria-checked="true"]::after{margin:0 calc(var(--space-0) / 2) 0 0}
+.wf-phone{display:grid;gap:var(--space-3);width:100%;max-width:calc(var(--space-7) * 4.25);margin:0 auto}
+.wf-bar-fill{display:block;height:var(--space-2);width:calc(var(--n) * 1%);border-radius:var(--radius-small);background:var(--fill,var(--kind-child))}
+.wf-yard{color:var(--ink-muted);font-size:var(--text-caption)}
+@media (max-width:700px){
+  .wf-note{padding:var(--space-2) var(--space-3)}
+  .wf-app{grid-template-columns:minmax(0,1fr)}
+  .wf-menu{display:none}
+  .wf-menubtn{display:inline-flex}
+  .wf-bar{padding:0 var(--space-3);gap:var(--space-2)}
+  .wf-search{min-width:0;flex:1}
+  .wf-bar .wf-wide,.wf-hide-phone{display:none}
+  .wf-main{grid-template-columns:minmax(0,1fr);padding:var(--space-3) var(--space-3) var(--space-6)}
+  .wf-panel{width:auto}
+  .wf-split{grid-template-columns:minmax(0,1fr)}
+  .wf-split > * + *{border-left:0;border-top:1px solid var(--line)}
+  .wf-table thead{display:none}
+  .wf-table,.wf-table tbody,.wf-table tr,.wf-table td{display:block}
+  .wf-table tr{padding:var(--space-1) 0;border-bottom:1px solid var(--line)}
+  .wf-table td{padding:var(--space-0) var(--space-2);border:0}
+  .wf-table td.n{text-align:start}
+  .wf-table td[data-label]::before{content:attr(data-label) " · ";color:var(--ink-muted)}
+  .wf-states{padding:var(--space-3)}
+}
+}
+</style>
+</head>
+<body data-block="Wireframe">
+<div class="wf-note"><b>S-inbox · Inbox</b><span>Snapshot of a built screen (upstream wacrm, as it will look after the M1 restyle; layout not redesigned). Route /inbox. Three panes: conversations, the thread, the parent. Upstream wording stays (ADR 0014 §4). AI draft and AI banners are hidden in v1. M3 adds the lead's stage to the parent pane through S-lead; nothing else changes here.</span><span>Low-fidelity wireframe. Sample names and numbers are invented. Narrow the window below 700 px to see the phone layout. Glyphs stand in for Lucide icons. Dashed amber outline = a number the database cannot give yet (<code>data-gap</code>).</span></div>
+<div class="wf-app" data-frame="full"><header class="wf-bar"><a class="wf-menubtn" href="#">☰ Menu</a><a class="wf-mark" href="#"><i aria-hidden="true">C</i><span class="wf-wide">Cornerstone Admissions</span></a><span class="wf-grow"></span><span class="wf-search">Search parents, children, phone…</span><span class="wf-wide">Meera S. · admin</span><a class="wf-wide" href="#">?</a><a href="#">Sign out</a></header><nav class="wf-menu" aria-label="Sections">
+<h4>Daily work</h4>
+<a href="#"><i aria-hidden="true">T</i>Today <b data-source="lead_activity.due_at, leads (untouched)">7</b></a>
+<a href="#" aria-current="page"><i aria-hidden="true">I</i>Inbox</a>
+<a href="#"><i aria-hidden="true">P</i>Pipeline</a>
+<a href="#"><i aria-hidden="true">C</i>Parents</a>
+<a href="#"><i aria-hidden="true">N</i>Notifications <b data-source="notifications.read_at">3</b></a>
+<h4>Oversight</h4>
+<a href="#"><i aria-hidden="true">R</i>Report</a>
+<a href="#"><i aria-hidden="true">D</i>Dashboard</a>
+<h4>Set up</h4>
+<a href="#"><i aria-hidden="true">A</i>Admissions settings</a>
+<a href="#"><i aria-hidden="true">F</i>Flows</a>
+<a href="#"><i aria-hidden="true">Z</i>Automations</a>
+<a href="#"><i aria-hidden="true">S</i>Account settings</a>
+</nav><main class="wf-main">
+<div class="wf-col">
+  <div class="wf-split" data-block="Inbox">
+    <div>
+      <span class="wf-input">Search conversations...</span>
+      <div class="wf-row"><span class="wf-input">Status: All ▾</span><span class="wf-input">Tags ▾</span></div>
+      <ul class="b-rlist">
+        <li class="b-ritem" data-open><b>Priya Menon</b><span class="b-caption">"Please call me back"</span><span class="b-num">09:12</span><span class="wf-chip" data-state="late">2</span></li>
+        <li class="b-ritem"><b>Anita Rao</b><span class="b-caption">"What are the fees for nursery?"</span><span class="b-num">08:47</span><span class="wf-chip" data-state="wait">1</span></li>
+        <li class="b-ritem"><b>Neha Kulkarni</b><span class="b-caption">You: Thank you for visiting…</span><span class="b-num">Yesterday</span></li>
+        <li class="b-ritem"><b>+91 99xxx xxx08</b><span class="b-caption">"Hi"</span><span class="b-num">Mon</span></li>
+      </ul>
+    </div>
+    <div>
+      <div class="wf-row"><b>Priya Menon</b><span class="b-caption">+91 98xxx xxx10</span><span class="wf-grow"></span><span class="wf-chip" data-state="wait">◐ 3h remaining</span><span class="wf-input">Open ▾</span><span class="wf-input">Assign ▾</span></div>
+      <a class="b-caption" href="#">Load older messages</a>
+      <p class="b-caption">— 24 Nov —</p>
+      <p class="wf-bubble">Hi, I want admission for my daughter in nursery</p>
+      <p class="wf-bubble" data-out>Namaste! Thank you for writing to Cornerstone. Book a visit · Call me back · Send me details</p>
+      <p class="wf-bubble">Please call me back</p>
+      <span class="wf-input">Type a message... (Shift+Enter for new line)</span>
+      <div class="wf-row"><span class="b-btn">📎</span><span class="b-btn">More ▾</span><span class="b-btn">Templates</span><span class="wf-grow"></span><a class="b-btn b-btn-main" href="#">Send</a></div>
+    </div>
+    <div>
+      <b>Priya Menon</b>
+      <dl class="b-kv"><dt>Phone</dt><dd>+91 98xxx xxx10 ⧉</dd><dt>Email</dt><dd>—</dd></dl>
+      <h3>Tags</h3><p><span class="wf-chip">gate</span> <a href="#">+ Add tags</a></p>
+      <h3>Deals</h3><p class="b-caption">Kavya · Enquiry (becomes the lead in M3)</p>
+      <h3>Notes</h3><span class="wf-input">Add a note...</span>
+    </div>
+  </div>
+</div>
+</main>
+</div><section class="wf-states" aria-label="Other states">
+  <h2>Other states</h2>
+  <div class="b-strip">
+    <div class="card"><h3>Not connected</h3><p><span class="wf-chip" data-state="wait">◐ WhatsApp® is not connected…</span></p><p class="b-caption">Banner above the panes until M5 connects the number.</p></div>
+    <div class="card"><h3>No conversation chosen</h3><div class="b-empty"><p>Select a conversation</p></div></div>
+    <div class="card"><h3>Window closed</h3><p><span class="wf-chip" data-state="late">● Expired</span> 24-hour session expired. Use a template to re-engage.</p></div>
+    <div class="card"><h3>Empty list</h3><div class="b-empty"><p>No conversations found</p></div></div>
+    <div class="card"><h3>Phone</h3><p>One pane at a time: list → thread → parent, with Back.</p></div>
+  </div>
+</section>
+
+</body>
+</html>
