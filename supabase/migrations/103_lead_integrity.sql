@@ -1,6 +1,7 @@
 -- 103 — lead integrity (spec docs/spec/m0-data-model.md; ADR 0010, 0011, 0013 §1).
 -- Every rejection is 23514 with one plain sentence (a missing id and another account's id read the same).
--- Lookups run as the caller (except the deals read in check_lead_integrity); triggers check INSERT and UPDATE.
+-- Triggers and the admissions_settings lookups run as the caller (RLS applies). Only two tiny SECURITY DEFINER helpers
+-- exist, for upstream tables agents cannot SELECT (deals, messages/conversations); each returns just a boolean.
 
 CREATE OR REPLACE FUNCTION public.admissions_setting_is(
   p_setting_id uuid, p_account_id uuid, p_kind public.admissions_setting_kind
@@ -13,11 +14,23 @@ AS $$
     WHERE s.id = p_setting_id AND s.account_id = p_account_id AND s.kind = p_kind)
 $$;
 
--- SECURITY DEFINER only for the read of upstream deals, which agents have no grant on; nothing is granted or returned.
-CREATE FUNCTION public.check_lead_integrity() RETURNS trigger
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+CREATE FUNCTION public.deal_matches_lead(p_deal_id uuid, p_account_id uuid, p_contact_id uuid) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
 AS $$
-DECLARE d public.deals;
+  SELECT EXISTS (SELECT 1 FROM public.deals
+    WHERE id = p_deal_id AND account_id = p_account_id AND contact_id IS NOT DISTINCT FROM p_contact_id)
+$$;
+
+CREATE FUNCTION public.message_in_account(p_message_id uuid, p_account_id uuid) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
+AS $$
+  SELECT EXISTS (SELECT 1 FROM public.messages m JOIN public.conversations c ON c.id = m.conversation_id
+    WHERE m.id = p_message_id AND c.account_id = p_account_id)
+$$;
+
+CREATE FUNCTION public.check_lead_integrity() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public
+AS $$
 BEGIN
   IF NOT public.admissions_setting_is(NEW.campus_id, NEW.account_id, 'campus')
      OR NOT public.admissions_setting_is(NEW.source_id, NEW.account_id, 'source')
@@ -25,8 +38,7 @@ BEGIN
     RAISE EXCEPTION 'A lead can only use campus, source and lost-reason settings of its own account and the right kind'
       USING ERRCODE = '23514';
   END IF;
-  SELECT * INTO d FROM public.deals WHERE id = NEW.deal_id;
-  IF NOT FOUND OR d.account_id IS DISTINCT FROM NEW.account_id OR d.contact_id IS DISTINCT FROM NEW.contact_id THEN
+  IF NOT public.deal_matches_lead(NEW.deal_id, NEW.account_id, NEW.contact_id) THEN
     RAISE EXCEPTION 'A lead must be in the same account and have the same contact as its deal' USING ERRCODE = '23514';
   END IF;
   RETURN NEW;
@@ -65,9 +77,7 @@ BEGIN
        SELECT 1 FROM public.lead_stage_history WHERE id = NEW.stage_history_id AND lead_id = NEW.lead_id) THEN
     RAISE EXCEPTION 'A lead activity can only point at a stage entry of its own lead' USING ERRCODE = '23514';
   END IF;
-  IF NEW.message_id IS NOT NULL AND NOT EXISTS (
-       SELECT 1 FROM public.messages m JOIN public.conversations c ON c.id = m.conversation_id
-       WHERE m.id = NEW.message_id AND c.account_id = NEW.account_id) THEN
+  IF NEW.message_id IS NOT NULL AND NOT public.message_in_account(NEW.message_id, NEW.account_id) THEN
     RAISE EXCEPTION 'A lead activity can only point at a message of its own account' USING ERRCODE = '23514';
   END IF;
   RETURN NEW;
@@ -82,6 +92,9 @@ LANGUAGE plpgsql SET search_path = public
 AS $$
 BEGIN
   IF EXISTS (SELECT 1 FROM public.leads WHERE deal_id = NEW.id) THEN
+    IF NEW.account_id IS DISTINCT FROM OLD.account_id THEN
+      RAISE EXCEPTION 'A deal with a lead cannot move to another account' USING ERRCODE = '23514';
+    END IF;
     IF NEW.contact_id IS NULL THEN
       RAISE EXCEPTION 'A deal with a lead must keep its contact' USING ERRCODE = '23514';
     END IF;
@@ -90,5 +103,5 @@ BEGIN
   RETURN NULL;
 END $$;
 
-CREATE TRIGGER deals_sync_lead_contact AFTER UPDATE OF contact_id ON public.deals
+CREATE TRIGGER deals_sync_lead_contact AFTER UPDATE OF contact_id, account_id ON public.deals
   FOR EACH ROW EXECUTE FUNCTION public.sync_lead_contact();
