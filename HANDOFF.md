@@ -6,22 +6,14 @@ _Overwritten at the end of every session. Keep under 30 lines. Facts only._
 **Milestone:** M0 — data model · **Branch:** plan/rls-fill-audit-either
 
 ## State
-- CI runs `tests/holdout` from main, so PR #41 (#26, 105 settings audit) stayed red: main's hidden `rls.test.ts` `fill()` inserted a settings_changes row by hand and 105's trigger wrote a second. PR #40 (drop the insert) couldn't pass before 105 exists; closed.
-- Fix (this PR): `fill()` inserts the audit row only `where not exists` one for that setting, so it yields exactly 1 row with or without 105.
-- Proof (local `npm run db:reset`): main as is → rls.test.ts 10/10. With PR #41's `105_settings_audit.sql` copied in → 10/10. Old main fill() with 105 → 2 failed (the bug, reproduced).
+- Merged this session: #30 (107, PR 46), #27 (106, PR 47). M0 left: #36 (108), #37 (109), then regenerate db/schema.sql (ADR 0011). 16 wireframes merged, awaiting Nimish's own sign-off.
+- PR #48 (#36): loop-guard red only on "Ticket PR without a handoff": builder never wrote docs/loop/handoff/36.md. Fix: loop prep 36, loop build 36, loop finish 36.
+- #37: seed proven red; 2 builds failed on "Bash permission denied" (builder env, not code); 1 attempt left, then loop build 37 --rescue.
+- Stale Plan-base fix: when loop-guard says "must not edit HANDOFF.md", run loop plan to merge main into plan/tN and update the PR body Plan-base.
 
 ## Next step
-1. After this merges: `loop ci 41`, then review and merge #41.
-2. After #41 merges: merge main into plan/t30 and plan/t36 before their builds.
-3. Still open: plan/wireframes PR (16 wireframes, ADR 0015) not opened; #36 seed not proven red; #37 has no seed.
+1. #36 handoff fix, #37 rescue, merge both. 2. M0 close: npm run db:schema via plan job. 3. Then M1 tickets.
 
 ## Don't repeat
-- Hidden tests run from main: a test fix that must hold across a pending migration has to work both before and after it.
-- When a seed adds a trigger, re-prove every older test that writes to its tables against the real migration.
-
-## Coordinator session 2026-11-26 (appended)
-- Merged: #23 (102), #24 (103), #25 (104), #26 (105), PR #44 (all 16 wireframes, still unapproved: Nimish signs each off himself). Follow-up tickets for #24 review findings: #36, #37 (#37 has no seed).
-- ESCALATED #30 (107): the builder wrote "## Blocked / - none" and `loop finish` treats the heading as a block (5 attempts failed). Fix with a plan job on the ticket, or rebuild with a handoff that omits the Blocked heading. The migration is in the #30 build folder.
-- Lessons: CI runs tests/holdout from main, so seed test fixes land on main first. Builders can't merge; Builders are NOT Bash-denied: only commands starting with `(`, heredocs or `python3 -` are refused (loop BUILDER_RULES fixed 2026-11-26, nimishshah1989/loop PR #8). Never put orchestrator advice like "git merge" in a ticket's Don't. loop-guard blames a PR for planning commits merged after its Plan-base: refresh seeds from main before building.
-- #27 (106): attempts 1–2 failed only on the Bash trap (a `( npm …` and a python3 heredoc refused), not on code. The edit to 106 is on disk in .loop/wt/27, unverified. Last attempt: `loop prep 27` then `loop build 27`; the builder rule now covers it. Session 2's 'NEEDS NIMISH: allow Bash' was a misdiagnosis: don't change permission settings.
-- Next: #30, #27 (merge main into plan/t27 first), #36, seed #37, then M0 close: regenerate db/schema.sql.
+- Seed hidden tests must also pass against a correct implementation, not only fail on main.
+- Reviewer notes (plan follow-ups): lead_activity call_task rows can still carry rule_id (add CHECK); rule_id ON DELETE SET NULL clashes with lead_activity_send_has_rule; no test of lead_current_visit as an account member.
