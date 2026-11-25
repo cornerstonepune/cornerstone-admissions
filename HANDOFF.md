@@ -11,6 +11,10 @@ _Overwritten at the end of every session. Keep under 30 lines. Facts only._
 - #36 seed `plan/t36` pushed (108 stub + visible + hidden tests) but NOT proven red yet. #37 has no seed.
 - design/approved.json untouched.
 
+## Tests
+- Wireframe guard (`python3 design/wireframes/src/gen.py design/wireframes`) passes for all 16 at 694fa0d. No code tests touched on plan/wireframes.
+- #36 seed tests not yet run (unverified).
+
 ## Next step
 1. Open ONE PR plan/wireframes → main ("Wireframes: all 16 screens; ADR 0015"), `loop ci <pr>`, merge when green.
 2. Prove #36 red: apply 108 stub, run `npx vitest run --config vitest.db.config.ts tests/db/invariants-settings-in-use.test.ts tests/holdout/db/invariants-settings-in-use.test.ts`; expect the "rejects"/"counts"/"refuses" cases red, the "lets"/"allows" ones green. Fix the seed if anything errors (e.g. admin can't update settings under RLS).
