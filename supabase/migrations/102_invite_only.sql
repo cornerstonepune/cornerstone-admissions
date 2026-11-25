@@ -1,0 +1,12 @@
+-- 102 — self sign-up off; an invited user with no profile gets one (G0.2, invariant 1; ADR 0006, spec docs/spec/m0-data-model.md).
+--
+-- Write exactly two things:
+--   1. DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+--      (leave public.handle_new_user() in place: upstream code still names it)
+--   2. CREATE OR REPLACE FUNCTION public.redeem_invitation(p_token_hash TEXT) RETURNS UUID
+--      = the whole body from 100_admissions_tables.sql, with ONE branch changed:
+--      where it raises 'Caller has no profile', instead insert the caller's profile
+--        (user_id = caller, full_name = COALESCE(raw_user_meta_data->>'full_name', ''), email = auth.users.email,
+--         account_id = invitation's account, account_role = invitation's role),
+--      set the invitation's accepted_at = NOW() and accepted_by_user_id = caller, and RETURN its account_id.
+--      Every other branch, message and error code stays exactly as it is.
