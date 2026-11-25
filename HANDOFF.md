@@ -2,21 +2,21 @@
 
 _Overwritten at the end of every session. Keep under 30 lines. Facts only._
 
-**Updated:** 2026-11-25 21:16 · **By:** Coordinator · **Model:** claude-opus-5-5
-**Milestone:** M0 — data model · **Branch:** plan/adopt · **PR:** #20 (not merged: needs the changes below, then Nimish's OK)
+**Updated:** 2026-11-25 · **By:** Planner · **Model:** claude-opus-5-5
+**Milestone:** M0 — data model · **Branch:** plan/adopt · **PR:** #20 (not merged: waits for Nimish's OK on the four points in its body)
 
 ## State
 - Merged: #6 loop harness, #19 platform design copy (ADR 0003; port tickets #7–#18 queued behind wireframes).
-- #20 = loop-adopt: PROJECT.md, db/schema.sql, GLOSSARY.md, ADRs 0004–0009. CI green before the ADR 0009 commit.
-- Nimish decided 2026-11-25: admissions gets its own Supabase project (ADR 0009). PROJECT.md, CLAUDE.md data rules and M0 goals are NOT yet updated for it.
+- #20 = loop-adopt: PROJECT.md, db/schema.sql, GLOSSARY.md, ADRs 0004–0010.
+- ADR 0009 (own Supabase project) folded into PROJECT.md §2/§3/§5, CLAUDE.md data rules, brief note; ADR 0005 marked partly superseded. G0.1 rewritten (plain `supabase db reset`), G0.5 now just `npm test`, G7.3/G7.4 rewritten, invariant 1 now invite-only.
+- ADR 0010: M0 adds 5 tables (leads, lead_stage_history, admissions_settings, lead_activity, settings_changes); invariants 6–7 updated.
 - No product code written yet.
 
 ## Next step
-`loop plan "Fold ADR 0009 and the table cut into PR #20: PROJECT.md §2/§3/§5, CLAUDE.md data rules, brief note; cut new admissions tables to the minimum (see Blocked); list the remaining assumptions in the PR body for Nimish"` → `loop ci 20` → Nimish's OK → merge → `loop plan "M0: to-spec + loop-ticket"`.
+`loop ci 20` → Nimish's OK on the PR body (5 tables, light only, one child per lead, roles) → merge → `loop plan "M0: to-spec + loop-ticket"`.
 
 ## Blocked / open questions (need Nimish)
-- Table cut: Nimish says ~35 tables is too many. The 37 are upstream wacrm (stay as they are). Proposed: cut the 12 new admissions tables to ~5 (leads incl. visit + exit + lost reason; lead_stage_history; one settings table for campuses/sources/lost reasons/rules/alerts; one sends-and-calls log; settings_changes). He hasn't explicitly confirmed the 5: planner applies it and shows it on #20 for his OK.
-- Still unconfirmed on #20: light mode only (ADR 0008), one child per lead (ADR 0007), role mapping (ADR 0006).
+- Unconfirmed on #20: the 5-table cut (ADR 0010), light mode only (ADR 0008), one child per lead (ADR 0007), role mapping (ADR 0006).
 - Port clash cleared: Nimish stopped the `assessment-engine` stack. `beyond` still runs (db 54332) and may clash. The M0 runtime check (app on local Supabase, sign-in) has not run yet.
 - New hosted Supabase project at M7: Nimish creates it; cost not checked. Dependabot PRs #1–#5 untouched.
 
@@ -27,4 +27,4 @@ _Overwritten at the end of every session. Keep under 30 lines. Facts only._
 - `loop plan` runs in the main checkout and switches branches: don't switch branches there while it runs.
 
 ## Files touched this session
-HANDOFF.md, docs/adr/0009-own-supabase-project.md. Planner sessions: see #19, #20.
+PROJECT.md, CLAUDE.md, ADMISSIONS_PROJECT.md, docs/adr/0005, docs/adr/0010 (new), HANDOFF.md.

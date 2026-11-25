@@ -17,14 +17,14 @@ _The locked blueprint. Agents read §1–4 and the current milestone every sessi
 - **Done for v1 means:** live on the real admissions number, old sheet imported, and no lead lives in a WhatsApp group, a personal phone or a sheet.
 
 ## 2. Architecture
-- **Stack:** fork of `ArnasDon/wacrm` (MIT, ADR 0001): Next.js 16 App Router + React 19 (what wacrm is), Supabase Postgres + RLS + Auth (wacrm's data layer; go-live in the school's existing project), Meta WhatsApp Cloud API (direct, no provider), Cal.com hosted (free booking), next-intl, Vitest. Hosting chosen at M7 (Cloudflare first, Docker fallback; brief D5).
+- **Stack:** fork of `ArnasDon/wacrm` (MIT, ADR 0001): Next.js 16 App Router + React 19 (what wacrm is), Supabase Postgres + RLS + Auth (wacrm's data layer; its own Supabase project: local until M7, then a new hosted project, ADR 0009), Meta WhatsApp Cloud API (direct, no provider), Cal.com hosted (free booking), next-intl, Vitest. Hosting chosen at M7 (Cloudflare first, Docker fallback; brief D5).
 - **Shape:** one Next.js monolith. Upstream modules stay where they are (`src/lib/{whatsapp,automations,flows,pipelines,…}`); our code lives in `src/admissions/`, our migrations in `supabase/migrations/` numbered from 100. Upstream files are touched as little as possible.
 - **External systems:** Meta Cloud API (inbound webhook, signed, fails closed; outbound send per message), Cal.com webhook (booking, reschedule, cancel, no-show), a scheduler calling `/api/automations/cron` and `/api/flows/cron` every minute with `x-cron-secret`.
 - **Tenancy / security:** one account (Cornerstone admissions). Access = a `profiles` row for the user with `account_id` and `account_role` (owner > admin > agent > viewer), checked by `is_account_member()` in RLS on every table (ADR 0006). No self sign-up; people join by invitation.
-- **Non-negotiables:** every DB object in schema `admissions` (ADR 0005); local Supabase only until M7, never `supabase db push`, never the Supabase MCP on `ruznbyngtfjsaymuylhm` before M7; no trigger on `auth.users`; buckets prefixed `admissions-`; isolation from every other Cornerstone repo (brief §4, ADR 0003); every Settings change logged with who and when.
+- **Non-negotiables:** admissions has its own Supabase project and never touches the shared project `ruznbyngtfjsaymuylhm` (ADR 0009); upstream tables stay in `public` untouched, ours sit beside them; local Supabase only until M7, never `supabase db push`; self sign-up off (invite only); isolation from every other Cornerstone repo (brief §4, ADR 0003); every Settings change logged with who and when.
 
 ## 3. Data model
-- **Source of truth:** `db/schema.sql`, generated from the migrations (ADR 0005). Don't copy columns here. Today it is upstream's 37 tables in `public`; M0 moves them to `admissions` and adds ours.
+- **Source of truth:** `db/schema.sql`, generated from the migrations (ADR 0005). Don't copy columns here. Today it is upstream's 37 tables in `public`; M0 adds our 5 beside them (ADR 0009, ADR 0010).
 - **Entities that exist (upstream, all with RLS on, verified 2026-11-25):**
 
 | Table | Holds | Key relations | Rough rows | Notes |
@@ -43,16 +43,16 @@ _The locked blueprint. Agents read §1–4 and the current milestone every sessi
 | broadcasts, broadcast_recipients | bulk sends | | 0 | hidden in v1 |
 | ai_configs, ai_knowledge_documents, ai_knowledge_chunks, ai_usage_log | AI replies | | 0 | hidden in v1 |
 
-- **Entities M0 adds (in `admissions`, names final in the M0 spec):** `leads` (1:1 with a deal in the Admissions pipeline: child name, date of birth, grade, campus, area, source, exit, lost reason; ADR 0007), `lead_stage_history`, `lost_reasons`, `campuses`, `sources`, `follow_up_rules`, `follow_up_sends`, `alert_settings`, `call_tasks` (with call log), `visits` (Cal.com bookings), `settings_changes` (audit), `schema_migrations`.
+- **Entities M0 adds (5, in `public`, names final in the M0 spec; ADR 0010):** `leads` (1:1 with a deal in the Admissions pipeline: child name, date of birth, grade, campus, area, source, exit, lost reason, and the current visit with its unique Cal.com booking id; ADR 0007), `lead_stage_history`, `admissions_settings` (one row per campus, source, lost reason, follow-up rule or alert, by `kind`), `lead_activity` (follow-up sends, call tasks and their call log), `settings_changes` (audit).
 - **Core flow:** a message, form or quick-add finds-or-creates the contact by phone → one open lead (deal + `leads` row) in Enquiry → each stage move writes one history row → rules read settings and queue sends or call tasks → a parent reply pauses them → Admitted, Lost (with reason) or Dormant closes the lead.
 - **Invariants (each becomes a test in M0):**
-  1. No object exists outside `admissions` except storage buckets prefixed `admissions-`; no trigger on `auth.users`.
-  2. RLS is on for every table in `admissions`; a signed-in user with no profile in the account reads zero rows from every table.
+  1. Self sign-up is off: a sign-up without an invitation creates no account and no profile.
+  2. RLS is on for every table in `public`; a signed-in user with no profile in the account reads zero rows from every table.
   3. One contact per normalized phone per account; at most one open lead per contact.
   4. A lead cannot exit as Lost without a lost reason.
   5. Every stage change writes exactly one `lead_stage_history` row; days in stage is computed from it.
-  6. At most one send per (lead, follow-up rule, stage entry); a repeated Cal.com webhook changes nothing (unique booking id).
-  7. Every insert, update or delete on a settings table writes a `settings_changes` row with who and when.
+  6. At most one `lead_activity` send per (lead, follow-up rule, stage entry); a repeated Cal.com webhook changes nothing (booking id unique on `leads`).
+  7. Every insert, update or delete on `admissions_settings` writes a `settings_changes` row with who and when.
 
 ## 4. Frontend (screens and flows locked here; pixels locked by approved wireframes)
 - **Design system (ADR 0003):** root `DESIGN.md` is the design authority, its values in `design/tokens.css` (the Cornerstone platform's tokens, copied once on 2026-11-25). `design/platform/` is a frozen reference snapshot: port from it through tickets, never import it, never edit it, never open the platform repo again. Project brand overrides only in `design/brand.css`, only for `.loop.json → brand_overridable`. Port tickets #7–#18 (`design-port`, `queued`) get their seeds when the first screen that needs them is approved. Inventory: `docs/design/platform-components.md`.
@@ -89,16 +89,16 @@ _M0 is the data model. Every later milestone is a vertical slice Nimish can clic
 - All 60 upstream migrations replay on a fresh Postgres 17; upstream `supabase/ci/verify-schema.sql` passes; RLS on all 37 tables (verified 2026-11-25).
 - **Unverified:** the app running against local Supabase and a user signing in (local default ports are taken by another project on this Mac; see §6).
 
-**Gaps found:** no `admissions` schema yet (everything in `public`); `on_auth_user_created` trigger present and creates a new account for every sign-up; self sign-up page live; buckets not prefixed; no DB-level tests run in `loop-tests` (only upstream's migration replay in `Migrations`); built screens have no wireframe snapshots.
+**Gaps found:** `on_auth_user_created` trigger present and creates a new account for every sign-up; self sign-up page live; no DB-level tests run in `loop-tests` (only upstream's migration replay in `Migrations`); built screens have no wireframe snapshots.
 
 ### M0 — Data model · In progress
-- **Delivers:** everything in schema `admissions` with our own migration history, plus the admissions tables; `db/schema.sql` regenerated; every §3 invariant has a passing test in CI.
+- **Delivers:** the 5 admissions tables (ADR 0010) beside upstream's in `public`, upstream migrations untouched; `db/schema.sql` regenerated; every §3 invariant has a passing test in CI.
 - **Goals (yes/no):**
-  - [ ] G0.1 A fresh DB built by the apply script (upstream files rewritten to `admissions`, then ours from 100) has zero errors and zero objects outside `admissions` and `admissions-` buckets — test: `tests/db/schema-placement.test.ts`
-  - [ ] G0.2 No trigger on `auth.users`; self sign-up off; an invited user gets a profile on first sign-in — test: `tests/db/access.test.ts`
+  - [ ] G0.1 A fresh local DB (`supabase db reset`: upstream 001–060 unchanged, then ours from 100) applies with zero errors and has the 5 new tables — test: `tests/db/migrations.test.ts`
+  - [ ] G0.2 Self sign-up off: a sign-up without an invitation gets no account or profile; an invited user gets a profile on first sign-in — test: `tests/db/access.test.ts`
   - [ ] G0.3 RLS on every table; a non-member reads zero rows everywhere — test: `tests/db/rls.test.ts`
   - [ ] G0.4 Invariants 3–7 enforced by the database — test: `tests/db/invariants.test.ts`
-  - [ ] G0.5 All three Supabase clients use `db: { schema: 'admissions' }` and the upstream suite still passes — test: `npm test`
+  - [ ] G0.5 The upstream suite still passes (clients stay on `public`, ADR 0009) — test: `npm test`
   - [ ] G0.6 `loop-tests` CI starts a local Postgres and runs `tests/db/` — test: CI run on the M0 PR
 - **Issues:** label `M0`
 - **Out of scope:** any UI; Cal.com and WhatsApp wiring (tables only).
@@ -132,12 +132,13 @@ _M0 is the data model. Every later milestone is a vertical slice Nimish can clic
 - **Goals:** [ ] G6.1 a reply stops the next scheduled message · [ ] G6.2 changing a day count in Settings changes behaviour without a restart · [ ] G6.3 no message sent twice for the same rule and lead · [ ] G6.4 a rule switched off sends nothing.
 
 ### M7 — Report, import, hosting, go-live · Not started
-- **Delivers:** S-report (port #17), sheet import, hosting, `admissions` schema in the live project, real number.
-- **Goals:** [ ] G7.1 imported leads dedupe by phone · [ ] G7.2 report counts match the board · [ ] G7.3 platform table and row counts unchanged after go-live · [ ] G7.4 a non-member platform user reads zero rows on live.
+- **Delivers:** S-report (port #17), sheet import, hosting, a new hosted Supabase project for admissions (Nimish creates it) with all migrations applied, real number.
+- **Goals:** [ ] G7.1 imported leads dedupe by phone · [ ] G7.2 report counts match the board · [ ] G7.3 the hosted project has the same tables as `db/schema.sql` · [ ] G7.4 a signed-in non-member reads zero rows on live.
 
 ## 6. Open questions (Plan resolves before the milestone they block)
 - Local Supabase ports: the defaults (54321–54324) are used by another project on this Mac. M0 gives this repo its own ports in `supabase/config.toml`, or Nimish stops the other stack while testing. Default: own ports. — blocks M0 G0.6 locally.
 - Siblings: one lead per phone number, but a parent may enquire for two children. Default: one child per lead; a sibling is a note on the card (ADR 0007). — blocks M0.
 - Date-of-birth cut-off, reference date and grades per campus for 2027–28. — blocks M4.
 - Cal.com account, visit days and times, API key. — blocks M5.
+- Cost of the new hosted Supabase project (not checked; ADR 0009). — blocks M7.
 - Brief §12 defaults stand until answered (Admitted = fee paid; Akanksha covers Today; old leads imported silently).

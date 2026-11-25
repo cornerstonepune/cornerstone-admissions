@@ -1,6 +1,6 @@
 # 0005 — Schema `admissions` by rewrite at apply time; `db/schema.sql` is generated
 
-**Date:** 2026-11-25 · **Status:** accepted (records brief §4 rules 3, 6, 7 and adds the source-of-truth rule)
+**Date:** 2026-11-25 · **Status:** partly superseded by ADR 0009 (points 1, 2's schema and 4 no longer apply; tables stay in `public`). Point 3, the generated `db/schema.sql`, stands with `--schema=public`.
 
 ## Context
 Upstream's 60 migrations create 37 tables plus their functions and policies in `public` (213 `public.` references plus
