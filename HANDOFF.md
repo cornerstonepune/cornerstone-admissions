@@ -3,27 +3,29 @@
 _Overwritten at the end of every session. Keep under 30 lines. Facts only._
 
 **Updated:** 2026-11-26 · **By:** Plan · **Model:** claude-opus-5-5
-**Milestone:** M0 — data model (closing) · **Branch:** plan/m0-final · **PR:** see below
+**Milestone:** M1 — look and frame (M0 done) · **Branch:** plan/m0-done
 
 ## State
-- #51 (110) merged (PR #55). `db/schema.sql` regenerated for 100–110 in this PR (was stale: still showed pre-110 FK, index, insert policy).
-- Reviewer of #55 found two gaps → ADR 0017, ticket **#56** (migration 111): rule-made activity must be the kind its rule makes (send_template→follow_up_send, call_task→call_task, dormant→none); rule_id/stage_history_id fixed on UPDATE; a used rule keeps its action.
-- Seed `plan/t56` pushed: 12 red (assertion failures, no import errors), 157/157 green vs a correct 111 (checked locally, not committed). Lint clean on both test files.
-- Existing fixtures that recorded sends under `call_task` rules now use `send_template` rules (this PR; 137/137 green on 110).
-- Stale PR #49 (`plan/handoff`, mid-merge locally) abandoned; its content is superseded by this handoff. Close it.
+- M0 **done**: #56 (111) merged as PR #58; `db/schema.sql` regenerated after 111; `npm run test:db` 23 files / 157 tests pass. PROJECT.md: M0 Done, M1 current (ADR 0018).
+- New label `ready` = blockers closed, seed exists, no wireframe gate. Applied to **#52** (hidden routes; seed `plan/t52`, touches `src/admissions/` + middleware only).
+- Design ports #7–#12, #18 stay `queued`, unseeded: they change stylesheets/components, so they wait on Nimish approving S-frame. Seed order after approval: #7 → #8, #9 → #10, #18 → #11 → #12.
+- `design/approved.json` is still empty.
+- Stale PR #49 (`plan/handoff`) still OPEN; superseded. Close it.
 
 ## Next step
-1. `loop run-ticket 56` → review → merge. 2. Plan job: `npm run db:reset && npm run db:schema`, commit schema.sql (protected: builders can't), tick M0 done in PROJECT.md. 3. `loop run-ticket 52` (M1 hidden routes).
+1. `loop run-ticket 52` → review → merge (ticks G1.2).
+2. Close PR #49.
+3. After Nimish approves S-frame: plan job to seed #7 (then its dependants).
 
 ## Blocked / open questions
-- Nimish: `loop approve S-frame` (and `loop approve --all`) so M1 ports #7–#12, #18 get seeds.
+- Nimish: approve the S-frame wireframe (and the built-screen snapshots) so the M1 ports can be seeded and built.
 
 ## Don't repeat
 - Seed hidden tests must also pass against a correct implementation, not only fail on main.
-- A BEFORE trigger fires before RLS WITH CHECK: new lead_activity checks go in an AFTER trigger (111 does).
+- A BEFORE trigger fires before RLS WITH CHECK: new lead_activity checks go in an AFTER trigger.
 - `db/schema.sql` is protected: never list it in a ticket's files; the plan job regenerates it after the merge.
 - `/signup?invite=` must never be hidden: invited people sign up there.
+- The loop guard hook blocks any Bash command whose text contains the approve command or a frontend file pattern; write such text with the Write tool.
 
 ## Files touched this session
-- db/schema.sql, docs/adr/0017, PROJECT.md, HANDOFF.md, tests/db/{call-tasks-only,invariants-tables}, tests/holdout/db/{call-tasks-only,m0-follow-ups} — plan/m0-final
-- plan/t56: supabase/migrations/111 skeleton, tests/db/rule-made-activity, tests/holdout/db/rule-made-activity
+- db/schema.sql, PROJECT.md, docs/adr/0018, HANDOFF.md — plan/m0-done. GitHub: label `ready` created, added to #52.
