@@ -20,8 +20,9 @@ describe("rule-made activity (hidden)", () => {
   it("counts a send and a call task from the same rule and entry as one", () =>
     tx(async (t) => {
       const { a, leadId, rule, entry } = await withRule(t);
-      await activity(a, leadId, "follow_up_send", rule, entry)(t);
-      expect((await errorOf(t, activity(a, leadId, "call_task", rule, entry)))?.code).toBe("23505");
+      const send = await setting(t, a, "follow_up_rule", "enquiry_day_1", { stage: "enquiry", days: 1, action: "send_template", template: "enquiry_day_1" });
+      await activity(a, leadId, "follow_up_send", send, entry)(t);
+      expect((await errorOf(t, activity(a, leadId, "call_task", send, entry)))?.code).toBe("23505");
     }));
 
   it("lets the same rule act again on a new stage entry", () =>
@@ -54,7 +55,7 @@ describe("a used follow-up rule (hidden)", () => {
   it("is turned off, not deleted", () =>
     tx(async (t) => {
       const { a, leadId, rule, entry } = await withRule(t);
-      await activity(a, leadId, "follow_up_send", rule, entry)(t);
+      await activity(a, leadId, "call_task", rule, entry)(t);
       expect(await errorOf(t, (s) => s`update admissions_settings set active = false where id = ${rule}`)).toBeNull();
     }));
 

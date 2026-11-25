@@ -324,11 +324,8 @@ CREATE FUNCTION public.check_lead_integrity() RETURNS trigger
     SET search_path TO 'public'
     AS $$
 BEGIN
-  IF TG_OP = 'UPDATE' AND (NEW.account_id IS DISTINCT FROM OLD.account_id OR NEW.deal_id IS DISTINCT FROM OLD.deal_id)
-     AND (EXISTS (SELECT 1 FROM public.lead_stage_history WHERE lead_id = OLD.id)
-          OR EXISTS (SELECT 1 FROM public.visits WHERE lead_id = OLD.id)
-          OR EXISTS (SELECT 1 FROM public.lead_activity WHERE lead_id = OLD.id)) THEN
-    RAISE EXCEPTION 'A lead with stage history, visits or activity cannot move to another account or deal' USING ERRCODE = '23514';
+  IF TG_OP = 'UPDATE' AND (NEW.account_id IS DISTINCT FROM OLD.account_id OR NEW.deal_id IS DISTINCT FROM OLD.deal_id) THEN
+    RAISE EXCEPTION 'A lead''s account and deal never change' USING ERRCODE = '23514';
   END IF;
   IF NOT public.admissions_setting_is(NEW.campus_id, NEW.account_id, 'campus')
      OR NOT public.admissions_setting_is(NEW.source_id, NEW.account_id, 'source')
@@ -2854,6 +2851,7 @@ CREATE TABLE public.lead_activity (
     created_by uuid,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT lead_activity_rule_has_entry CHECK (((rule_id IS NULL) OR (stage_history_id IS NOT NULL))),
     CONSTRAINT lead_activity_send_has_rule CHECK (((kind <> 'follow_up_send'::public.lead_activity_kind) OR ((rule_id IS NOT NULL) AND (stage_history_id IS NOT NULL))))
 );
 
@@ -4252,10 +4250,10 @@ CREATE INDEX idx_whatsapp_config_registered_at ON public.whatsapp_config USING b
 
 
 --
--- Name: lead_activity_one_send_per_rule_entry; Type: INDEX; Schema: public; Owner: -
+-- Name: lead_activity_one_per_rule_entry; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX lead_activity_one_send_per_rule_entry ON public.lead_activity USING btree (lead_id, rule_id, stage_history_id) WHERE (kind = 'follow_up_send'::public.lead_activity_kind);
+CREATE UNIQUE INDEX lead_activity_one_per_rule_entry ON public.lead_activity USING btree (lead_id, rule_id, stage_history_id) WHERE (rule_id IS NOT NULL);
 
 
 --
@@ -5124,7 +5122,7 @@ ALTER TABLE ONLY public.lead_activity
 --
 
 ALTER TABLE ONLY public.lead_activity
-    ADD CONSTRAINT lead_activity_rule_id_fkey FOREIGN KEY (rule_id) REFERENCES public.admissions_settings(id) ON DELETE SET NULL;
+    ADD CONSTRAINT lead_activity_rule_id_fkey FOREIGN KEY (rule_id) REFERENCES public.admissions_settings(id);
 
 
 --
@@ -6160,7 +6158,7 @@ CREATE POLICY lead_activity_delete ON public.lead_activity FOR DELETE TO authent
 -- Name: lead_activity lead_activity_insert; Type: POLICY; Schema: public; Owner: -
 --
 
-CREATE POLICY lead_activity_insert ON public.lead_activity FOR INSERT TO authenticated WITH CHECK ((public.is_account_member(account_id, 'agent'::public.account_role_enum) AND (kind = 'call_task'::public.lead_activity_kind)));
+CREATE POLICY lead_activity_insert ON public.lead_activity FOR INSERT TO authenticated WITH CHECK ((public.is_account_member(account_id, 'agent'::public.account_role_enum) AND (kind = 'call_task'::public.lead_activity_kind) AND (rule_id IS NULL)));
 
 
 --
