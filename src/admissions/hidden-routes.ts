@@ -4,5 +4,6 @@ export const HIDDEN_PREFIXES = ["/signup", "/broadcasts", "/agents"] as const;
 
 /** True when the middleware must answer 404 for this path. */
 export function isHiddenRoute(pathname: string, search: URLSearchParams): boolean {
-  throw new Error("not implemented");
+  if (pathname === "/signup") return !search.get("invite");
+  return HIDDEN_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"));
 }
