@@ -10,13 +10,16 @@ _Overwritten at the end of every session. Keep under 30 lines. Facts only._
 - Last thing done: PR #31 had the five review gaps of PR #29 closed in plan (ADR 0013): #24 extended (same-account link triggers), #25 extended (trigger-only stage history), new #30 (107, agents write call tasks only, size:small), refusal tests, handoff 22 says 19 policies.
 
 ## Next step
-Coordinator: merge PR #31 (`gh pr merge 31 --squash --delete-branch`), then build #23, #24, #25, #26, #30 one at a time, then #27. After the last: `loop plan "M0 close: regenerate db/schema.sql"`.
+#31 is merged (CI green). Coordinator: build #23, #24, #25, #26, #30 one at a time, then #27. After the last: `loop plan "M0 close: regenerate db/schema.sql"`.
 
 ## Blocked / open questions
+- Upstream: all 43 `public` tables give `authenticated` no read access locally; plan a grants migration before any milestone that clicks through upstream screens.
 - ADR 0013 §3 assumes no person ever edits a follow-up send by hand (server only). Nimish can overturn it.
 - Dependabot PRs #1–#5: recommended closing all and deleting `.github/dependabot.yml`. Unanswered.
 
 ## Don't repeat
+- Builders: Bash only works if the command STARTS with an allowed program (no `( … )`, heredocs, `python3 -`). #22 failed twice on this; add it to each ticket's "Don't" until the plugin's BUILDER_RULES say it.
+- Never wrap `loop plan` in a shell `timeout`; run it in the background.
 - Seeds branched before 101 merged lack the table grants: merge main into a seed before proving RLS tests (agents get 42501 otherwise).
 - 103's BEFORE triggers fire ahead of RLS WITH CHECK; 104's first-stage trigger adds a history row on every lead insert. Tests that insert history by hand or expect 42501 must allow for both (done on t24/t25).
 - Local Supabase `authenticated` has no grants on upstream `deals`: test deal moves as superuser with jwt claims set.
