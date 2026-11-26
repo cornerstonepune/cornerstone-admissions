@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireRole, toErrorResponse } from "@/lib/auth/account";
 import { closeLead, deleteLead, editLead, moveLead, parseLeadFields } from "@/admissions/lib/pipeline";
 import { isUuid } from "@/lib/api/v1/pagination";
+import { AUDIO_BUCKET } from "@/admissions/lib/audio";
 
 // A malformed id would reach Postgres as 22P02 (a 500); refuse it here instead.
 const badId = () => NextResponse.json({ error: "Not a valid id" }, { status: 400 });
@@ -136,11 +137,18 @@ export async function DELETE(_request: Request, context: Ctx) {
   const { id } = await context.params;
   if (!isUuid(id)) return badId();
   try {
-    const { supabase } = await requireRole("admin");
+    const { supabase, accountId } = await requireRole("admin");
     const result = await deleteLead(supabase, id);
-    return result.ok
-      ? NextResponse.json({ ok: true })
-      : NextResponse.json({ error: result.error }, { status: result.status });
+    if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
+    // Best effort: the lead's conversation audio goes with it (ADR 0039). The daily sweep catches anything left.
+    try {
+      const folder = `${accountId}/${id}`;
+      const { data: files } = await supabase.storage.from(AUDIO_BUCKET).list(folder, { limit: 1000 });
+      if (files?.length) await supabase.storage.from(AUDIO_BUCKET).remove(files.map((f) => `${folder}/${f.name}`));
+    } catch {
+      // never fail a delete that already happened
+    }
+    return NextResponse.json({ ok: true });
   } catch (err) {
     return toErrorResponse(err);
   }
