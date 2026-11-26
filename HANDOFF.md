@@ -3,24 +3,24 @@
 _Overwritten at the end of every session. Keep under 30 lines. Facts only._
 
 **Updated:** 2026-11-26 · **By:** Plan · **Model:** claude-opus-5-5
-**Milestone:** M1 — look and frame · **Branch:** plan/t63-notes
+**Milestone:** M1 — look and frame · **Branch:** plan/simplify
 
 ## State
-- #7 merged (PR #62). Its review's four follow-ups are now **#63, seeded and `ready`** on `plan/t63`: toaster `theme="light"`, platform layer line in globals.css, viewport `colorScheme: "light"`, `extendTailwindMerge` for the 8 type-scale names. 28 tests red on main; 44/44 green against a throwaway reference build (6+/3−). Budget files<=4 lines<=40, Screens: S-frame.
-- The seed adds `jsdom` as a devDependency (ADR 0020) for the toaster's client-render test.
-- #8 is blocked by #63 (commented on #8): `cn()` drops `text-title-page` etc. until #63 merges.
-- #8 seed (`plan/t8`) still WIP as before: red proven, not yet proven green, issue body not updated, `queued`.
-- LESSONS.md: seed fix after the build branch merged main → merge main into `plan/t<N>`, set Plan-base to that tip; never cherry-pick.
+- Build re-scoped on Nimish's instruction (ADR 0021): one build ticket per milestone (two in M6), wacrm reused first, components ported only inside the screen ticket that needs them.
+- Open tickets: #63 (M1 theme follow-ups, seeded, `ready`, unchanged) → #18 (M1 frame; absorbs #8, #9, #12 and hiding Settings › Appearance) → #65 M2 · #66 M3 · #67 M4 · #68 M5 · #69, #70 M6 · #71 M7. All but #63 are `queued`, no seed yet.
+- Closed as folded: #8, #9, #12 → #18; #10, #11, #13, #16 → #66; #15 → #69; #14 → #70; #17 → #71.
+- CLAUDE.md §4 gains the red-CI rule (non-critical: rerun once, merge with a note; critical: never merged red).
+- `plan/t8` (WIP icon map seed) is not built; its table and tests are the starting point for #18's seed.
 
 ## Next step
 1. Coordinator: merge this PR when green; `loop run-ticket 63`.
-2. Next plan job: finish #8 (prove green, issue body), then seed #9, #10, #18, #11, #12. Label `ready` only once blockers close.
+2. Next plan job: seed #18 (blocked by #63; label `ready` when #63 merges). Then one plan job per milestone to seed its ticket.
 
 ## Blocked / open questions
-- Settings › Appearance must be hidden in v1 (ADR 0014 §3) but no ticket covers it. After #63 it changes nothing visible (page and toasts held light), so it's a dead control until that ticket exists.
+- M2 needs brief §10 items 4–7 from Nimish (Meta test app); M4 needs the cut-off date, grades and welcome wording.
 
 ## Don't repeat
 - Seed hidden tests must also pass against a correct implementation, not only fail on main.
-- Hidden tests go in `tests/holdout/*.test.ts` (.ts only). Under `@vitest-environment jsdom`, read files via `process.cwd()`, not `new URL(…, import.meta.url)` (jsdom's URL breaks readFileSync).
-- #9 keep-list: the blocks.css classes ported components use (b-tile, b-ritem, b-card-*, b-stat*, b-dpanel*, b-kv, b-count, b-step*, b-timeline/b-tli, b-tabs/b-tab*, b-spark, b-stack, b-meter*); drop data-subject, prow, sq, cgraph, kanban/lane, level*, today-*, peek*, zoom*, capture*.
+- Hidden tests go in `tests/holdout/*.test.ts` (.ts only). Under `@vitest-environment jsdom`, read files via `process.cwd()`, not `new URL(…, import.meta.url)`.
+- blocks.css: port only the classes the ticket's screen uses (#18: frame + page head).
 - A BEFORE trigger fires before RLS WITH CHECK: new lead_activity checks go in an AFTER trigger.

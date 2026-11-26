@@ -39,6 +39,8 @@ Build folders have no `tests/holdout/` (hidden tests); CI runs them. Hooks keep 
 - UI uses design tokens only (`var(--…)` / the Tailwind preset). No raw hex, rgb, or arbitrary `[..px]` values; CI rejects them.
 - Spec looks wrong mid-build → stop, write it under "Blocked" in `docs/loop/handoff/<N>.md`. Never quietly build something different.
 - Review passes and CI is green → the orchestrator merges and ticks the goal in PROJECT.md.
+- Red CI: read the failing lines at once. Non-critical (runner or infra flake, port bind, an unrelated flaky upstream test, cosmetic) → rerun once, then merge with a one-line note in the PR. Critical (data, tenancy/RLS, auth, money, migrations) → never merged red; fix it. (ADR 0021)
+- Tickets are whole vertical slices (one per milestone, ADR 0021): reuse wacrm first; port a Cornerstone component only inside the screen ticket that first needs it.
 
 ## 5. Nothing important lives only in chat
 - A decision made in conversation becomes an ADR in the same session. A new term goes in GLOSSARY.md. Progress goes in HANDOFF.md. If it isn't in a file, assume the next session won't know it.
