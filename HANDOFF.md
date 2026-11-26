@@ -2,33 +2,31 @@
 
 _Overwritten at the end of every session. Keep under 30 lines. Facts only._
 
-**Updated:** 2026-11-26 · **By:** builder (#68) · **Model:** claude-opus-5-5
-**Milestone:** M5 — Booking · **Branch:** m5-booking
+**Updated:** 2026-11-26 · **By:** builder (#67) · **Model:** claude-opus-5-5
+**Milestone:** M4 — Entry: one door · **Branch:** m4-one-door
 
 ## State
-- Cal.com webhook `POST /api/admissions/calcom` (signed, fails closed without `CALCOM_WEBHOOK_SECRET`), migration 120
-  (`calcom_book` / `calcom_cancel` / `calcom_no_show` / `claim_visit_reminders`, 3 stamps on `visits`), ADR 0030.
-- Booking moves the lead to Visit booked once (replay-safe); cancel moves it back; reschedule = new visit row; no-show =
-  rebook message + one call task. RSVP T-24h, morning reminder 08:00 IST, unconfirmed call task by 18:00 the evening
-  before, all from wacrm's automations cron (`runVisitReminders`), no new scheduler.
-- `visitLink()` (src/admissions/lib/booking.ts) builds a campus's Cal.com link with name, phone and lead id prefilled.
-- Setup for Nimish: docs/calcom-setup.md. Tests: route unit tests (fixtures) + tests/db/m5-booking.test.ts.
-- Security review fixes (in 120 itself): claims capped at 50 per run with SKIP LOCKED; sends use the approved
-  template's language; a link's lead id needs a matching phone; closed link lead falls through; siblings → latest
-  lead; +91 matches 10-digit imported numbers; cancel goes back by stage position, stores a cancel that beats its
-  booking; no-show ignores closed leads.
+- Built #67 (ADR 0031): migration 119 `intake_lead`; `src/admissions/lib/intake.ts` (phone via M7's `sheetPhone`, date
+  of birth, campus by cut-off, source codes); WhatsApp door in the flows engine's dispatch; starter flow "Admissions
+  welcome"; `/quick-add` + `POST /api/admissions/intake` (agent+); public `POST /api/admissions/intake/website`
+  (env `ADMISSIONS_ACCOUNT_ID`, 5/IP/10 min, body capped while read); Sources tab Copy link + QR (SVG, `qrcode-generator`).
+- Tests: G4.1, G4.2, source codes and refusals in `tests/db/m4-intake.test.ts`; parsing and cut-off in
+  `src/admissions/lib/intake.test.ts`; form validation and rate limit in `website/route.test.ts`.
+- 119 is on the shared local DB (psql, one transaction, recorded as version 119; no reset). db/schema.sql regenerated.
 
 ## Next step
-1. Security review (webhook), then merge once CI is green. The cron runs follow-ups (#69) then visit reminders.
-2. M4's welcome flow sends `visitLink(campus.visit_link, lead)`; nothing calls it yet.
+1. Nimish: clone "Admissions welcome" in Flows, edit its words, activate it; enter campus cut-offs in Settings.
+2. Nimish times quick-add on a phone (G4.3). Set `ADMISSIONS_ACCOUNT_ID` before the website form goes live.
 
 ## Blocked / open questions
-- No Cal.com account yet: built from Cal.com's docs. Unverified live: hex signature encoding, `metadata[lead]` from the
-  link reaching `payload.metadata`, where a filled phone answer sits. Phone fallback covers the metadata case.
-- An unknown phone writes nothing (logged); the family would be missed if they booked without our link.
-- Template names and times are fixed in migration 120, not in Settings.
+- One date window per campus can't split a grade range ("Playgroup – Sr KG"): grade is set only for single-grade
+  campuses. Per-grade cut-offs need a new campus value shape (ADR) or one campus row per grade.
+- Not done: notifying the office when a known family comes again (a note is added); staff limited to quick-add only;
+  a sidebar link to quick-add (S-frame approved as is). /quick-add not clicked through in a browser.
+- `tests/holdout/db/invariants-stage-history.test.ts` "leaves a deal that has no lead alone" counts every history
+  row, so it fails on the shared local DB with data in it; passes on a fresh DB (CI).
 
 ## Don't repeat
-- The shared local DB has other branches' migrations (115–119), so `supabase migration up` refuses: apply a new
-  migration with `psql -1 -f` and add its row to `supabase_migrations.schema_migrations`; keep only your objects
-  when regenerating `db/schema.sql`.
+- The webhook test counts every RPC on its mocked client: new inbound side effects belong behind a collaborator it
+  mocks (the flows engine), not inline in the webhook.
+- `npm run db:schema` dumps the shared DB: if it holds other branches' migrations, keep only your own objects.

@@ -61,6 +61,10 @@ Days since the lead entered its current stage, counted from stage history.
 Where an enquiry came from (WhatsApp, website, walk-in, referral call, or a named QR or link such as gate or Instagram).
 _Avoid_: channel, origin
 
+**Source code**:
+A source's tag carried in its WhatsApp link and QR as "(ref: tag)"; a first message with it gets that source (ADR 0031).
+_Avoid_: UTM, campaign id
+
 ## Campuses and visits
 
 **Campus**:
