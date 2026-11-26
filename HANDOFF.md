@@ -2,28 +2,27 @@
 
 _Overwritten at the end of every session. Keep under 30 lines. Facts only._
 
-**Updated:** 2026-11-26 · **By:** Plan · **Model:** claude-opus-5-5
-**Milestone:** M1 — look and frame · **Branch:** plan/fix-usage-test-timeout
+**Updated:** 2026-11-26 · **By:** builder (#70) · **Model:** claude-opus-5-5
+**Milestone:** M6 — Admissions Settings · **Branch:** m6-settings
 
 ## State
-- 2026-11-26 10:20: Nimish decided the size budget is a CI warning (ADR 0022, PR #77) and asked for more pace: seed ticket N+1 while ticket N builds.
-- This session: flaky `api/ai/usage` truncation test (blocked #63's finish gate) gets a 30s timeout, assertions unchanged; full `npm test` green (1812/1812). Root cause is a perf bug in product code: #73 (`size:small`, `queued`) caches the formatter and removes the timeout.
-- Build re-scoped on Nimish's instruction (ADR 0021): one build ticket per milestone (two in M6), wacrm reused first, components ported only inside the screen ticket that needs them.
-- Open tickets: #63 (M1 theme follow-ups, seeded, `ready`, unchanged) → #18 (M1 frame; absorbs #8, #9, #12 and hiding Settings › Appearance) → #65 M2 · #66 M3 · #67 M4 · #68 M5 · #69, #70 M6 · #71 M7. All but #63 are `queued`, no seed yet.
-- Closed as folded: #8, #9, #12 → #18; #10, #11, #13, #16 → #66; #15 → #69; #14 → #70; #17 → #71.
-- CLAUDE.md §4 gains the red-CI rule (non-critical: rerun once, merge with a note; critical: never merged red).
-- `plan/t8` (WIP icon map seed) is not built; its table and tests are the starting point for #18's seed.
+- #70 built on `m6-settings` (rebased on main after M3 #80): page `/admissions-settings` (8 tabs + change log) and
+  `/api/admissions/settings` (GET any member; POST, PATCH `[id]` owner/admin). No migration.
+- Writes go through the caller's RLS client, so migration 105's trigger records who; TypeScript never writes the audit.
+- Value shapes, keys and the four upstream tabs: ADR 0025. Stuck alerts = `stuck_<stage>`, `{stage, threshold}` (M3's).
+- `/admissions-settings` added to the middleware's protected paths (the existing middleware test demanded it).
+- Tests: `src/admissions/lib/settings.test.ts`, `src/app/api/admissions/settings/route.test.ts` (403/400),
+  `tests/db/settings-screen.test.ts` (RLS refusal, one audit row per change).
 
 ## Next step
-0. #73 can run any time (independent, small).
-1. Coordinator: rebase/merge main into #63's build branch so its finish gate picks up this fix; `loop run-ticket 63`.
-2. Next plan job: seed #18 (blocked by #63; label `ready` when #63 merges). Then one plan job per milestone to seed its ticket.
+1. Review and merge the #70 PR once CI is green; Nimish clicks through the screen against the wireframe.
+2. #69 (engine + S-today) reads the rule and alert keys of ADR 0025.
 
 ## Blocked / open questions
-- M2 needs brief §10 items 4–7 from Nimish (Meta test app); M4 needs the cut-off date, grades and welcome wording.
+- Not built: stage renaming and welcome-flow words (link to Pipeline / Flows; upstream tables, so not audited),
+  source QR codes and links (format comes with M4), rule Move up/down/Delete.
+- Not verified in a browser: no seeded local account was clicked through.
 
 ## Don't repeat
-- Seed hidden tests must also pass against a correct implementation, not only fail on main.
-- Hidden tests go in `tests/holdout/*.test.ts` (.ts only). Under `@vitest-environment jsdom`, read files via `process.cwd()`, not `new URL(…, import.meta.url)`.
-- blocks.css: port only the classes the ticket's screen uses (#18: frame + page head).
-- A BEFORE trigger fires before RLS WITH CHECK: new lead_activity checks go in an AFTER trigger.
+- In a DB test, one transaction has one now(): pick audit rows by action, not by changed_at order.
+- A `route.ts` may export only handlers; shared helpers go in a lib file.
