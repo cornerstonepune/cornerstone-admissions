@@ -3,18 +3,6 @@ on:
   pull_request:
 
 jobs:
-  guard:
-    name: loop-guard
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Enforce loop rules on this PR
-        env:
-          PR_BODY: ${{ github.event.pull_request.body }}
-        run: python3 .github/loop/check_pr.py "origin/${{ github.base_ref }}" "${{ github.head_ref }}"
-
   tests:
     name: loop-tests
     runs-on: ubuntu-latest

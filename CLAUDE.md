@@ -13,35 +13,21 @@ The SessionStart hook has already given you your role, HANDOFF.md, PROJECT.md §
 - `HANDOFF.md` — where the last session stopped. Overwritten and committed every session.
 - `LESSONS.md` — every failure, the layer it came from, and the durable fix. Corrections live in files, never only in chat.
 
-## 2. How work runs
-Every session here is the loop. Nimish asks for something (or types `/loop:run`); the main session (the coordinator, Sonnet) follows the `loop-run` skill and hands every planning job to Opus with `loop plan`. He's needed only for product questions, `loop approve <screen>`, and escalations.
+## 2. How work runs (ADR 0023: the loop process is retired)
+Nimish, 2026-11-26: build directly and fast; this is a simple admissions system on top of wacrm. No seeds, hidden tests, budgets, planner sessions per ticket, or loop-guard.
+- One branch per slice → code + tests in the same branch → PR → CI green (lint, typecheck, test, build, database tests, migrations) → merge. Never commit to main.
+- Reuse wacrm first (route, lib, component); port from `design/platform/` only what a screen needs. Least code that works; codebase stays clean.
+- Independent review (fresh subagent) only for security-critical changes: RLS, auth, webhooks, migrations.
+- Red CI: read the failing lines at once and fix. A runner/infra flake gets one rerun. Never merge red on data, tenancy/RLS, auth, money or migrations.
+- Tell Nimish in chat at every merge and the moment anything is stuck. Never stall on process.
 
-| Who | Model | Does |
-|---|---|---|
-| main session (coordinator) | Sonnet | Picks the next step, runs prep/build/finish/ci, merges green PRs, writes the handoff. |
-| `loop plan "<job>"` | Opus | PROJECT.md, schema, ADRs, wireframes, tickets, skeletons, visible + hidden tests. Never writes product code. |
-| `builder` subagent | Sonnet | Builds one ticket in `.loop/wt/<N>/` until its tests pass |
-| `builder-small` subagent | Haiku | Same, for tickets labelled `size:small` |
-| `reviewer` subagent | Opus (fresh context) | PASS/FAIL review of a ticket PR |
-| `rescuer` subagent | Fable | One last try after 3 failed attempts, then escalate |
-
-Build folders have no `tests/holdout/` (hidden tests); CI runs them. Hooks keep each role in its lane.
-
-## 3. Order (fixed)
-1. **M0 = data model**: schema, migrations, invariant tests. Nothing else until it's merged.
-2. **Wireframes** for a milestone's screens → Nimish approves each with `loop approve <id>`. No frontend code before that; editing a wireframe voids its approval.
-3. Each milestone is a vertical slice (API → UI → tests) Nimish can click through.
-4. After his approval, `loop-release`: staging → his go → production → live check. Merged isn't done; live is done.
+## 3. Order
+Milestones in PROJECT.md §5. Wireframes are approved (all 16); editing one voids its approval. After a milestone, Nimish clicks through; production release waits for his go.
 
 ## 4. Building rules
-- One ticket = one seed branch `plan/t<N>` (skeleton + tests, by the orchestrator) → one build branch → one PR, opened by `loop finish` with the ticket's `Budget:` and `Screens:` lines. Going >20% over budget is a CI warning, not a failure (ADR 0022).
-- **Pace (ADR 0022):** never let a lane sit idle. While ticket N builds (`loop build N --bg`), run `loop plan` to seed ticket N+1. A red check that isn't critical (CLAUDE.md red-CI rule) gets one rerun, then the merge, never a planner session to change a number or a label.
-- Never edit or delete a test to make it pass. 3 failed attempts → one Fable rescue → `escalated`, back to plan.
-- UI uses design tokens only (`var(--…)` / the Tailwind preset). No raw hex, rgb, or arbitrary `[..px]` values; CI rejects them.
-- Spec looks wrong mid-build → stop, write it under "Blocked" in `docs/loop/handoff/<N>.md`. Never quietly build something different.
-- Review passes and CI is green → the orchestrator merges and ticks the goal in PROJECT.md.
-- Red CI: read the failing lines at once. Non-critical (runner or infra flake, port bind, an unrelated flaky upstream test, cosmetic) → rerun once, then merge with a one-line note in the PR. Critical (data, tenancy/RLS, auth, money, migrations) → never merged red; fix it. (ADR 0021)
-- Tickets are whole vertical slices (one per milestone, ADR 0021): reuse wacrm first; port a Cornerstone component only inside the screen ticket that first needs it.
+- UI uses design tokens only (`var(--…)` / the Tailwind preset). No raw hex, rgb, or arbitrary `[..px]` values.
+- Never edit or delete a test just to make it pass.
+- Spec looks wrong → say so to Nimish in one line, with a recommendation, then continue.
 
 ## 5. Nothing important lives only in chat
 - A decision made in conversation becomes an ADR in the same session. A new term goes in GLOSSARY.md. Progress goes in HANDOFF.md. If it isn't in a file, assume the next session won't know it.
