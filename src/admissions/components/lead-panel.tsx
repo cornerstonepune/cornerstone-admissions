@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { CALL_OUTCOMES } from "@/admissions/lib/pipeline";
 import { KeyValue, KindTile, StatusChip, Stepper, Timeline, stageColour, type Tone } from "./parts";
+import { LeadConversations } from "./lead-conversations";
 
 type Label = { label: string } | null;
 type Choice = { id: string; label: string };
@@ -410,7 +411,7 @@ export function LeadPanel({
             </header>
 
             <div className="flex flex-wrap gap-2">
-              <Button onClick={() => setTab("calls")}>
+              <Button onClick={() => setTab("conversations")}>
                 <Phone className="mr-1 size-4" aria-hidden />
                 Log a call
               </Button>
@@ -506,6 +507,7 @@ export function LeadPanel({
             <Tabs value={tab} onValueChange={(v) => setTab(String(v))}>
               <TabsList variant="line" className="w-full justify-start overflow-x-auto">
                 <TabsTrigger value="card">Card</TabsTrigger>
+                <TabsTrigger value="conversations">Conversations</TabsTrigger>
                 <TabsTrigger value="calls">Calls ({calls.length})</TabsTrigger>
                 <TabsTrigger value="chat">Chat</TabsTrigger>
                 <TabsTrigger value="history">History</TabsTrigger>
@@ -618,6 +620,10 @@ export function LeadPanel({
                     <p className="m-0 whitespace-pre-wrap text-label">{lead!.deal.notes}</p>
                   </Section>
                 ) : null}
+              </TabsContent>
+
+              <TabsContent value="conversations" className="pt-2">
+                <LeadConversations leadId={lead!.id} />
               </TabsContent>
 
               <TabsContent value="calls" className="grid gap-4 pt-2">

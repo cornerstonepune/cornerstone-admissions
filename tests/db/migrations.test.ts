@@ -12,10 +12,11 @@ describe("migrations (G0.1)", () => {
     expect(rows.map((r) => r.table_name).sort()).toEqual([...ADMISSIONS_TABLES].sort());
   });
 
-  it("keeps upstream's 37 tables and adds exactly 6", async () => {
+  // ADR 0039 adds a seventh, lead_conversations.
+  it("keeps upstream's 37 tables and adds exactly 7", async () => {
     const [{ n }] = await sql`
       select count(*)::int as n from information_schema.tables where table_schema = 'public' and table_type = 'BASE TABLE'`;
-    expect(n).toBe(43);
+    expect(n).toBe(44);
   });
 
   it("numbers our migrations from 100", async () => {
