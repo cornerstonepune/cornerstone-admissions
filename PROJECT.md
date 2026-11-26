@@ -136,9 +136,9 @@ _Status as of 2026-11-26 (ADR 0032). "Built" = merged with CI green; Nimish has 
 - **Delivers:** stage-changed trigger, rules engine on the settings tables, pause on reply, call tasks, S-today, S-admissions-settings. **Issues:** #69, #70 (closed). PRs #81, #85, #87, #89.
 - **Goals:** [x] G6.1 a reply stops the next scheduled message · [x] G6.2 changing a day count in Settings changes behaviour without a restart · [x] G6.3 no message sent twice for the same rule and lead · [x] G6.4 a rule switched off sends nothing — test: `tests/db/m6-follow-ups.test.ts`.
 
-### M7 — Report, import, hosting, go-live · Report and import built; hosting not started
+### M7 — Report, import, hosting, go-live · Report and import built; live for testing (ADR 0034)
 - **Delivers:** S-report and sheet import (**Issue:** #71, closed; PRs #86, #88); then hosting via `loop-release` (no ticket): a new hosted Supabase project for admissions (Nimish creates it) with all migrations applied, real number.
-- **Goals:** [x] G7.1 imported leads dedupe by phone · [x] G7.2 report counts match the board — test: `tests/db/m7-report-import.test.ts` · [ ] G7.3 the hosted project has the same tables as `db/schema.sql` · [ ] G7.4 a signed-in non-member reads zero rows on live.
+- **Goals:** [x] G7.1 imported leads dedupe by phone · [x] G7.2 report counts match the board — test: `tests/db/m7-report-import.test.ts` · [x] G7.3 the hosted project has the same tables as `db/schema.sql` (schema diff, ADR 0034) · [ ] G7.4 (anonymous key reads zero rows; signed-in non-member not yet tested) a signed-in non-member reads zero rows on live.
 - **Needs from Nimish:** the real number (the hosted Supabase project exists, ADR 0033); production needs a proxy that overwrites X-Real-IP (ADR 0031).
 
 ## 6. Open questions (Plan resolves before the milestone they block)
