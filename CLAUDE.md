@@ -35,6 +35,7 @@ Build folders have no `tests/holdout/` (hidden tests); CI runs them. Hooks keep 
 
 ## 4. Building rules
 - One ticket = one seed branch `plan/t<N>` (skeleton + tests, by the orchestrator) → one build branch → one PR, opened by `loop finish` with the ticket's `Budget:` and `Screens:` lines. Going >20% over budget is a CI warning, not a failure (ADR 0022).
+- **Pace (ADR 0022):** never let a lane sit idle. While ticket N builds (`loop build N --bg`), run `loop plan` to seed ticket N+1. A red check that isn't critical (CLAUDE.md red-CI rule) gets one rerun, then the merge, never a planner session to change a number or a label.
 - Never edit or delete a test to make it pass. 3 failed attempts → one Fable rescue → `escalated`, back to plan.
 - UI uses design tokens only (`var(--…)` / the Tailwind preset). No raw hex, rgb, or arbitrary `[..px]` values; CI rejects them.
 - Spec looks wrong mid-build → stop, write it under "Blocked" in `docs/loop/handoff/<N>.md`. Never quietly build something different.

@@ -6,6 +6,7 @@ _Overwritten at the end of every session. Keep under 30 lines. Facts only._
 **Milestone:** M1 — look and frame · **Branch:** plan/fix-usage-test-timeout
 
 ## State
+- 2026-11-26 10:20: Nimish decided the size budget is a CI warning (ADR 0022, PR #77) and asked for more pace: seed ticket N+1 while ticket N builds.
 - This session: flaky `api/ai/usage` truncation test (blocked #63's finish gate) gets a 30s timeout, assertions unchanged; full `npm test` green (1812/1812). Root cause is a perf bug in product code: #73 (`size:small`, `queued`) caches the formatter and removes the timeout.
 - Build re-scoped on Nimish's instruction (ADR 0021): one build ticket per milestone (two in M6), wacrm reused first, components ported only inside the screen ticket that needs them.
 - Open tickets: #63 (M1 theme follow-ups, seeded, `ready`, unchanged) → #18 (M1 frame; absorbs #8, #9, #12 and hiding Settings › Appearance) → #65 M2 · #66 M3 · #67 M4 · #68 M5 · #69, #70 M6 · #71 M7. All but #63 are `queued`, no seed yet.
