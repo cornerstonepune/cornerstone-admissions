@@ -1,5 +1,5 @@
 // Audio types the conversation log accepts (ADR 0039): what phones and browsers record, all of which Sarvam reads.
-// The same list is the bucket's allowed_mime_types (migration 124).
+// The same list is the bucket's allowed_mime_types (migration 125).
 export const AUDIO_EXT: Record<string, string> = {
   "audio/mp4": "m4a",
   "audio/x-m4a": "m4a",

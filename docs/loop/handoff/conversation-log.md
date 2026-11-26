@@ -1,7 +1,7 @@
 # Handoff — Conversation log (branch feat/conversation-log, ADR 0039)
 
 ## What I did
-- Migration 124: `lead_conversations` (RLS like `lead_activity`), private bucket `conversation-audio` (50 MB, phone and
+- Migration 125: `lead_conversations` (RLS like `lead_activity`), private bucket `conversation-audio` (50 MB, phone and
   browser audio types, account-folder policies), `redeem_invitation` counts the new table.
 - `src/admissions/lib/sarvam.ts` (batch job: create, upload, start, poll, download; `saaras:v4`, translate),
   `conversation-extract.ts` (Claude `claude-sonnet-5-5`, JSON schema, validation, fixed concern list),

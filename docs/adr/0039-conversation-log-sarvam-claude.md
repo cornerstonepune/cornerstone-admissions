@@ -9,7 +9,7 @@ transcribed, and broken into sections staff can scan. Calls are in code-mixed Hi
 minutes.
 
 ## Decision
-- **A seventh admissions table, `lead_conversations`** (migration 124), beside ADR 0010's six: kind (call, visit,
+- **A seventh admissions table, `lead_conversations`** (migration 125), beside ADR 0010's six: kind (call, visit,
   meeting, note), when, who, the audio path or a typed note, a status, the English transcript and the sections
   (summary, concerns, questions, action points, interest, suggested stage). Same RLS as `lead_activity`. Audio sits in a
   private bucket `conversation-audio` at `<account>/<lead>/<uuid>.<ext>`, 50 MB, phone and browser audio types;
