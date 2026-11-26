@@ -11,7 +11,11 @@ minutes.
 ## Decision
 - **A seventh admissions table, `lead_conversations`** (migration 125), beside ADR 0010's six: kind (call, visit,
   meeting, note), when, who, the audio path or a typed note, a status, the English transcript and the sections
-  (summary, concerns, questions, action points, interest, suggested stage). Same RLS as `lead_activity`. Audio sits in a
+  (summary, concerns, questions, action points, interest, suggested stage). Members read, agent+ log, admin deletes,
+  each account to itself. **Staff have no UPDATE** and may INSERT only the columns a person fills in (and only as
+  themselves): the service-role job runner trusts the status, path, job and section columns, so only it writes them.
+  Retry is read under RLS and written by the service role. A CHECK keeps `audio_path` inside
+  `<account_id>/<lead_id>/`, and the runner re-checks it before any download. Audio sits in a
   private bucket `conversation-audio` at `<account>/<lead>/<uuid>.<ext>`, 50 MB, phone and browser audio types;
   members read, agent+ upload, admin deletes. `redeem_invitation` counts the new table as account data.
 - **Sarvam for speech** (`saaras:v4`, `mode: translate`, `language_code: unknown`): built for Indian languages and
@@ -34,13 +38,16 @@ minutes.
 - **Action points the school owns become call tasks** on the lead (at most 5 per conversation, due on the agreed date or
   tomorrow), so they reach the Today list.
 - **Privacy:** audio is never public; playback uses 10-minute signed URLs; no transcript or personal data is logged.
-  The form reminds staff to tell the parent the call is recorded. **Retention:** the cron deletes audio 12 months after
-  upload and keeps the text.
+  The form reminds staff to tell the parent the call is recorded. **Retention:** the cron sweeps the bucket itself
+  (`conversation_audio_to_sweep`, service role only): audio over 12 months old, and audio no conversation points to
+  that is over a day old (deleted lead or row, failed save, stray upload). The text stays. Deleting a lead also removes
+  its folder, best effort.
 
 ## Consequences
 - Two new secrets on Vercel: `SARVAM_API_KEY`, `ANTHROPIC_API_KEY`.
 - `tests/db/migrations.test.ts` now expects 7 admissions tables (44 in `public`), not 6.
 - Unverified until real keys exist: the blob upload method (Azure Put Blob with `x-ms-blob-type: BlockBlob`; Sarvam's
   docs don't state it), the exact shape of Sarvam's output file, and real-world extraction quality.
-- Deleting a lead (admin only) deletes its conversations but leaves their audio files in the bucket; retention can't
-  find them once the row is gone. Clean up by folder if it matters.
+- A failure to add call tasks is shown on the conversation, not silently dropped.
+- Not done: saving the Sarvam job id before the upload. The window where a timed-out run could start a second paid job
+  is the one HTTP call between `start` and the save.

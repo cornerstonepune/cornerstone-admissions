@@ -794,6 +794,24 @@ END $$;
 
 
 --
+-- Name: conversation_audio_to_sweep(integer); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.conversation_audio_to_sweep(p_limit integer DEFAULT 100) RETURNS TABLE(name text)
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+  SELECT o.name FROM storage.objects o
+  WHERE o.bucket_id = 'conversation-audio'
+    AND (o.created_at < now() - interval '12 months'
+         OR (o.created_at < now() - interval '1 day'
+             AND NOT EXISTS (SELECT 1 FROM public.lead_conversations c WHERE c.audio_path = o.name)))
+  ORDER BY o.created_at
+  LIMIT p_limit;
+$$;
+
+
+--
 -- Name: create_broadcast_with_recipients(uuid, uuid, text, text, text, integer, uuid[], jsonb); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -3603,6 +3621,7 @@ CREATE TABLE public.lead_conversations (
     suggested_stage text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT lead_conversations_audio_in_folder CHECK (((audio_path IS NULL) OR ((audio_path ~~ ((((account_id)::text || '/'::text) || (lead_id)::text) || '/%'::text)) AND (audio_path !~~ '%..%'::text)))),
     CONSTRAINT lead_conversations_duration_s_check CHECK ((duration_s >= 0)),
     CONSTRAINT lead_conversations_interest_check CHECK ((interest = ANY (ARRAY['hot'::text, 'warm'::text, 'cold'::text]))),
     CONSTRAINT lead_conversations_kind_check CHECK ((kind = ANY (ARRAY['call'::text, 'visit'::text, 'meeting'::text, 'note'::text]))),
@@ -4999,6 +5018,13 @@ CREATE UNIQUE INDEX lead_activity_one_per_rule_entry ON public.lead_activity USI
 --
 
 CREATE INDEX lead_activity_open_calls_idx ON public.lead_activity USING btree (account_id, due_at) WHERE ((kind = 'call_task'::public.lead_activity_kind) AND (done_at IS NULL));
+
+
+--
+-- Name: lead_conversations_audio_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX lead_conversations_audio_idx ON public.lead_conversations USING btree (audio_path) WHERE (audio_path IS NOT NULL);
 
 
 --
@@ -6998,7 +7024,7 @@ CREATE POLICY lead_conversations_delete ON public.lead_conversations FOR DELETE 
 -- Name: lead_conversations lead_conversations_insert; Type: POLICY; Schema: public; Owner: -
 --
 
-CREATE POLICY lead_conversations_insert ON public.lead_conversations FOR INSERT TO authenticated WITH CHECK (public.is_account_member(account_id, 'agent'::public.account_role_enum));
+CREATE POLICY lead_conversations_insert ON public.lead_conversations FOR INSERT TO authenticated WITH CHECK ((public.is_account_member(account_id, 'agent'::public.account_role_enum) AND (created_by = auth.uid())));
 
 
 --
@@ -7006,13 +7032,6 @@ CREATE POLICY lead_conversations_insert ON public.lead_conversations FOR INSERT 
 --
 
 CREATE POLICY lead_conversations_select ON public.lead_conversations FOR SELECT TO authenticated USING (public.is_account_member(account_id));
-
-
---
--- Name: lead_conversations lead_conversations_update; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY lead_conversations_update ON public.lead_conversations FOR UPDATE TO authenticated USING (public.is_account_member(account_id, 'agent'::public.account_role_enum)) WITH CHECK (public.is_account_member(account_id, 'agent'::public.account_role_enum));
 
 
 --

@@ -284,7 +284,7 @@ function StatusLine({ c, onRetry }: { c: Conversation; onRetry: () => void }) {
       </p>
     );
   }
-  if (c.status === "done") return null;
+  if (c.status === "done") return c.error ? <StatusChip tone="quiet">{c.error}</StatusChip> : null;
   // A missing key leaves the row waiting with that reason; anything else is work in progress.
   const words = c.error ?? (c.status === "analysing" ? "Analysing…" : c.status === "transcribing" ? "Transcribing…" : "Waiting to process…");
   return <StatusChip tone={c.error ? "quiet" : "wait"}>{words}</StatusChip>;

@@ -19,6 +19,12 @@
 ## Not done / unverified
 - No real Sarvam or Claude call made (no keys). Unverified: Azure blob PUT for Sarvam's upload URL, Sarvam's output file
   shape, extraction quality.
-- `db/schema.sql` not regenerated (needs the local DB); run `npm run db:reset && npm run db:schema` and commit.
 - Not clicked through in a browser.
 - Keys to add on Vercel (Production + Preview): `SARVAM_API_KEY`, `ANTHROPIC_API_KEY`.
+
+## Security review fixes
+- Migration 125 edited in place: no UPDATE for staff, column-limited INSERT as oneself, `audio_path` folder CHECK,
+  `conversation_audio_to_sweep()` (service role) for old and orphaned audio. Runner re-checks the path; retry writes with
+  the service role; lead DELETE removes the lead's audio folder; call-task errors are shown on the row.
+- Local: `npm run db:reset`, `npm run test:db` 35 files / 276 tests pass; `db:schema` regenerated; `npm test`
+  199 files / 2146 tests; typecheck, lint (0 errors), build pass.

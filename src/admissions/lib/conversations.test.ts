@@ -1,6 +1,17 @@
 // ADR 0039: the conversation job state machine, with Sarvam and Claude mocked (no network).
 import { describe, expect, it, vi } from "vitest";
-import { advance, MAX_ATTEMPTS, nextStep, NOT_SET_UP, retryPatch, type ConversationRow, type Io } from "./conversations";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  advance,
+  inOwnFolder,
+  MAX_ATTEMPTS,
+  nextStep,
+  NOT_SET_UP,
+  retryPatch,
+  sweepAudio,
+  type ConversationRow,
+  type Io,
+} from "./conversations";
 import type { Extraction } from "./conversation-extract";
 
 const row = (over: Partial<ConversationRow> = {}): ConversationRow => ({
@@ -158,5 +169,55 @@ describe("retryPatch", () => {
       error: null,
       provider_job_id: null,
     });
+  });
+});
+
+describe("the audio path re-check", () => {
+  it("accepts only this conversation's own account and lead folder", () => {
+    expect(inOwnFolder({ account_id: "a1", lead_id: "l1", audio_path: "a1/l1/x.m4a" })).toBe(true);
+    expect(inOwnFolder({ account_id: "a1", lead_id: "l1", audio_path: "a2/l1/x.m4a" })).toBe(false);
+    expect(inOwnFolder({ account_id: "a1", lead_id: "l1", audio_path: "a1/l9/x.m4a" })).toBe(false);
+    expect(inOwnFolder({ account_id: "a1", lead_id: "l1", audio_path: "a1/l1/../../a2/l2/x.m4a" })).toBe(false);
+  });
+
+  it("fails a row pointing at someone else's file without downloading it", async () => {
+    const deps = io();
+    expect(await nextStep(row({ audio_path: "a2/l2/theirs.m4a" }), deps)).toMatchObject({ status: "failed" });
+    expect(deps.loadAudio).not.toHaveBeenCalled();
+    expect(deps.transcriber!.start).not.toHaveBeenCalled();
+  });
+});
+
+function fakeDb(names: string[], removeError: unknown = null) {
+  const remove = vi.fn(async () => ({ error: removeError }));
+  const inFn = vi.fn(async () => ({ error: null }));
+  const update = vi.fn(() => ({ in: inFn }));
+  const db = {
+    rpc: vi.fn(async () => ({ data: names.map((name) => ({ name })), error: null })),
+    storage: { from: () => ({ remove }) },
+    from: () => ({ update }),
+  };
+  return { db: db as unknown as SupabaseClient, remove, update, inFn };
+}
+
+describe("sweepAudio", () => {
+  it("deletes the files the database lists (old or orphaned) and clears their rows' paths", async () => {
+    const f = fakeDb(["a1/l1/old.m4a", "a1/gone/orphan.webm"]);
+    expect(await sweepAudio(f.db)).toBe(2);
+    expect(f.remove).toHaveBeenCalledWith(["a1/l1/old.m4a", "a1/gone/orphan.webm"]);
+    expect(f.update).toHaveBeenCalledWith(expect.objectContaining({ audio_path: null }));
+    expect(f.inFn).toHaveBeenCalledWith("audio_path", ["a1/l1/old.m4a", "a1/gone/orphan.webm"]);
+  });
+
+  it("keeps the rows' paths when Storage refuses the delete", async () => {
+    const f = fakeDb(["a1/l1/old.m4a"], { message: "down" });
+    expect(await sweepAudio(f.db)).toBe(0);
+    expect(f.update).not.toHaveBeenCalled();
+  });
+
+  it("does nothing when there is nothing to sweep", async () => {
+    const f = fakeDb([]);
+    expect(await sweepAudio(f.db)).toBe(0);
+    expect(f.remove).not.toHaveBeenCalled();
   });
 });

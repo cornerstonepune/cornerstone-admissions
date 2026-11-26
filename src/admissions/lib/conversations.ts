@@ -3,16 +3,16 @@
 // saves. The cron finishes what the upload and the panel didn't. Failures retry up to MAX_ATTEMPTS, then show as
 // failed with the reason; the audio is never touched by a failure.
 import Anthropic from "@anthropic-ai/sdk";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/lib/automations/admin-client";
+import { AUDIO_BUCKET } from "./audio";
 import { claudeExtractor, type Extraction, type Extractor } from "./conversation-extract";
 import { sarvam, type Transcriber } from "./sarvam";
 
-import { AUDIO_BUCKET } from "./audio";
 export const MAX_ATTEMPTS = 3;
 export const OPEN_STATUSES = ["pending", "transcribing", "analysing"] as const;
 export const NOT_SET_UP = { transcription: "Transcription not set up", analysis: "Analysis not set up" };
 const LOCK_MS = 10 * 60_000;
-const AUDIO_KEEP_MS = 365 * 86_400_000;
 
 export type ConversationStatus = (typeof OPEN_STATUSES)[number] | "done" | "failed";
 
@@ -46,10 +46,17 @@ function failure(row: ConversationRow, e: unknown, retry: Patch = {}): Patch {
   return attempts >= MAX_ATTEMPTS ? { status: "failed", error: message(e), attempts } : { ...retry, error: message(e), attempts };
 }
 
+/** The audio must sit in this conversation's own account and lead folder (the table's CHECK says so too). */
+export function inOwnFolder(row: Pick<ConversationRow, "account_id" | "lead_id" | "audio_path">): boolean {
+  const path = row.audio_path ?? "";
+  return path.startsWith(`${row.account_id}/${row.lead_id}/`) && !path.includes("..");
+}
+
 /** One step of the state machine: what to change on the row. An empty patch means "still waiting". */
 export async function nextStep(row: ConversationRow, io: Io): Promise<Patch> {
   if (row.status === "pending") {
     if (!row.audio_path) return { status: "analysing", error: null };
+    if (!inOwnFolder(row)) return { status: "failed", error: "The recording isn't in this lead's folder" };
     if (!io.transcriber) return { error: NOT_SET_UP.transcription };
     try {
       const audio = await io.loadAudio(row.audio_path);
@@ -152,11 +159,21 @@ export async function processConversation(id: string, io: Io = defaultIo()): Pro
   } finally {
     await db.from("lead_conversations").update({ ...changes, claimed_at: null }).eq("id", id);
   }
-  if (changes.status === "done") await addCallTasks(row, changes.action_points ?? []);
+  if (changes.status === "done") {
+    const error = await addCallTasks(row, changes.action_points ?? []);
+    // The sections are saved; say on the row that its call tasks weren't made (no personal data in the log line).
+    if (error) {
+      console.error("conversation call tasks failed", id, error.code);
+      await db.from("lead_conversations").update({ error: `Call tasks not added: ${error.message}` }).eq("id", id);
+    }
+  }
 }
 
 /** The school's action points become call tasks on the lead, so they reach the Today list. */
-async function addCallTasks(row: ConversationRow, points: Extraction["action_points"]): Promise<void> {
+async function addCallTasks(
+  row: ConversationRow,
+  points: Extraction["action_points"],
+): Promise<{ code?: string; message: string } | null> {
   const tomorrow = new Date(Date.now() + 86_400_000).toISOString();
   const tasks = points
     .filter((p) => p.owner === "school")
@@ -170,29 +187,30 @@ async function addCallTasks(row: ConversationRow, points: Extraction["action_poi
       created_by: row.created_by,
       assigned_to: row.created_by,
     }));
-  if (tasks.length) await supabaseAdmin().from("lead_activity").insert(tasks);
+  if (!tasks.length) return null;
+  const { error } = await supabaseAdmin().from("lead_activity").insert(tasks);
+  return error;
 }
 
-/** From the cron: deletes audio past 12 months (the text stays), then advances the open conversations. */
+/** Deletes audio past 12 months and audio no conversation points to (from the bucket itself, so a deleted lead or a
+ * failed save leaves nothing behind); the text stays. Returns how many files went. */
+export async function sweepAudio(db: SupabaseClient): Promise<number> {
+  const { data, error } = await db.rpc("conversation_audio_to_sweep", { p_limit: 100 });
+  const names = ((data ?? []) as { name: string }[]).map((r) => r.name);
+  if (error || !names.length) return 0;
+  const { error: removeError } = await db.storage.from(AUDIO_BUCKET).remove(names);
+  if (removeError) return 0;
+  await db
+    .from("lead_conversations")
+    .update({ audio_path: null, audio_deleted_at: new Date().toISOString() })
+    .in("audio_path", names);
+  return names.length;
+}
+
+/** From the cron: sweeps old and orphaned audio, then advances the open conversations. */
 export async function runConversationJobs(io: Io = defaultIo()): Promise<{ advanced: number; audioDeleted: number }> {
   const db = supabaseAdmin();
-  let audioDeleted = 0;
-  const { data: old } = await db
-    .from("lead_conversations")
-    .select("id, audio_path")
-    .not("audio_path", "is", null)
-    .lt("created_at", new Date(Date.now() - AUDIO_KEEP_MS).toISOString())
-    .limit(50);
-  if (old?.length) {
-    const { error } = await db.storage.from(AUDIO_BUCKET).remove(old.map((r) => r.audio_path as string));
-    if (!error) {
-      await db
-        .from("lead_conversations")
-        .update({ audio_path: null, audio_deleted_at: new Date().toISOString() })
-        .in("id", old.map((r) => r.id));
-      audioDeleted = old.length;
-    }
-  }
+  const audioDeleted = await sweepAudio(db);
   // Least recently touched first, so rows waiting on a missing key don't starve the rest.
   const { data: open } = await db
     .from("lead_conversations")

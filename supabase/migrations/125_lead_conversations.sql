@@ -1,7 +1,8 @@
 -- 125 — Conversation log (ADR 0039): every call, visit, meeting or note with a family, kept on the lead.
 -- Audio sits in the private `conversation-audio` bucket at <account_id>/<lead_id>/<file>; the server transcribes it
--- (Sarvam) and breaks it into sections (Claude). Same access as lead_activity (101): members read, agent+ write,
--- admin deletes, each account to itself.
+-- (Sarvam) and breaks it into sections (Claude). Members read, agent+ log a conversation, admin deletes, each account to
+-- itself. Staff never UPDATE a row: every job column (status, audio path, job id, sections, created_at) is written only
+-- by the server's job runner, which trusts them.
 
 CREATE TABLE public.lead_conversations (
   id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -28,7 +29,11 @@ CREATE TABLE public.lead_conversations (
   interest         text CHECK (interest IN ('hot', 'warm', 'cold')),
   suggested_stage  text,
   created_at       timestamptz NOT NULL DEFAULT now(),
-  updated_at       timestamptz NOT NULL DEFAULT now()
+  updated_at       timestamptz NOT NULL DEFAULT now(),
+  -- The audio sits in this conversation's own account and lead folder, never someone else's.
+  CONSTRAINT lead_conversations_audio_in_folder CHECK (
+    audio_path IS NULL OR (audio_path LIKE account_id::text || '/' || lead_id::text || '/%' AND audio_path NOT LIKE '%..%')
+  )
 );
 CREATE INDEX lead_conversations_lead_idx ON public.lead_conversations (lead_id, happened_at DESC);
 CREATE INDEX lead_conversations_open_idx ON public.lead_conversations (created_at)
@@ -50,15 +55,16 @@ CREATE TRIGGER lead_conversations_check_lead BEFORE INSERT OR UPDATE OF lead_id,
   ON public.lead_conversations FOR EACH ROW EXECUTE FUNCTION public.check_lead_conversation_lead();
 
 ALTER TABLE public.lead_conversations ENABLE ROW LEVEL SECURITY;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.lead_conversations TO authenticated;
+-- Only the columns a person fills in; status, job and section columns keep their defaults until the runner sets them.
+GRANT SELECT, DELETE ON public.lead_conversations TO authenticated;
+GRANT INSERT (account_id, lead_id, kind, happened_at, created_by, audio_path, duration_s, typed_note)
+  ON public.lead_conversations TO authenticated;
 GRANT ALL ON public.lead_conversations TO service_role;
 
 CREATE POLICY lead_conversations_select ON public.lead_conversations FOR SELECT TO authenticated
   USING (public.is_account_member(account_id));
 CREATE POLICY lead_conversations_insert ON public.lead_conversations FOR INSERT TO authenticated
-  WITH CHECK (public.is_account_member(account_id, 'agent'));
-CREATE POLICY lead_conversations_update ON public.lead_conversations FOR UPDATE TO authenticated
-  USING (public.is_account_member(account_id, 'agent')) WITH CHECK (public.is_account_member(account_id, 'agent'));
+  WITH CHECK (public.is_account_member(account_id, 'agent') AND created_by = auth.uid());
 CREATE POLICY lead_conversations_delete ON public.lead_conversations FOR DELETE TO authenticated
   USING (public.is_account_member(account_id, 'admin'));
 
@@ -92,6 +98,23 @@ CREATE POLICY "Admins delete conversation audio" ON storage.objects FOR DELETE T
     SELECT 1 FROM public.profiles p WHERE p.user_id = auth.uid()
       AND p.account_id::text = (storage.foldername(name))[1]
       AND p.account_role IN ('owner', 'admin')));
+
+-- The audio retention sweep (service role only): files over 12 months old, and files no conversation points to that are
+-- over a day old (lead or conversation deleted, a save that failed after the upload, a stray upload). The job runner
+-- deletes them through the Storage API, so the files go too, not just their rows.
+CREATE INDEX lead_conversations_audio_idx ON public.lead_conversations (audio_path) WHERE audio_path IS NOT NULL;
+CREATE FUNCTION public.conversation_audio_to_sweep(p_limit integer DEFAULT 100) RETURNS TABLE (name text)
+  LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public' AS $$
+  SELECT o.name FROM storage.objects o
+  WHERE o.bucket_id = 'conversation-audio'
+    AND (o.created_at < now() - interval '12 months'
+         OR (o.created_at < now() - interval '1 day'
+             AND NOT EXISTS (SELECT 1 FROM public.lead_conversations c WHERE c.audio_path = o.name)))
+  ORDER BY o.created_at
+  LIMIT p_limit;
+$$;
+REVOKE ALL ON FUNCTION public.conversation_audio_to_sweep(integer) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.conversation_audio_to_sweep(integer) TO service_role;
 
 -- redeem_invitation refuses to delete an old account that holds data; lead_conversations counts too.
 -- Body = migration 102's plus one line.
