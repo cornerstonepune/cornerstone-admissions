@@ -8,23 +8,35 @@ import { addMonths, format, parseISO } from "date-fns";
 
 import { Button } from "@/components/ui/button";
 import { MEETING_KINDS, type MeetingKind } from "@/admissions/lib/meetings";
-import { dayKey, familyOf, monthGrid, takeaway, timeOf, type Meeting } from "@/admissions/lib/calendar";
+import { dayKey, familyOf, inDayOrder, labelOf, monthGrid, takeaway, timeOf, type Meeting } from "@/admissions/lib/calendar";
 import { Icon } from "./icons";
 import { LeadPanel } from "./lead-panel";
 import { PageHead } from "./page-head";
 import { StatusChip } from "./parts";
 
 const CARD = "rounded-[var(--radius-card)] bg-[var(--panel)] shadow-[var(--shadow-card)]";
-const KIND_LOOK: Record<MeetingKind, string> = {
+/** How many entries a day cell shows before "+N more". */
+const PER_DAY = 3;
+const KIND_LOOK: Record<Meeting["kind"], string> = {
   campus: "bg-[var(--kind-activity-bg)] text-[var(--kind-activity)]",
   virtual: "bg-[var(--kind-objective-bg)] text-[var(--kind-objective)]",
   phone: "bg-[var(--kind-note-bg)] text-[var(--kind-note)]",
+  call: "bg-[var(--state-wait-bg)] text-[var(--state-wait)]",
 };
+const isPast = (iso: string) => Date.parse(iso) < Date.now();
+/** A call already made is history: quiet. An overdue one is red. */
+const look = (m: Meeting) =>
+  m.status === "called"
+    ? "bg-[var(--state-quiet-bg)] text-[var(--state-quiet)]"
+    : m.status === "to_call" && isPast(m.starts_at)
+      ? "bg-[var(--state-late-bg)] text-[var(--state-late)]"
+      : KIND_LOOK[m.kind];
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 function Mark({ m }: { m: Meeting }) {
   if (m.status === "visited") return <StatusChip tone="ok">Visited</StatusChip>;
   if (m.status === "no_show") return <StatusChip tone="late">No-show</StatusChip>;
+  if (m.status === "to_call" && isPast(m.starts_at)) return <StatusChip tone="late">Overdue</StatusChip>;
   return null;
 }
 
@@ -34,19 +46,22 @@ function Item({ m, onOpen, roomy }: { m: Meeting; onOpen: () => void; roomy?: bo
     <button
       type="button"
       onClick={onOpen}
-      title={`${familyOf(m)} · ${MEETING_KINDS[m.kind]}${m.campus ? ` · ${m.campus.label}` : ""}`}
-      className={`flex w-full min-w-0 flex-wrap items-center gap-x-[var(--space-1)] rounded-[var(--radius-small)] px-[var(--space-1)] py-0.5 text-start text-caption ${KIND_LOOK[m.kind]} ${m.status !== "booked" ? "opacity-70" : ""}`}
+      title={[familyOf(m), labelOf(m), m.campus?.label, m.note].filter(Boolean).join(" · ")}
+      className={`flex w-full min-w-0 flex-wrap items-center gap-x-[var(--space-1)] rounded-[var(--radius-small)] px-[var(--space-1)] py-0.5 text-start text-caption ${look(m)} ${m.status === "visited" || m.status === "no_show" ? "opacity-70" : ""}`}
     >
-      <Icon name={m.kind} size={14} className="flex-none" />
-      <span className="flex-none tabular-nums">{timeOf(m.starts_at)}</span>
+      <span className="flex flex-none items-center gap-[var(--space-1)] whitespace-nowrap tabular-nums">
+        <Icon name={m.kind} size={14} />
+        {timeOf(m.starts_at)}
+      </span>
       {/* in a narrow day cell the family wraps to its own line rather than vanish */}
       <span className={`min-w-0 truncate font-semibold ${roomy ? "" : "basis-full"}`}>{familyOf(m)}</span>
       {roomy ? (
         <span className="ms-auto flex flex-none items-center gap-[var(--space-1)]">
-          <span>{MEETING_KINDS[m.kind]}</span>
+          <span>{labelOf(m)}</span>
           <Mark m={m} />
         </span>
       ) : null}
+      {roomy && m.note ? <span className="basis-full">{m.note}</span> : null}
     </button>
   );
 }
@@ -56,6 +71,7 @@ export function CalendarScreen() {
   const [meetings, setMeetings] = useState<Meeting[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
+  const [wide, setWide] = useState<string | null>(null); // the day whose full list is shown
   const grid = useMemo(() => monthGrid(month), [month]);
 
   const load = useCallback(async () => {
@@ -71,21 +87,27 @@ export function CalendarScreen() {
 
   const byDay = useMemo(() => {
     const map = new Map<string, Meeting[]>();
-    for (const m of meetings ?? []) map.set(dayKey(m.starts_at), [...(map.get(dayKey(m.starts_at)) ?? []), m]);
+    for (const m of [...(meetings ?? [])].sort(inDayOrder)) map.set(dayKey(m.starts_at), [...(map.get(dayKey(m.starts_at)) ?? []), m]);
     return map;
   }, [meetings]);
 
   const monthKey = format(month, "yyyy-MM");
   const inMonth = (meetings ?? []).filter((m) => dayKey(m.starts_at).startsWith(monthKey));
   const today = dayKey(new Date().toISOString());
-  const counts = (Object.keys(MEETING_KINDS) as MeetingKind[]).map((k) => [k, inMonth.filter((m) => m.kind === k).length] as const);
+  const counts: [Meeting["kind"] | "called", string, number][] = [
+    ...(Object.keys(MEETING_KINDS) as MeetingKind[]).map(
+      (k) => [k, MEETING_KINDS[k], inMonth.filter((m) => m.kind === k).length] as [MeetingKind, string, number],
+    ),
+    ["call", "Calls to make", inMonth.filter((m) => m.status === "to_call").length],
+    ["called", "Calls made", inMonth.filter((m) => m.status === "called").length],
+  ];
 
   return (
     <div className="grid content-start gap-[var(--space-4)] p-[var(--space-4)]">
       <PageHead
-        eyebrow={`Meetings · ${format(month, "MMMM yyyy")}${meetings ? ` · ${inMonth.length} ${inMonth.length === 1 ? "meeting" : "meetings"}` : ""}`}
+        eyebrow={`Meetings and calls · ${format(month, "MMMM yyyy")}`}
         title="Calendar"
-        purpose="Every campus visit, video call and phone call with a family: from Cal.com and from calls staff log."
+        purpose="Every meeting with a family, from Cal.com and from staff, with the calls to make and the calls made."
       />
 
       <div className="flex flex-wrap items-center gap-[var(--space-2)]">
@@ -100,10 +122,13 @@ export function CalendarScreen() {
         </Button>
         <h2 className="text-title-section font-semibold">{format(month, "MMMM yyyy")}</h2>
         <ul className="m-0 ms-auto flex list-none flex-wrap gap-[var(--space-2)] p-0 text-caption">
-          {counts.map(([k, n]) => (
-            <li key={k} className={`flex items-center gap-[var(--space-1)] rounded-full px-[var(--space-2)] py-0.5 ${KIND_LOOK[k]}`}>
-              <Icon name={k} size={14} />
-              {MEETING_KINDS[k]}: <span className="font-semibold tabular-nums">{n}</span>
+          {counts.map(([k, words, n]) => (
+            <li
+              key={k}
+              className={`flex items-center gap-[var(--space-1)] rounded-full px-[var(--space-2)] py-0.5 ${k === "called" ? "bg-[var(--state-quiet-bg)] text-[var(--state-quiet)]" : KIND_LOOK[k]}`}
+            >
+              <Icon name={k === "called" ? "call" : k} size={14} />
+              {words}: <span className="font-semibold tabular-nums">{n}</span>
             </li>
           ))}
         </ul>
@@ -148,9 +173,19 @@ export function CalendarScreen() {
                       >
                         {parseISO(day).getDate()}
                       </span>
-                      {list.map((m) => (
+                      {(wide === day ? list : list.slice(0, PER_DAY)).map((m) => (
                         <Item key={m.id} m={m} onOpen={() => setOpen(m.lead_id)} />
                       ))}
+                      {list.length > PER_DAY ? (
+                        <button
+                          type="button"
+                          aria-expanded={wide === day}
+                          onClick={() => setWide(wide === day ? null : day)}
+                          className="justify-self-start px-[var(--space-1)] text-caption font-semibold text-[var(--link)]"
+                        >
+                          {wide === day ? "Show fewer" : `+${list.length - PER_DAY} more`}
+                        </button>
+                      ) : null}
                     </div>
                   );
                 })}
@@ -161,9 +196,9 @@ export function CalendarScreen() {
           {/* a day-by-day list on a phone */}
           <div className="grid gap-[var(--space-3)] md:hidden">
             {inMonth.length === 0 ? (
-              <p className="text-[var(--ink-muted)]">No meetings this month.</p>
+              <p className="text-[var(--ink-muted)]">No meetings or calls this month.</p>
             ) : (
-              [...new Set(inMonth.map((m) => dayKey(m.starts_at)))].map((day) => (
+              [...new Set(inMonth.map((m) => dayKey(m.starts_at)))].sort().map((day) => (
                 <section key={day} className={`${CARD} grid gap-[var(--space-1)] p-[var(--space-card-tight)]`}>
                   <h3 className="text-label font-semibold">
                     {format(parseISO(day), "EEE d MMM")}

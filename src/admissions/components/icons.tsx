@@ -16,6 +16,7 @@ import {
   PanelLeftOpen,
   Pencil,
   Phone,
+  PhoneCall,
   Plus,
   Settings,
   SlidersHorizontal,
@@ -56,6 +57,7 @@ export const ICONS = {
   campus: MapPin,
   virtual: Video,
   phone: Phone,
+  call: PhoneCall,
   previous: ChevronLeft,
   next: ChevronRight,
 } satisfies Record<string, LucideIcon>;

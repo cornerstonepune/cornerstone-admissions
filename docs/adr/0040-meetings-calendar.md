@@ -42,3 +42,16 @@ isolation rule like ADR 0003) is the school's Cal.com embedded: a "school-visit"
   school's booking-question names for child and grade; `ADMISSIONS_ACCOUNT_ID` must be set on Vercel for new families.
 - Not done: marking a meeting Visited or No-show in the app (Cal.com's no-show only); editing or cancelling a meeting
   staff added (cancel it on Cal.com, or ask); showing logged conversations on the Calendar; email from the booking.
+
+## Amendment, 2026-11-27: calls on the Calendar, and the old sheet's dated events
+- The Calendar also shows call tasks: still to make on their due day, made on the day they were made (outcome and note
+  on hover and in the phone list). A day cell shows three entries, meetings first, then "+N more".
+- Nimish asked for the old sheet's comments (ADR 0036) to become events. A one-off load, read by hand, in one
+  transaction on the hosted database, dry-run first: 31 calls made, 8 calls to make, 4 past visits (Visited) and
+  2 upcoming meetings. Names stay out of this repo. Choices: times are not on the sheet, so past events are 10:00 and
+  calls to make 11:00; "December first week" is 1 December; "next week" is 30 November; two obvious typos (year 2027,
+  December for November) corrected; a missing day read as 26 November; an unconfirmed meeting or a "probably visiting"
+  became a call to make; emails and messages sent, and undated actions, stayed in the notes.
+- No messages: the two upcoming meetings have their reminder stamps set, so no WhatsApp reminder and no "not
+  confirmed" task is made for them.
+- Call notes from the load start with "Old sheet:" and have no author.
