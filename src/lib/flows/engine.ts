@@ -33,7 +33,7 @@
  */
 
 import { supabaseAdmin } from "./admin-client";
-import { intakeFromWhatsApp } from "@/admissions/lib/intake";
+import { intakeFromWhatsApp, sourceCode } from "@/admissions/lib/intake";
 import {
   engineSendInteractiveButtons,
   engineSendInteractiveList,
@@ -578,9 +578,11 @@ async function evaluateConditionNode(
  */
 function interpolateVars(template: string, vars: Record<string, unknown>): string {
   if (!template) return "";
-  return template.replace(/\{\{vars\.([a-zA-Z0-9_]+)\}\}/g, (_, key) => {
+  // `{{vars.foo|url}}` URL-encodes the value, for a link that carries it (a booking link with the child's name).
+  return template.replace(/\{\{vars\.([a-zA-Z0-9_]+)(\|url)?\}\}/g, (_, key, url) => {
     const v = vars[key];
-    return v === undefined || v === null ? "" : String(v);
+    const s = v === undefined || v === null ? "" : String(v);
+    return url ? encodeURIComponent(s) : s;
   });
 }
 
@@ -989,20 +991,24 @@ async function closeActiveRun(
 export async function dispatchInboundToFlows(
   input: DispatchInboundInput & { isFirstInboundMessage: boolean },
 ): Promise<DispatchInboundResult> {
-  const result = await dispatchToRuns(input);
+  const text = input.message.kind === "text" ? input.message.text : input.message.reply_title;
+  // Admissions: a scanned QR or source link (its code in the text) starts the welcome flow again, as a first message
+  // does, ending any chat in progress.
+  const restart = sourceCode(text) !== null;
+  const result = await dispatchToRuns({ ...input, isFirstInboundMessage: input.isFirstInboundMessage || restart, restart });
   // Admissions one door (M4, #67): every inbound opens or reuses the parent's lead, with the source from a QR code in
   // the text and the welcome flow's answers. After the run, so this message's answer is already in its vars.
   await intakeFromWhatsApp(supabaseAdmin(), {
     accountId: input.accountId,
     contactId: input.contactId,
-    text: input.message.kind === "text" ? input.message.text : input.message.reply_title,
+    text,
     flowRunId: result.consumed ? result.flow_run_id : undefined,
   });
   return result;
 }
 
 async function dispatchToRuns(
-  input: DispatchInboundInput & { isFirstInboundMessage: boolean },
+  input: DispatchInboundInput & { isFirstInboundMessage: boolean; restart?: boolean },
 ): Promise<DispatchInboundResult> {
   const db = supabaseAdmin();
   let ownedRunId: string | null = null;
@@ -1031,30 +1037,36 @@ async function dispatchToRuns(
           outcome: "duplicate_inbound_ignored",
         };
       }
-      // One SELECT for the whole flow's nodes — advance loop is now
-      // in-memory. See loadAllNodes.
-      const [runFlow, nodes] = await Promise.all([
-        loadFlow(db, activeRun.flow_id),
-        loadAllNodes(db, activeRun.flow_id),
-      ]);
-      const now = new Date();
-      const closure = closureForActiveRun({
-        run: activeRun,
-        flow: runFlow,
-        nodeKeys: nodes,
-        now,
-      });
-      if (!closure) {
-        return handleReplyForActiveRun(
-          db,
-          activeRun,
-          runFlow!,
-          input.message,
-          nodes,
-        );
+      if (input.restart) {
+        // Admissions: a scanned QR mid-chat starts afresh, instead of being taken as the answer to a question.
+        await endRun(db, activeRun.id, "cancelled", "restarted_by_source_code");
+        ownedRunId = null;
+      } else {
+        // One SELECT for the whole flow's nodes — advance loop is now
+        // in-memory. See loadAllNodes.
+        const [runFlow, nodes] = await Promise.all([
+          loadFlow(db, activeRun.flow_id),
+          loadAllNodes(db, activeRun.flow_id),
+        ]);
+        const now = new Date();
+        const closure = closureForActiveRun({
+          run: activeRun,
+          flow: runFlow,
+          nodeKeys: nodes,
+          now,
+        });
+        if (!closure) {
+          return handleReplyForActiveRun(
+            db,
+            activeRun,
+            runFlow!,
+            input.message,
+            nodes,
+          );
+        }
+        await closeActiveRun(db, activeRun, closure, now);
+        ownedRunId = null;
       }
-      await closeActiveRun(db, activeRun, closure, now);
-      ownedRunId = null;
     }
 
     // No active run → look for a flow whose entry trigger matches.
@@ -1138,9 +1150,12 @@ async function handleReplyForActiveRun(
   }
 
   if (matched) {
-    if (!(await claimReplyTransition(db, run, matched))) {
+    // The tap is kept as vars[<node key>] = reply id, so later nodes and admissions intake know what was picked.
+    const newVars = { ...run.vars, [currentNode.node_key]: (message as { reply_id: string }).reply_id };
+    if (!(await claimReplyTransition(db, run, matched, { vars: newVars }))) {
       return lostReplyRace(db, run, currentNode.node_key);
     }
+    run.vars = newVars;
     const outcome = await advanceFromNodeKey(db, run, matched, nodes);
     return {
       consumed: true,
@@ -1274,6 +1289,15 @@ async function startNewRun(
   input: DispatchInboundInput,
   nodes: Map<string, FlowNodeRow>,
 ): Promise<DispatchInboundResult> {
+  // The contact's number (digits with country code) as vars.contact_phone, so a message can put it in a link
+  // (a booking link that recognises the parent). Not found → the var is absent.
+  const { data: who } = await db
+    .from("contacts")
+    .select("phone_normalized")
+    .eq("id", input.contactId)
+    .eq("account_id", input.accountId)
+    .maybeSingle();
+  const startVars = who?.phone_normalized ? { contact_phone: String(who.phone_normalized) } : {};
   // INSERT — partial unique index `idx_one_active_run_per_contact`
   // catches concurrent inserts with 23505. We catch and return as
   // consumed:true (the parallel webhook handles it).
@@ -1293,6 +1317,7 @@ async function startNewRun(
       conversation_id: input.conversationId,
       status: "active",
       current_node_key: flow.entry_node_id,
+      vars: startVars,
     })
     .select("*")
     .maybeSingle();

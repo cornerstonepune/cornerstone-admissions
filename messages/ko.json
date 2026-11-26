@@ -2553,12 +2553,20 @@
     },
     "admissions_welcome": {
       "name": "Admissions welcome",
-      "description": "Greets a parent's first message, asks the child's name and date of birth, then hands over to the admissions office. The answers fill the parent's lead and pick the campus.",
-      "intro": "Hello, and thank you for writing to Cornerstone! Two quick questions so we can help you.",
-      "askChild": "What is your child's name?",
-      "askDob": "Thank you. What is {name}'s date of birth? (for example 14/03/2022)",
-      "thanks": "Thank you! Our admissions office will message you shortly with the next steps.",
-      "handoffNote": "Welcome flow: child {name}, born {dob}."
+      "description": "Greets a parent's first message (or a scanned QR) with three choices: a call back, a school visit or an online meeting. Asks the child's name and date of birth, then opens the right booking calendar or puts a call on the Today list. The answers fill the parent's lead.",
+      "menu": "Namaste, and thank you for reaching out to Cornerstone School, Pune 🙏\n\nWe would love to get to know you and your child. How would you like to begin?",
+      "menuCallBack": "Request a call back",
+      "menuVisit": "Visit the school",
+      "menuOnline": "Online meeting",
+      "askChild": "Wonderful. May we know your child's name?",
+      "askDob": "Thank you! And when is {name}'s birthday? Please write it as dd/mm/yyyy, for example 14/03/2022.",
+      "callThanks": "Thank you so much. Someone from our admissions team will call you within 24 hours. We look forward to speaking with you.",
+      "askCampus": "We would love to show you around. Which campus would you like to visit?",
+      "campusNeev": "Neev (Playgroup–KG)",
+      "campusGurukul": "Gurukul (Grade 1–7)",
+      "visitLink": "Please pick a time that suits you here, and we will be waiting to welcome you and {name}:\n{link}",
+      "onlineLink": "Of course. Please pick a time that suits you here, and the meeting link will reach you as soon as you book:\n{link}",
+      "handoffNote": "From the welcome chat: asked for a call back. Child {name}, date of birth {dob}."
     }
   },
   "LibErrors": {

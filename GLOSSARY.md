@@ -102,7 +102,7 @@ The three-field form staff use to log a walk-in or call.
 ## Automation
 
 **Welcome flow**:
-The WhatsApp menu a parent gets on first contact: book a visit, call me back, send info.
+The WhatsApp menu a parent gets on first contact or when scanning a QR: request a call back, visit the school, online meeting; then the child's name and date of birth (ADR 0035).
 _Avoid_: bot, chatbot (in the UI)
 
 **Follow-up rule**:

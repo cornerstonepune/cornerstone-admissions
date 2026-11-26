@@ -70,6 +70,7 @@ export interface IntakeInput {
   child?: string;
   dob?: string | null; // YYYY-MM-DD
   area?: string;
+  campus?: string; // a campus setting's tag (the welcome flow's campus button); wins over the date's campus
   sources: string[]; // source tags, first one that exists wins
   note?: string; // added when the family already has an open lead
   reopen?: boolean; // false: a family whose lead has closed gets no new one
@@ -87,16 +88,20 @@ export class IntakeError extends Error {}
 export async function intake(db: SupabaseClient, accountId: string, input: IntakeInput): Promise<IntakeResult> {
   const phone = input.contactId ? null : phoneDigits(input.phone);
   if (!input.contactId && !phone) throw new IntakeError("Enter a 10-digit mobile number.");
-  let route = {};
-  if (input.dob) {
+  let route: { campus_id?: string; grade?: string } = {};
+  if (input.dob || input.campus) {
     const { data, error } = await db
       .from("admissions_settings")
-      .select("id, value")
+      .select("id, key, value")
       .eq("account_id", accountId)
       .eq("kind", "campus")
       .eq("active", true);
     if (error) throw error;
-    route = routeByDob(input.dob, (data ?? []) as Campus[]);
+    const campuses = (data ?? []) as (Campus & { key: string })[];
+    if (input.dob) route = routeByDob(input.dob, campuses);
+    // the campus the parent chose to visit wins over the date's guess; the date's grade stays only if it agrees
+    const picked = campuses.find((c) => c.key === input.campus);
+    if (picked && route.campus_id !== picked.id) route = { campus_id: picked.id };
   }
   const { data, error } = await db.rpc("intake_lead", {
     p_account_id: accountId,
@@ -120,6 +125,30 @@ export async function intake(db: SupabaseClient, accountId: string, input: Intak
 
 const text = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim().slice(0, 120) : undefined);
 
+/** The welcome menu's "Request a call back" button (its reply id; the flow keeps the tap as vars.menu). */
+export const CALL_BACK = "call_back";
+export const CALL_BACK_NOTE = "Asked for a call back on WhatsApp. We promised a call within 24 hours.";
+
+/** A call task due now on the Today list, unless the family already has an open call-back task (intake runs on every
+ * message of the welcome chat, so the tap is seen more than once).
+ * shortcut: two messages of one chat processed at the same instant could both add it; a unique index would close that. */
+async function callBack(db: SupabaseClient, accountId: string, leadId: string): Promise<void> {
+  const { data, error } = await db
+    .from("lead_activity")
+    .select("id")
+    .eq("lead_id", leadId)
+    .eq("kind", "call_task")
+    .eq("notes", CALL_BACK_NOTE)
+    .is("done_at", null)
+    .limit(1);
+  if (error) throw error;
+  if (data?.length) return;
+  const { error: insErr } = await db
+    .from("lead_activity")
+    .insert({ account_id: accountId, lead_id: leadId, kind: "call_task", due_at: new Date().toISOString(), notes: CALL_BACK_NOTE });
+  if (insErr) throw insErr;
+}
+
 /** WhatsApp door, called by the webhook on every new inbound message. A code from a source's QR or link sets the
  * source (an unknown code, or none, means WhatsApp); the welcome flow's answers (vars child_name, child_dob, area,
  * parent_name) fill the lead. Never throws: a failed intake must not lose the message. */
@@ -134,15 +163,18 @@ export async function intakeFromWhatsApp(
       const { data } = await db.from("flow_runs").select("vars").eq("id", p.flowRunId).maybeSingle();
       vars = (data?.vars as Record<string, unknown>) ?? {};
     }
-    await intake(db, p.accountId, {
+    const lead = await intake(db, p.accountId, {
       contactId: p.contactId,
       sources: code ? [code, "whatsapp"] : ["whatsapp"],
-      reopen: code !== null, // a closed family's "thank you" is not a new enquiry; a scanned QR is
+      // a closed family's "thank you" is not a new enquiry; a scanned QR, or a tap on the welcome menu, is
+      reopen: code !== null || typeof vars.menu === "string",
       parent: text(vars.parent_name),
       child: text(vars.child_name),
       dob: parseDob(text(vars.child_dob)),
       area: text(vars.area),
+      campus: text(vars.campus),
     });
+    if (vars.menu === CALL_BACK && lead?.lead_id) await callBack(db, p.accountId, lead.lead_id);
   } catch (err) {
     console.error("[admissions/intake] WhatsApp intake failed:", err instanceof Error ? err.message : err);
   }
