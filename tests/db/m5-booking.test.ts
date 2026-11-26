@@ -1,15 +1,16 @@
 // M5 booking (#68, migration 120, ADR 0030): what each Cal.com event does to visits and the lead, and the reminders.
 // Runs as the superuser, as the webhook's service role does; the last block checks no signed-in user can call these.
+import postgres from "postgres";
 import { afterAll, describe, expect, it } from "vitest";
-import { type Account, type Tx, account, actAs, contact, errorOf, lead, member, sql, tx } from "./db";
+import { type Account, type Tx, DATABASE_URL, account, actAs, contact, errorOf, lead, member, sql, tx } from "./db";
 
 afterAll(() => sql.end());
 
 const VISIT_AT = "2026-12-10T05:00:00Z"; // 10:30 in India
 
 /** A lead whose first stage entry is a day old, so its history has a clear order inside one test transaction. */
-async function oldLead(t: Tx, a: Account, opts: { phone?: string; stageId?: string } = {}) {
-  const contactId = opts.phone ? await contact(t, a, opts.phone) : undefined;
+async function oldLead(t: Tx, a: Account, opts: { phone?: string; stageId?: string; contactId?: string } = {}) {
+  const contactId = opts.contactId ?? (opts.phone ? await contact(t, a, opts.phone) : undefined);
   const l = await lead(t, a, { contactId, stageId: opts.stageId });
   await t`update lead_stage_history set entered_at = now() - interval '1 day' where lead_id = ${l.leadId}`;
   return l;
@@ -17,6 +18,9 @@ async function oldLead(t: Tx, a: Account, opts: { phone?: string; stageId?: stri
 
 const book = (t: Tx, booking: string, o: { lead?: string | null; phone?: string | null; from?: string | null; at?: string } = {}) =>
   t`select * from calcom_book(${booking}, ${o.at ?? VISIT_AT}, ${o.lead ?? null}, ${o.phone ?? null}, ${o.from ?? null})`;
+
+const cancel = async (t: Tx, booking: string, o: { lead?: string | null; phone?: string | null; at?: string | null } = {}) =>
+  (await t`select calcom_cancel(${booking}, ${o.at ?? null}, ${o.lead ?? null}, ${o.phone ?? null}) as l`)[0].l as string | null;
 
 const stageOf = async (t: Tx, leadId: string) =>
   (await t`select d.stage_id from leads l join deals d on d.id = l.deal_id where l.id = ${leadId}`)[0].stage_id;
@@ -78,6 +82,36 @@ describe("G5.1 a booking moves the lead to Visit booked once, even when the webh
     }));
 });
 
+describe("which lead (ADR 0030 §3)", () => {
+  it("a closed lead from the link falls through to the parent's open lead by phone", () =>
+    tx(async (t) => {
+      const a = await account(t);
+      const closed = await oldLead(t, a, { phone: "+919833333333" });
+      await t`update leads set exit = 'dormant', exited_at = now() where id = ${closed.leadId}`;
+      const open = await oldLead(t, a, { contactId: closed.contactId });
+      expect(await book(t, "bk_f", { lead: closed.leadId, phone: "+91 98333 33333" })).toMatchObject([{ lead_id: open.leadId }]);
+      expect(await stageOf(t, open.leadId)).toBe(a.stageIds[1]);
+    }));
+
+  it("siblings: two open leads with the same number in one account -> the most recent one", () =>
+    tx(async (t) => {
+      const a = await account(t);
+      // the sheet import keeps 10 digits; WhatsApp keeps 91 + 10: one family, two contacts, two open leads
+      const older = await oldLead(t, a, { phone: "9844444444" });
+      const newer = await oldLead(t, a, { phone: "+919844444444" });
+      await t`update leads set created_at = now() - interval '2 days' where id = ${older.leadId}`;
+      expect(await book(t, "bk_sib", { phone: "+919844444444" })).toMatchObject([{ lead_id: newer.leadId }]);
+      expect(await stageOf(t, older.leadId)).toBe(a.stageIds[0]);
+    }));
+
+  it("matches a +91 booking to a parent the sheet import stored as 10 digits", () =>
+    tx(async (t) => {
+      const a = await account(t);
+      const { leadId } = await oldLead(t, a, { phone: "9855555555" });
+      expect(await book(t, "bk_10", { lead: leadId, phone: "+91 98555 55555" })).toHaveLength(1);
+    }));
+});
+
 describe("reschedule", () => {
   it("adds the new booking, marks the old one rescheduled, and doesn't move the lead again", () =>
     tx(async (t) => {
@@ -104,11 +138,11 @@ describe("G5.2 a cancel moves the lead back to its previous stage", () => {
       const a = await account(t);
       const { leadId } = await oldLead(t, a);
       await book(t, "bk_c", { lead: leadId });
-      expect((await t`select calcom_cancel('bk_c') as l`)[0].l).toBe(leadId);
+      expect((await cancel(t, "bk_c"))).toBe(leadId);
       expect(await visitsOf(t, leadId)).toEqual([{ cal_booking_id: "bk_c", status: "cancelled" }]);
       expect(await stageOf(t, leadId)).toBe(a.stageIds[0]);
       expect(await historyCount(t, leadId)).toBe(3);
-      expect((await t`select calcom_cancel('bk_c') as l`)[0].l).toBeNull();
+      expect((await cancel(t, "bk_c"))).toBeNull();
       expect(await historyCount(t, leadId)).toBe(3);
     }));
 
@@ -118,7 +152,7 @@ describe("G5.2 a cancel moves the lead back to its previous stage", () => {
       const { leadId } = await oldLead(t, a);
       await book(t, "bk_a", { lead: leadId });
       await book(t, "bk_b", { lead: leadId, at: "2026-12-12T05:00:00Z" });
-      await t`select calcom_cancel('bk_a')`;
+      await cancel(t, "bk_a");
       expect(await stageOf(t, leadId)).toBe(a.stageIds[1]);
     }));
 
@@ -128,13 +162,38 @@ describe("G5.2 a cancel moves the lead back to its previous stage", () => {
       const { leadId } = await oldLead(t, a);
       await book(t, "bk_d", { lead: leadId });
       await t`select move_lead(${leadId}, ${a.stageIds[3]})`;
-      await t`select calcom_cancel('bk_d')`;
+      await cancel(t, "bk_d");
       expect(await stageOf(t, leadId)).toBe(a.stageIds[3]);
+    }));
+
+  it("goes back to the latest stage before Visit booked, not to a later stage it passed through", () =>
+    tx(async (t) => {
+      const a = await account(t);
+      const { leadId } = await oldLead(t, a);
+      await book(t, "bk_e1", { lead: leadId });
+      await t`update lead_stage_history set entered_at = now() - interval '3 hours' where lead_id = ${leadId} and stage_id = ${a.stageIds[1]}`;
+      await t`select move_lead(${leadId}, ${a.stageIds[3]})`; // staff: Deciding
+      await t`update lead_stage_history set entered_at = now() - interval '2 hours' where lead_id = ${leadId} and stage_id = ${a.stageIds[3]}`;
+      await t`select move_lead(${leadId}, ${a.stageIds[1]})`; // staff: back to Visit booked
+      await cancel(t, "bk_e1");
+      expect(await stageOf(t, leadId)).toBe(a.stageIds[0]);
+      expect((await t`select admitted_at from leads where id = ${leadId}`)[0].admitted_at).toBeNull();
+    }));
+
+  it("stores a cancel that arrives before its booking, so the late booking changes nothing", () =>
+    tx(async (t) => {
+      const a = await account(t);
+      const { leadId } = await oldLead(t, a);
+      expect(await cancel(t, "bk_early", { lead: leadId, at: VISIT_AT })).toBe(leadId);
+      expect(await book(t, "bk_early", { lead: leadId })).toEqual([]);
+      expect(await visitsOf(t, leadId)).toEqual([{ cal_booking_id: "bk_early", status: "cancelled" }]);
+      expect(await stageOf(t, leadId)).toBe(a.stageIds[0]);
+      expect(await historyCount(t, leadId)).toBe(1);
     }));
 
   it("ignores an unknown booking", () =>
     tx(async (t) => {
-      expect((await t`select calcom_cancel('bk_never') as l`)[0].l).toBeNull();
+      expect((await cancel(t, "bk_never"))).toBeNull();
     }));
 });
 
@@ -150,6 +209,19 @@ describe("no-show", () => {
       expect(await t`select * from calcom_no_show('bk_n')`).toEqual([]);
       expect(await visitsOf(t, leadId)).toEqual([{ cal_booking_id: "bk_n", status: "no_show" }]);
       expect(await callTasks(t, leadId)).toBe(1);
+    }));
+});
+
+describe("no-show of a closed lead", () => {
+  it("changes nothing and makes no call task", () =>
+    tx(async (t) => {
+      const a = await account(t);
+      const { leadId } = await oldLead(t, a);
+      await book(t, "bk_nc", { lead: leadId });
+      await t`update leads set exit = 'dormant', exited_at = now() where id = ${leadId}`;
+      expect(await t`select * from calcom_no_show('bk_nc')`).toEqual([]);
+      expect(await visitsOf(t, leadId)).toEqual([{ cal_booking_id: "bk_nc", status: "booked" }]);
+      expect(await callTasks(t, leadId)).toBe(0);
     }));
 });
 
@@ -217,6 +289,75 @@ describe("reminders (claim_visit_reminders)", () => {
     }));
 });
 
+describe("reminder claims: a cap per run, and overlapping runs", () => {
+  it("claims at most 50 RSVPs a run, soonest visit first; the next run takes the rest", () =>
+    tx(async (t) => {
+      const a = await account(t);
+      const mine: string[] = [];
+      for (let i = 0; i < 53; i++) {
+        const l = await oldLead(t, a);
+        // 53 visits on 10 Dec, a minute apart, all due for their RSVP by 9 Dec 06:00 UTC
+        const [v] = await t`
+          insert into visits (account_id, lead_id, cal_booking_id, starts_at, created_at)
+          values (${a.accountId}, ${l.leadId}, ${`bk_cap_${i}`}, ${VISIT_AT}::timestamptz + make_interval(mins => ${i}),
+                  '2026-12-01T00:00:00Z')
+          returning id`;
+        mine.push(v.id as string);
+      }
+      const run = async () =>
+        (await t`select visit_id from claim_visit_reminders('2026-12-09T06:00:00Z') where template = 'visit_rsvp_24h'`)
+          .map((r) => r.visit_id as string)
+          .filter((id) => mine.includes(id));
+      const first = await run();
+      expect(first).toHaveLength(50);
+      expect(first).toEqual(mine.slice(0, 50));
+      expect((await run()).sort()).toEqual(mine.slice(50).sort());
+      expect(await run()).toEqual([]);
+    }));
+
+  it("two runs at once never claim the same visit: the second skips what the first holds", async () => {
+    // Real concurrency needs committed rows and two connections; this account is deleted afterwards.
+    let a: Account | undefined;
+    const ids: string[] = [];
+    await sql.begin(async (t) => {
+      a = await account(t);
+      for (let i = 0; i < 3; i++) {
+        const l = await oldLead(t, a);
+        const [v] = await t`
+          insert into visits (account_id, lead_id, cal_booking_id, starts_at, created_at)
+          values (${a.accountId}, ${l.leadId}, ${`bk_ovl_${l.leadId}`}, ${VISIT_AT}, '2026-12-01T00:00:00Z') returning id`;
+        ids.push(v.id as string);
+      }
+    });
+    const pool = postgres(DATABASE_URL, { max: 2, onnotice: () => {} });
+    const one = await pool.reserve();
+    const two = await pool.reserve();
+    try {
+      const claim = async (c: typeof one) =>
+        (await c`select visit_id from claim_visit_reminders('2026-12-09T06:00:00Z')`)
+          .map((r) => r.visit_id as string)
+          .filter((id) => ids.includes(id));
+      await one`begin`;
+      await two`begin`;
+      await two`set local statement_timeout = '5s'`; // a run that waited on the lock would fail here, not hang
+      expect((await claim(one)).sort()).toEqual([...ids].sort());
+      expect(await claim(two)).toEqual([]);
+    } finally {
+      // never keep a claim: the shared local DB may hold real visits due at that moment
+      await one`rollback`.catch(() => {});
+      await two`rollback`.catch(() => {});
+      one.release();
+      two.release();
+      await pool.end();
+      if (a) {
+        await sql`delete from leads where account_id = ${a.accountId}`;
+        await sql`delete from accounts where id = ${a.accountId}`;
+        await sql`delete from auth.users where id = ${a.ownerId}`;
+      }
+    }
+  });
+});
+
 describe("account scoping", () => {
   it("a phone that has open leads in two accounts matches neither; the link's lead id picks its own account only", () =>
     tx(async (t) => {
@@ -225,6 +366,10 @@ describe("account scoping", () => {
       const la = await oldLead(t, a, { phone: "+919811111111" });
       const lb = await oldLead(t, b, { phone: "+919811111111" });
       expect(await book(t, "bk_s1", { phone: "+919811111111" })).toEqual([]);
+      // a lead id with someone else's phone is refused, in any account
+      expect(await book(t, "bk_s3", { lead: lb.leadId, phone: "+919899999999" })).toEqual([]);
+      expect(await book(t, "bk_s4", { lead: la.leadId, phone: "+919899999999" })).toEqual([]);
+      expect(Number((await t`select count(*) from visits where cal_booking_id in ('bk_s3', 'bk_s4')`)[0].count)).toBe(0);
       const got = await book(t, "bk_s2", { lead: lb.leadId, phone: "+919811111111" });
       expect(got[0]).toMatchObject({ lead_id: lb.leadId, account_id: b.accountId });
       expect(await stageOf(t, la.leadId)).toBe(a.stageIds[0]);
@@ -239,7 +384,7 @@ describe("account scoping", () => {
       await actAs(t, await member(t, a.accountId, "owner"));
       for (const call of [
         (s: Tx) => s`select * from calcom_book('bk_x', now(), ${leadId}, null, null)`,
-        (s: Tx) => s`select calcom_cancel('bk_x')`,
+        (s: Tx) => s`select calcom_cancel('bk_x', now(), null, null)`,
         (s: Tx) => s`select * from calcom_no_show('bk_x')`,
         (s: Tx) => s`select * from claim_visit_reminders()`,
       ]) {

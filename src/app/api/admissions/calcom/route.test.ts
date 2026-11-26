@@ -11,6 +11,8 @@ vi.mock("@/lib/automations/admin-client", () => ({
     const q: Record<string, unknown> = {};
     for (const m of ["from", "select", "eq"]) q[m] = () => q;
     q.maybeSingle = async () => ({ data: { id: "conv-1" }, error: null });
+    // the approved-template language lookup awaits the query itself
+    q.then = (resolve: (v: unknown) => void) => resolve({ data: [{ language: "mr" }], error: null });
     q.rpc = h.rpc;
     return q;
   },
@@ -139,7 +141,12 @@ describe("events", () => {
       p_from_booking: null,
     });
     expect(h.send).toHaveBeenCalledTimes(1);
-    expect(h.send.mock.calls[0][0]).toMatchObject({ templateName: "visit_confirmed", contactId: "con-1", accountId: "acc-1" });
+    expect(h.send.mock.calls[0][0]).toMatchObject({
+      templateName: "visit_confirmed",
+      contactId: "con-1",
+      accountId: "acc-1",
+      language: "mr", // the approved template's language, not wacrm's en_US default
+    });
   });
 
   it("a replay the database ignores sends nothing", async () => {
@@ -175,7 +182,12 @@ describe("events", () => {
     h.rpc.mockResolvedValue({ data: LEAD, error: null });
     const res = await post(calPayload("BOOKING_CANCELLED", { status: "CANCELLED", cancellationReason: "Travelling" }));
     expect(await res.json()).toEqual({ ok: true, event: "cancelled", changed: true });
-    expect(h.rpc).toHaveBeenCalledWith("calcom_cancel", { p_booking: "bk_7Qm2xVgH1aZc" });
+    expect(h.rpc).toHaveBeenCalledWith("calcom_cancel", {
+      p_booking: "bk_7Qm2xVgH1aZc",
+      p_starts_at: "2026-12-04T05:00:00Z",
+      p_lead_id: LEAD,
+      p_phone: "+91 98765 43210",
+    });
     expect(h.send).not.toHaveBeenCalled();
   });
 
@@ -210,6 +222,15 @@ describe("events", () => {
     h.rpc.mockResolvedValue({ data: null, error: { message: "boom" } });
     expect((await post(calPayload("BOOKING_CREATED"))).status).toBe(500);
     expect(h.send).not.toHaveBeenCalled();
+  });
+
+  it("is 413 for a body over 4 MB, before the signature is even checked", async () => {
+    const raw = JSON.stringify({ ...calPayload("BOOKING_CREATED"), pad: "x".repeat(4 * 1024 * 1024) });
+    const res = await POST(
+      new Request("http://localhost/api/admissions/calcom", { method: "POST", headers: { "x-cal-signature-256": sign(raw) }, body: raw }),
+    );
+    expect(res.status).toBe(413);
+    expect(h.rpc).not.toHaveBeenCalled();
   });
 
   it("is 400 for a signed body that isn't JSON", async () => {

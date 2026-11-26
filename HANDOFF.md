@@ -13,6 +13,10 @@ _Overwritten at the end of every session. Keep under 30 lines. Facts only._
   before, all from wacrm's automations cron (`runVisitReminders`), no new scheduler.
 - `visitLink()` (src/admissions/lib/booking.ts) builds a campus's Cal.com link with name, phone and lead id prefilled.
 - Setup for Nimish: docs/calcom-setup.md. Tests: route unit tests (fixtures) + tests/db/m5-booking.test.ts.
+- Security review fixes (in 120 itself): claims capped at 50 per run with SKIP LOCKED; sends use the approved
+  template's language; a link's lead id needs a matching phone; closed link lead falls through; siblings → latest
+  lead; +91 matches 10-digit imported numbers; cancel goes back by stage position, stores a cancel that beats its
+  booking; no-show ignores closed leads.
 
 ## Next step
 1. Security review (webhook), then merge once CI is green. The cron runs follow-ups (#69) then visit reminders.

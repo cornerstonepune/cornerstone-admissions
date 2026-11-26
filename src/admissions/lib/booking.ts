@@ -84,12 +84,25 @@ async function sendTemplate(db: SupabaseClient, to: Recipient, template: string)
       .maybeSingle();
     if (error) throw new Error(error.message);
     if (!conv) throw new Error("No WhatsApp conversation with this parent yet");
+    // The approved template's own language, as follow-ups.ts does (a Marathi-only template is not en_US).
+    const { data: tpls, error: tplErr } = await db
+      .from("message_templates")
+      .select("language")
+      .eq("account_id", to.account_id)
+      .eq("name", template)
+      .eq("status", "APPROVED");
+    if (tplErr) throw new Error(tplErr.message);
+    const language = ((tpls ?? []) as { language: string | null }[])
+      .map((t) => t.language ?? "")
+      .filter(Boolean)
+      .sort()[0];
     await engineSendTemplate({
       accountId: to.account_id,
       userId: to.owner_id,
       conversationId: conv.id as string,
       contactId: to.contact_id,
       templateName: template,
+      language,
     });
     return true;
   } catch (e) {
@@ -105,7 +118,13 @@ export async function handleCalEvent(db: SupabaseClient, ev: CalEvent): Promise<
   if (ev.event === "ignored") return { ok: true, event: ev.event, changed: false };
 
   if (ev.event === "cancelled") {
-    const { data, error } = await db.rpc("calcom_cancel", { p_booking: ev.booking });
+    // Lead and time too: a cancel that beats its booking is stored, so the late booking changes nothing.
+    const { data, error } = await db.rpc("calcom_cancel", {
+      p_booking: ev.booking,
+      p_starts_at: ev.startsAt && !Number.isNaN(Date.parse(ev.startsAt)) ? ev.startsAt : null,
+      p_lead_id: ev.leadId,
+      p_phone: ev.phone,
+    });
     return error ? { ok: false, error: error.message } : { ok: true, event: ev.event, changed: data != null };
   }
 
@@ -156,7 +175,7 @@ export async function runVisitReminders(now: Date = new Date()): Promise<{ sent:
 
 /**
  * A campus's Cal.com link (Settings → Campuses → visit link) for one lead: the parent's name and phone filled in, and
- * the lead id carried to the webhook so the booking finds its lead even if the parent types another number.
+ * the lead id carried to the webhook. The webhook trusts that id only when the booking's phone is that parent's.
  */
 export function visitLink(campusLink: string, lead: { id: string; parentName?: string | null; phone?: string | null }): string {
   const url = new URL(campusLink);
