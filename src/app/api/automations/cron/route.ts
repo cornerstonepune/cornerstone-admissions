@@ -9,6 +9,7 @@ import {
 } from '@/lib/automations/engine'
 import type { AutomationContext } from '@/lib/automations/engine'
 import { runFollowUps } from '@/admissions/lib/follow-ups'
+import { runVisitReminders } from '@/admissions/lib/booking'
 
 /**
  * Drain due `automation_pending_executions` rows. Meant to be hit
@@ -43,6 +44,8 @@ export async function GET(request: Request) {
   const requeued = await requeueStalledExecutions()
   // Admissions follow-ups from the Settings rules (#69): same cron, no second scheduler.
   const followUps = await runFollowUps()
+  // Admissions visit reminders (#68, ADR 0030): same cron, no second scheduler.
+  const visitReminders = await runVisitReminders()
 
   const admin = supabaseAdmin()
   const { data: due, error } = await admin
@@ -54,7 +57,7 @@ export async function GET(request: Request) {
     .limit(50)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  if (!due || due.length === 0) return NextResponse.json({ processed: 0, expired, requeued, followUps })
+  if (!due || due.length === 0) return NextResponse.json({ processed: 0, expired, requeued, followUps, visitReminders })
 
   let processed = 0
   for (const row of due) {
@@ -78,5 +81,5 @@ export async function GET(request: Request) {
     processed++
   }
 
-  return NextResponse.json({ processed, expired, requeued, followUps })
+  return NextResponse.json({ processed, expired, requeued, followUps, visitReminders })
 }
