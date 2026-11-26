@@ -139,6 +139,7 @@ describe("events", () => {
       p_lead_id: LEAD,
       p_phone: "+91 98765 43210",
       p_from_booking: null,
+      p_location: "Cornerstone Neev campus",
     });
     expect(h.send).toHaveBeenCalledTimes(1);
     expect(h.send.mock.calls[0][0]).toMatchObject({
@@ -159,6 +160,13 @@ describe("events", () => {
   it("a booking without our link falls back to the attendee's phone; a lead id that isn't a uuid is dropped", async () => {
     await post(calPayload("BOOKING_CREATED", { metadata: { lead: "1; drop table leads" }, responses: {} }));
     expect(h.rpc.mock.calls[0][1]).toMatchObject({ p_lead_id: null, p_phone: "+919876543210" });
+  });
+
+  it("passes the location the parent picked (it names the campus); a missing or non-text location is null (ADR 0033)", async () => {
+    await post(calPayload("BOOKING_CREATED", { location: "  Gurukul campus, Baner Road, Pune " }));
+    await post(calPayload("BOOKING_CREATED", { location: undefined }));
+    await post(calPayload("BOOKING_CREATED", { location: { type: "inPerson" } }));
+    expect(h.rpc.mock.calls.map((c) => c[1].p_location)).toEqual(["Gurukul campus, Baner Road, Pune", null, null]);
   });
 
   it("BOOKING_RESCHEDULED books the new uid and names the booking it replaces", async () => {
@@ -187,6 +195,7 @@ describe("events", () => {
       p_starts_at: "2026-12-04T05:00:00Z",
       p_lead_id: LEAD,
       p_phone: "+91 98765 43210",
+      p_location: "Cornerstone Neev campus",
     });
     expect(h.send).not.toHaveBeenCalled();
   });

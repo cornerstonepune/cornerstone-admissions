@@ -6,7 +6,8 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { notificationsAccountFilter } from "@/lib/notifications/unread-count";
 import type { Notification } from "@/types";
-import { Bell, CheckCheck, Loader2, UserPlus } from "lucide-react";
+import { Bell, CheckCheck, Loader2, Repeat, UserPlus } from "lucide-react";
+import { LeadPanel } from "@/admissions/components/lead-panel";
 import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -15,11 +16,22 @@ import { useLocale, useTranslations } from "next-intl";
 import { getDateLocale } from "@/i18n/date-locale";
 import { notificationText } from "@/lib/notifications/notification-text";
 
-// Icon per notification type. Only one type exists today
-// (conversation_assigned) but this keeps future types a one-line add.
+// Icon per notification type.
 const TYPE_ICON: Record<Notification["type"], typeof Bell> = {
   conversation_assigned: UserPlus,
+  repeat_family: Repeat, // admissions: a family with an open lead enquired again (ADR 0033)
 };
+
+async function openLeadOf(contactId: string): Promise<string | null> {
+  const { data } = await createClient()
+    .from("leads")
+    .select("id")
+    .eq("contact_id", contactId)
+    .is("exit", null)
+    .is("admitted_at", null)
+    .maybeSingle();
+  return (data?.id as string | undefined) ?? null;
+}
 
 export default function NotificationsPage() {
   const t = useTranslations("Notifications");
@@ -33,6 +45,7 @@ export default function NotificationsPage() {
   const [actorNames, setActorNames] = useState<Record<string, string>>({});
   const [contactNames, setContactNames] = useState<Record<string, string>>({});
   const [markingAll, setMarkingAll] = useState(false);
+  const [openLeadId, setOpenLeadId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!accountId) return;
@@ -145,11 +158,15 @@ export default function NotificationsPage() {
   const handleClick = useCallback(
     (n: Notification) => {
       if (!n.read_at) markRead(n.id);
-      if (n.conversation_id) {
-        router.push(`/inbox?c=${n.conversation_id}`);
-      }
+      const openChat = () => {
+        if (n.conversation_id) router.push(`/inbox?c=${n.conversation_id}`);
+      };
+      // repeat_family: the family's open lead; if it has since closed, the chat
+      if (n.type === "repeat_family" && n.contact_id) {
+        void openLeadOf(n.contact_id).then((id) => (id ? setOpenLeadId(id) : openChat()));
+      } else openChat();
     },
-    [markRead, router],
+    [markRead, router, setOpenLeadId],
   );
 
   const unreadIds = notifications?.filter((n) => !n.read_at).map((n) => n.id) ?? [];
@@ -299,6 +316,7 @@ export default function NotificationsPage() {
           })}
         </ul>
       )}
+      <LeadPanel leadId={openLeadId} onOpenChange={(open) => !open && setOpenLeadId(null)} onChanged={() => {}} />
     </div>
   );
 }

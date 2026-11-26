@@ -2554,11 +2554,11 @@
     "admissions_welcome": {
       "name": "Admissions welcome",
       "description": "Greets a parent's first message, asks the child's name and date of birth, then hands over to the admissions office. The answers fill the parent's lead and pick the campus.",
-      "intro": "Hello, and thank you for writing to Cornerstone! Two quick questions so we can help you.",
+      "intro": "Namaste, and thank you for writing to Cornerstone School, Pune. This is the admissions office. Two quick questions, so we can help you better.",
       "askChild": "What is your child's name?",
-      "askDob": "Thank you. What is {name}'s date of birth? (for example 14/03/2022)",
-      "thanks": "Thank you! Our admissions office will message you shortly with the next steps.",
-      "handoffNote": "Welcome flow: child {name}, born {dob}."
+      "askDob": "Thank you! What is {name}'s date of birth? Please write it as dd/mm/yyyy, for example 14/03/2022.",
+      "thanks": "Thank you 🙏 Someone from our admissions office will message you here soon with the next steps.",
+      "handoffNote": "From the welcome chat: child {name}, date of birth {dob}."
     }
   },
   "LibErrors": {

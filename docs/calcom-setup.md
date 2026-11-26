@@ -8,13 +8,15 @@ to **Visit booked** and sends the WhatsApp messages. About 20 minutes.
 2. Settings → Calendars → connect **Google Calendar**. Bookings then land in that calendar, and busy times are blocked.
 3. Settings → Availability: set the visit days and hours.
 
-## 2. One event type per campus
-1. Event Types → New: "Neev campus visit", 45 minutes, location "In person", the campus address.
-2. Open it → Advanced (or Booking questions) → add a **Phone number** question, required. Leave its identifier as
+## 2. One visit event, two campuses (ADR 0033)
+1. Event Types → New: "Campus visit", 45 minutes.
+2. Location: add two **In person** locations. First **Gurukul** (the default), then **Neev**. Each location's text must
+   contain the campus name exactly as in Admissions Settings → Campuses (for example "Gurukul campus, <address>").
+   The app reads the location the parent picked to know which campus the visit is at.
+3. Open it → Advanced (or Booking questions) → add a **Phone number** question, required. Leave its identifier as
    `attendeePhoneNumber`. This is how the app recognises the parent if they book without our link.
-3. Repeat for "Gurukul campus visit".
-4. Copy each event's link (for example `https://cal.com/cornerstone/neev-visit`) into the app:
-   Admissions Settings → Campuses → that campus → **Visit link**. The app adds the parent's name and phone to it.
+4. Copy the event's link (for example `https://cal.com/cornerstone/campus-visit`) into the app:
+   Admissions Settings → Campuses → each campus → **Visit link**. The app adds the parent's name and phone to it.
 
 ## 3. Connect Cal.com to the app (the webhook)
 1. Make a secret: any long random text, at least 32 characters (a password manager's generator is fine).
