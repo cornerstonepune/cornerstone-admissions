@@ -346,26 +346,32 @@ $$;
 
 
 --
--- Name: calcom_book(text, timestamp with time zone, uuid, text, text); Type: FUNCTION; Schema: public; Owner: -
+-- Name: calcom_book(text, timestamp with time zone, uuid, text, text, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.calcom_book(p_booking text, p_starts_at timestamp with time zone, p_lead_id uuid, p_phone text, p_from_booking text DEFAULT NULL::text) RETURNS TABLE(lead_id uuid, account_id uuid, contact_id uuid, owner_id uuid)
+CREATE FUNCTION public.calcom_book(p_booking text, p_starts_at timestamp with time zone, p_lead_id uuid, p_phone text, p_from_booking text DEFAULT NULL::text, p_location text DEFAULT NULL::text) RETURNS TABLE(lead_id uuid, account_id uuid, contact_id uuid, owner_id uuid)
     LANGUAGE plpgsql
     SET search_path TO 'public'
     AS $$
 #variable_conflict use_column
 DECLARE
   v_lead uuid;
+  v_campus uuid;
   v_stage record;
 BEGIN
   IF EXISTS (SELECT 1 FROM visits v WHERE v.cal_booking_id = p_booking) THEN RETURN; END IF;
   v_lead := calcom_lead(p_lead_id, p_phone, p_from_booking);
   IF v_lead IS NULL THEN RETURN; END IF;
+  v_campus := calcom_campus((SELECT l.account_id FROM leads l WHERE l.id = v_lead), p_location);
 
   INSERT INTO visits (account_id, lead_id, cal_booking_id, starts_at, campus_id)
-  SELECT l.account_id, l.id, p_booking, p_starts_at, l.campus_id FROM leads l WHERE l.id = v_lead
+  SELECT l.account_id, l.id, p_booking, p_starts_at, coalesce(v_campus, l.campus_id) FROM leads l WHERE l.id = v_lead
   ON CONFLICT (cal_booking_id) DO NOTHING;
   IF NOT FOUND THEN RETURN; END IF;  -- the same booking, in a webhook delivered twice at once
+
+  IF v_campus IS NOT NULL THEN
+    UPDATE leads l SET campus_id = v_campus WHERE l.id = v_lead AND l.campus_id IS NULL;
+  END IF;
 
   UPDATE visits v SET status = 'rescheduled'
   WHERE v.cal_booking_id = p_from_booking AND v.lead_id = v_lead AND v.status = 'booked';
@@ -381,10 +387,25 @@ END $$;
 
 
 --
--- Name: calcom_cancel(text, timestamp with time zone, uuid, text); Type: FUNCTION; Schema: public; Owner: -
+-- Name: calcom_campus(uuid, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.calcom_cancel(p_booking text, p_starts_at timestamp with time zone, p_lead_id uuid, p_phone text) RETURNS uuid
+CREATE FUNCTION public.calcom_campus(p_account_id uuid, p_location text) RETURNS uuid
+    LANGUAGE sql STABLE
+    SET search_path TO 'public'
+    AS $$
+  SELECT CASE WHEN count(*) = 1 THEN (array_agg(s.id))[1] END
+  FROM admissions_settings s
+  WHERE s.account_id = p_account_id AND s.kind = 'campus' AND s.active
+    AND strpos(lower(coalesce(p_location, '')), lower(btrim(s.label))) > 0
+$$;
+
+
+--
+-- Name: calcom_cancel(text, timestamp with time zone, uuid, text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.calcom_cancel(p_booking text, p_starts_at timestamp with time zone, p_lead_id uuid, p_phone text, p_location text DEFAULT NULL::text) RETURNS uuid
     LANGUAGE plpgsql
     SET search_path TO 'public'
     AS $$
@@ -401,7 +422,8 @@ BEGIN
     v_lead := calcom_lead(p_lead_id, p_phone);
     IF v_lead IS NULL THEN RETURN NULL; END IF;
     INSERT INTO visits (account_id, lead_id, cal_booking_id, starts_at, campus_id, status)
-    SELECT l.account_id, l.id, p_booking, p_starts_at, l.campus_id, 'cancelled' FROM leads l WHERE l.id = v_lead
+    SELECT l.account_id, l.id, p_booking, p_starts_at, coalesce(calcom_campus(l.account_id, p_location), l.campus_id), 'cancelled'
+    FROM leads l WHERE l.id = v_lead
     ON CONFLICT (cal_booking_id) DO NOTHING;
     RETURN CASE WHEN FOUND THEN v_lead END;
   END IF;
@@ -1744,7 +1766,8 @@ BEGIN
   END IF;
 
   IF NOT v_created THEN
-    SELECT * INTO v_old FROM leads WHERE id = v_lead;
+    -- one door at a time per family: a second request waits here, then sees the first one's note (review #2)
+    SELECT * INTO v_old FROM leads WHERE id = v_lead FOR UPDATE;
     v_details := concat_ws(', ', 'child ' || v_child, 'born ' || to_char(v_dob, 'DD/MM/YYYY'),
                            'grade ' || nullif(p_lead->>'grade', ''), 'source ' || v_source_label);
     IF coalesce(p_lead->>'note', '') <> '' THEN
@@ -1757,6 +1780,11 @@ BEGIN
        AND NOT EXISTS (SELECT 1 FROM contact_notes WHERE contact_id = v_contact AND note_text = v_note) THEN
       INSERT INTO contact_notes (contact_id, user_id, note_text, account_id)
         VALUES (v_contact, v_user, v_note, p_account_id);
+      BEGIN
+        PERFORM notify_repeat_family(v_contact);
+      EXCEPTION WHEN OTHERS THEN -- as wacrm's 027: a failed notification never loses the enquiry
+        RAISE WARNING 'repeat_family notification failed for contact %: %', v_contact, SQLERRM;
+      END;
     END IF;
     IF v_fill THEN
       UPDATE leads SET
@@ -2160,6 +2188,40 @@ EXCEPTION WHEN OTHERS THEN
   RETURN NEW;
 END;
 $$;
+
+
+--
+-- Name: notify_repeat_family(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.notify_repeat_family(p_contact_id uuid) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+DECLARE
+  v_account uuid;
+  v_body text;
+BEGIN
+  SELECT account_id INTO v_account FROM contacts WHERE id = p_contact_id;
+  IF v_account IS NULL THEN RETURN; END IF;
+  IF auth.uid() IS NOT NULL AND NOT is_account_member(v_account, 'agent') THEN
+    RAISE EXCEPTION 'Not a member of this account' USING ERRCODE = '42501';
+  END IF;
+  SELECT note_text INTO v_body FROM contact_notes
+    WHERE contact_id = p_contact_id AND created_at = now() ORDER BY id DESC LIMIT 1;
+  IF v_body IS NULL OR EXISTS (
+    SELECT 1 FROM notifications
+    WHERE contact_id = p_contact_id AND type = 'repeat_family' AND created_at > now() - interval '24 hours'
+  ) THEN
+    RETURN;
+  END IF;
+  INSERT INTO notifications (account_id, user_id, type, conversation_id, contact_id, actor_user_id, title, body)
+  SELECT v_account, p.user_id, 'repeat_family',
+         (SELECT cv.id FROM conversations cv WHERE cv.account_id = v_account AND cv.contact_id = c.id),
+         c.id, auth.uid(), 'Repeat enquiry: ' || coalesce(nullif(btrim(c.name), ''), c.phone), v_body
+  FROM contacts c JOIN profiles p ON p.account_id = c.account_id
+  WHERE c.id = p_contact_id AND p.user_id IS DISTINCT FROM auth.uid();
+END $$;
 
 
 --
@@ -3686,7 +3748,7 @@ CREATE TABLE public.notifications (
     body text,
     read_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT notifications_type_check CHECK ((type = 'conversation_assigned'::text))
+    CONSTRAINT notifications_type_check CHECK ((type = ANY (ARRAY['conversation_assigned'::text, 'repeat_family'::text])))
 );
 
 ALTER TABLE ONLY public.notifications REPLICA IDENTITY FULL;

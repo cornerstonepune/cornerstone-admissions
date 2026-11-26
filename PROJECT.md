@@ -17,7 +17,7 @@ _The locked blueprint. Agents read §1–4 and the current milestone every sessi
 - **Done for v1 means:** live on the real admissions number, old sheet imported, and no lead lives in a WhatsApp group, a personal phone or a sheet.
 
 ## 2. Architecture
-- **Stack:** fork of `ArnasDon/wacrm` (MIT, ADR 0001): Next.js 16 App Router + React 19 (what wacrm is), Supabase Postgres + RLS + Auth (wacrm's data layer; its own Supabase project: local until M7, then a new hosted project, ADR 0009), Meta WhatsApp Cloud API (direct, no provider), Cal.com hosted (free booking), next-intl, Vitest. Hosting chosen at M7 (Cloudflare first, Docker fallback; brief D5).
+- **Stack:** fork of `ArnasDon/wacrm` (MIT, ADR 0001): Next.js 16 App Router + React 19 (what wacrm is), Supabase Postgres + RLS + Auth (wacrm's data layer; its own Supabase project: local until M7, then a new hosted project, ADR 0009), Meta WhatsApp Cloud API (direct, no provider), Cal.com hosted (free booking), next-intl, Vitest. Hosting: Vercel for now, database the hosted Supabase project `bfnrfpuaaifdhlundrum` (ADR 0033).
 - **Shape:** one Next.js monolith. Upstream modules stay where they are (`src/lib/{whatsapp,automations,flows,pipelines,…}`); our code lives in `src/admissions/`, our migrations in `supabase/migrations/` numbered from 100. Upstream files are touched as little as possible.
 - **External systems:** Meta Cloud API (inbound webhook, signed, fails closed; outbound send per message), Cal.com webhook (booking, reschedule, cancel, no-show), a scheduler calling `/api/automations/cron` and `/api/flows/cron` every minute with `x-cron-secret`.
 - **Tenancy / security:** one account (Cornerstone admissions). Access = a `profiles` row for the user with `account_id` and `account_role` (owner > admin > agent > viewer), checked by `is_account_member()` in RLS on every table (ADR 0006). Nimish = owner; Akanksha and Lakshmi ma'am = admin; staff = agent, quick-add only (assumption). No self sign-up; people join by invitation.
@@ -125,7 +125,7 @@ _Status as of 2026-11-26 (ADR 0032). "Built" = merged with CI green; Nimish has 
 ### M4 — Entry: one door · Built, one goal for Nimish
 - **Delivers:** welcome flow, staff quick-add, website form endpoint, source tag per QR. Screen: S-quick-add. **Issue:** #67 (closed). PRs #91, #92 (ADR 0031).
 - **Goals:** [x] G4.1 same phone twice gives one lead · [x] G4.2 date of birth routes correctly at the cut-off boundary — tests: `tests/db/m4-intake.test.ts`, `src/admissions/lib/intake.test.ts` · [ ] G4.3 quick-add under 30 s on a phone (timed by Nimish).
-- **Needs from Nimish:** cut-off date and grades (§6), welcome wording, the G4.3 timing.
+- **Needs from Nimish:** cut-off date and grades (§6), approval of the drafted welcome wording (ADR 0033), the G4.3 timing.
 
 ### M5 — Booking · Built
 - **Delivers:** Cal.com webhook moves the lead; confirmation, T-24h RSVP, morning reminder, no-show. **Issue:** #68 (closed). PR #90 (ADR 0030).
@@ -139,12 +139,14 @@ _Status as of 2026-11-26 (ADR 0032). "Built" = merged with CI green; Nimish has 
 ### M7 — Report, import, hosting, go-live · Report and import built; hosting not started
 - **Delivers:** S-report and sheet import (**Issue:** #71, closed; PRs #86, #88); then hosting via `loop-release` (no ticket): a new hosted Supabase project for admissions (Nimish creates it) with all migrations applied, real number.
 - **Goals:** [x] G7.1 imported leads dedupe by phone · [x] G7.2 report counts match the board — test: `tests/db/m7-report-import.test.ts` · [ ] G7.3 the hosted project has the same tables as `db/schema.sql` · [ ] G7.4 a signed-in non-member reads zero rows on live.
-- **Needs from Nimish:** the hosted Supabase project, the real number; production needs a proxy that overwrites X-Real-IP (ADR 0031).
+- **Needs from Nimish:** the real number (the hosted Supabase project exists, ADR 0033); production needs a proxy that overwrites X-Real-IP (ADR 0031).
 
 ## 6. Open questions (Plan resolves before the milestone they block)
 - ~~Local Supabase ports~~ resolved (ADR 0011): the defaults are free on this Mac; `config.toml` unchanged.
 - Siblings: one lead per phone number, but a parent may enquire for two children. Default: one child per lead; a sibling is a note on the card (ADR 0007). — blocks M0.
-- Date-of-birth cut-off, reference date and grades per campus for 2027–28. — blocks M4.
-- Cal.com account, visit days and times, API key. — blocks M5.
-- Cost of the new hosted Supabase project (not checked; ADR 0009). — blocks M7.
+- Date-of-birth cut-off, reference date and grades per campus for 2027–28. — still open (ADR 0033); until then routing leaves the campus empty and staff pick.
+- ~~Cal.com set-up~~ resolved (ADR 0033): one visit event, Gurukul by default or Neev; the location picks the visit's campus. Cal.com account and visit times still to be set up (docs/calcom-setup.md).
+- ~~Repeat family~~ resolved (ADR 0033): notifies everyone in the account; no staff-specific routing.
+- ~~Welcome wording~~ resolved (ADR 0033): drafted by Claude, pending Nimish's approval.
+- ~~Hosting and the hosted Supabase project~~ resolved (ADR 0033): Vercel for now; project `bfnrfpuaaifdhlundrum` (ap-northeast-2).
 - Brief §12 defaults stand until answered (Admitted = fee paid; Akanksha covers Today; old leads imported silently).

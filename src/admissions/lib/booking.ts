@@ -31,6 +31,7 @@ export interface CalEvent {
   startsAt: string | null;
   leadId: string | null; // carried by our booking link (visitLink)
   phone: string | null;
+  location: string | null; // the in-person location the parent picked: it names the campus (ADR 0033)
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -50,6 +51,7 @@ export function readCalEvent(body: unknown): CalEvent {
     startsAt: str(p.startTime),
     leadId: lead && UUID.test(lead) ? lead : null,
     phone: str(obj(obj(p.responses).attendeePhoneNumber).value) ?? attendees.map((a) => str(a.phoneNumber)).find(Boolean) ?? null,
+    location: str(p.location),
   };
   const ignored = { ...base, event: "ignored" as const };
   if (!base.booking) return ignored;
@@ -124,6 +126,7 @@ export async function handleCalEvent(db: SupabaseClient, ev: CalEvent): Promise<
       p_starts_at: ev.startsAt && !Number.isNaN(Date.parse(ev.startsAt)) ? ev.startsAt : null,
       p_lead_id: ev.leadId,
       p_phone: ev.phone,
+      p_location: ev.location,
     });
     return error ? { ok: false, error: error.message } : { ok: true, event: ev.event, changed: data != null };
   }
@@ -136,6 +139,7 @@ export async function handleCalEvent(db: SupabaseClient, ev: CalEvent): Promise<
           p_lead_id: ev.leadId,
           p_phone: ev.phone,
           p_from_booking: ev.from,
+          p_location: ev.location,
         })
       : await db.rpc("calcom_no_show", { p_booking: ev.booking });
   if (error) return { ok: false, error: error.message };
