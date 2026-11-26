@@ -89,3 +89,23 @@ describe("Admissions Settings: audit", () => {
       expect(updates).toEqual([{ was: "true", now: "false" }]);
     }));
 });
+
+describe("Admissions Settings: the audit can't be forged (#81 review)", () => {
+  it.each(["admin", "owner"] as const)("an %s can't insert, change or delete an audit row", (role) =>
+    tx(async (t) => {
+      const a = await account(t);
+      const id = await setting(t, a, "source", "gate");
+      const who = role === "owner" ? a.ownerId : await member(t, a.accountId, "admin");
+      await actAs(t, who);
+      const err = await errorOf(t, (s) => s`insert into settings_changes (account_id, setting_id, kind, key, action, changed_by)
+                                           values (${a.accountId}, ${id}, 'source', 'gate', 'delete', ${who})`);
+      expect(err?.code).toBe("42501");
+      // no UPDATE or DELETE policy: RLS makes both touch no row, so the trigger's row stays as written
+      expect(await t`update settings_changes set changed_by = ${who} where setting_id = ${id} returning id`).toHaveLength(0);
+      expect(await t`delete from settings_changes where setting_id = ${id} returning id`).toHaveLength(0);
+      await actAsSuperuser(t);
+      expect(await t`select action, changed_by from settings_changes where setting_id = ${id}`).toEqual([
+        { action: "insert", changed_by: null },
+      ]);
+    }));
+});

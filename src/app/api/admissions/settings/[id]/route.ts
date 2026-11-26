@@ -1,5 +1,5 @@
 // /api/admissions/settings/[id] — PATCH: rename, change the value, switch on/off or reorder one setting. Admin+.
-// Kind and key never change here (ADR 0015 §1 guards them in the database too). Switching off is `active: false`;
+// Kind never changes here (ADR 0015 §1 guards it in the database too); a rule's key follows its value (ADR 0025). Switching off is `active: false`;
 // settings are never deleted from this screen, since leads and rules point at them (ADR 0011 §5).
 
 import { NextResponse } from "next/server";
@@ -7,8 +7,8 @@ import { NextResponse } from "next/server";
 import { requireRole, toErrorResponse, type AccountContext } from "@/lib/auth/account";
 import { isUuid } from "@/lib/api/v1/pagination";
 import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from "@/lib/rate-limit";
-import { checkLabel, checkValue, type Setting } from "@/admissions/lib/settings";
-import { bad, dbError, SETTING_COLUMNS, templateApproved } from "@/admissions/lib/settings-api";
+import { checkLabel, checkValue, ruleKey, type Setting } from "@/admissions/lib/settings";
+import { bad, checkRefs, dbError, SETTING_COLUMNS } from "@/admissions/lib/settings-api";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -44,6 +44,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const value = checkValue(stored.kind, stored.key, body.value);
     if (!value.ok) return bad(value.error);
     update.value = value.value;
+    // a rule's key is the fields that define it, so an edited rule takes the key of what it now does (#81 review)
+    if (stored.kind === "follow_up_rule") update.key = ruleKey(value.value);
   }
   if ("active" in body) {
     if (typeof body.active !== "boolean") return bad("On must be true or false.");
@@ -55,7 +57,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
   if (Object.keys(update).length === 0) return NextResponse.json({ setting: stored });
 
-  const approved = await templateApproved(ctx, update.value ?? stored.value);
+  // Switching off alone needs no checks, so a rule whose stage or template has gone can still be switched off.
+  let approved = true;
+  if (update.value || update.active) {
+    const refs = await checkRefs(ctx, stored.kind, stored.key, update.value ?? stored.value);
+    if (refs instanceof Response) return refs;
+    approved = refs.approved;
+  }
   if (!approved && (update.active ?? stored.active)) update.active = false;
 
   const { data, error } = await ctx.supabase

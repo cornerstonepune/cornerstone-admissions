@@ -35,17 +35,23 @@ export const KIND_TAB: Record<SettingKind, string> = {
   source: "Sources",
 };
 
-// shortcut: the six stages are fixed by name in v1 (ADR 0014 §9); switch to stage ids once M3 gives stages an identity.
-export const STAGES = ["Enquiry", "Visit booked", "Visited", "Deciding", "Applied", "Admitted"] as const;
-
 export const RULE_ACTIONS = { send_template: "Send a template", call_task: "Create a call task", dormant: "Move to Dormant" };
 export type RuleAction = keyof typeof RULE_ACTIONS;
 
-/** Alert keys: hours a lead may go untouched, and days a lead may sit in each stage before it is stuck. A stuck row's
- * value is {stage, threshold}, the shape M3's board reads (ADR 0024 §4). */
+/** A pipeline stage as Settings offers it. Rules and stuck alerts hold its id, so renaming a stage breaks nothing. */
+export interface Stage {
+  id: string;
+  name: string;
+  last: boolean; // the pipeline's last stage (Admitted): no follow-ups, never stuck
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/** Alert keys: `untouched` (hours a lead may go untouched) and `stuck_<stage id>` (days a lead may sit in that stage).
+ * A stuck row's value is {stage: <stage id>, threshold}, which M3's board reads (ADR 0025 §2, amending ADR 0024 §4). */
 export const UNTOUCHED_KEY = "untouched";
-export const stuckKey = (stage: string) => `stuck_${slug(stage)}`;
-export const ALERT_KEYS: string[] = [UNTOUCHED_KEY, ...STAGES.slice(0, -1).map(stuckKey)];
+export const stuckKey = (stageId: string) => `stuck_${stageId.replace(/-/g, "_")}`;
+const stageOfStuckKey = (key: string) => (key.startsWith("stuck_") ? key.slice(6).replace(/_/g, "-") : "");
 
 type Result<T> = { ok: true; value: T } | { ok: false; error: string };
 const fail = (error: string): { ok: false; error: string } => ({ ok: false, error });
@@ -66,35 +72,50 @@ export function checkLabel(label: unknown): Result<string> {
 
 const isWholeIn = (n: unknown, min: number, max: number): n is number =>
   typeof n === "number" && Number.isInteger(n) && n >= min && n <= max;
-const isDate = (d: unknown) => typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d) && !isNaN(Date.parse(d));
+
+/** A real calendar date as YYYY-MM-DD: 2020-02-30 is refused, not rolled over into March. */
+export function isDate(d: unknown): d is string {
+  if (typeof d !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return false;
+  const t = new Date(`${d}T00:00:00Z`);
+  return !isNaN(t.getTime()) && t.toISOString().slice(0, 10) === d;
+}
 const optionalText = (v: unknown) => v === undefined || v === "" || (typeof v === "string" && v.length <= 120);
+
+/** The stage id a rule or stuck alert names, for the API to check it is a stage of the caller's account. */
+export function stageIdOf(kind: SettingKind, key: string, value: SettingValue): string | null {
+  if (kind === "follow_up_rule") return typeof value.stage === "string" ? value.stage : null;
+  if (kind === "alert" && key !== UNTOUCHED_KEY) return stageOfStuckKey(key);
+  return null;
+}
 
 /** Checks a setting's value for its kind (and, for alerts, its key) and returns it with only the known fields. */
 export function checkValue(kind: SettingKind, key: string, raw: unknown): Result<SettingValue> {
   const v = (raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {}) as Record<string, unknown>;
   switch (kind) {
     case "follow_up_rule": {
-      if (!STAGES.includes(v.stage as (typeof STAGES)[number])) return fail("Pick a stage.");
+      if (typeof v.stage !== "string" || !UUID.test(v.stage)) return fail("Pick a stage.");
       if (!isWholeIn(v.days, 0, 365)) return fail("Enter 0 to 365 days.");
       if (!(typeof v.action === "string" && v.action in RULE_ACTIONS)) return fail("Pick what the rule does.");
       if (v.action !== "send_template") return { ok: true, value: { stage: v.stage, days: v.days, action: v.action } };
       if (typeof v.template !== "string" || !v.template.trim()) return fail("Pick a template.");
       return { ok: true, value: { stage: v.stage, days: v.days, action: v.action, template: v.template.trim() } };
     }
-    case "alert":
+    case "alert": {
       if (key === UNTOUCHED_KEY) {
         return isWholeIn(v.threshold, 1, 168) ? { ok: true, value: { threshold: v.threshold } } : fail("Enter 1 to 168 hours.");
       }
-      {
-        const stage = STAGES.find((s) => stuckKey(s) === key);
-        if (!stage || !ALERT_KEYS.includes(key)) return fail("Unknown alert.");
-        // the stage comes from the key, never from the caller, so the two can't disagree
-        return isWholeIn(v.threshold, 1, 365) ? { ok: true, value: { stage, threshold: v.threshold } } : fail("Enter 1 to 365 days.");
-      }
+      // the stage comes from the key, never from the caller, so the two can't disagree
+      const stage = stageOfStuckKey(key);
+      if (!UUID.test(stage)) return fail("Unknown alert.");
+      return isWholeIn(v.threshold, 1, 365) ? { ok: true, value: { stage, threshold: v.threshold } } : fail("Enter 1 to 365 days.");
+    }
     case "campus": {
       if (!optionalText(v.grades)) return fail("Keep the grades to 120 characters.");
       for (const f of ["born_from", "born_before"] as const) {
-        if (v[f] !== undefined && v[f] !== "" && !isDate(v[f])) return fail("Enter the date as YYYY-MM-DD.");
+        if (v[f] !== undefined && v[f] !== "" && !isDate(v[f])) return fail("Enter a real date as YYYY-MM-DD.");
+      }
+      if (isDate(v.born_from) && isDate(v.born_before) && v.born_from >= v.born_before) {
+        return fail("“Born on or after” must be earlier than “Born before”.");
       }
       if (v.visit_link !== undefined && v.visit_link !== "" && !/^https:\/\/\S+$/.test(String(v.visit_link))) {
         return fail("The visit link must start with https://.");
@@ -108,17 +129,29 @@ export function checkValue(kind: SettingKind, key: string, raw: unknown): Result
   }
 }
 
-/** The key a new setting gets: alerts name theirs; a rule's comes from what it does; the rest from the name. */
+/** A rule's key is every field that defines it (stage, day, action, template): two rules that do the same thing clash
+ * (409), and an edited rule's key follows its new value. */
+export function ruleKey(v: SettingValue): string {
+  const template = v.template ? `_${String(v.template).toLowerCase().replace(/[^a-z0-9]+/g, "_")}` : "";
+  return `rule_${String(v.stage).replace(/-/g, "_")}_d${v.days}_${v.action}${template}`;
+}
+
+/** The key a new setting gets: alerts name theirs; a rule's comes from what it does; the rest from the tag or name,
+ * or a generated one when the name has no Latin letters (a Marathi name slugs to nothing). */
 export function keyFor(kind: SettingKind, label: string, value: SettingValue, given?: unknown): string {
   if (kind === "alert") return typeof given === "string" ? given : "";
-  if (kind === "follow_up_rule") return slug(`${value.stage}_day_${value.days}_${value.action}`);
-  return slug(typeof given === "string" && given ? given : label);
+  if (kind === "follow_up_rule") return ruleKey(value);
+  return slug(typeof given === "string" && given ? given : label) || `${kind}_${crypto.randomUUID().slice(0, 8)}`;
 }
 
 const show = (v: unknown) => (v === undefined || v === null || v === "" ? "—" : String(v));
 
-/** One line for the change log, e.g. "Applied, day 3 reminder switched off" or "Deciding stuck: threshold 14 → 21". */
-export function describeChange(c: Pick<SettingsChange, "action" | "old_value" | "new_value">): string {
+/** One line for the change log, e.g. "Applied, day 3: Create a call task switched off" or "threshold 14 → 21".
+ * `stageNames` turns the stage ids rules and alerts hold back into today's stage names. */
+export function describeChange(
+  c: Pick<SettingsChange, "action" | "old_value" | "new_value">,
+  stageNames: Record<string, string> = {},
+): string {
   const before = c.old_value ?? {};
   const after = c.new_value ?? {};
   const name = after.label ?? before.label ?? "";
@@ -128,9 +161,10 @@ export function describeChange(c: Pick<SettingsChange, "action" | "old_value" | 
   if (before.active !== after.active) parts.push(after.active ? "switched on" : "switched off");
   if (before.label !== after.label) parts.push(`renamed from ${before.label}`);
   const fields = new Set([...Object.keys(before.value ?? {}), ...Object.keys(after.value ?? {})]);
+  const shown = (f: string, v: unknown) => show(f === "stage" && typeof v === "string" ? (stageNames[v] ?? v) : v);
   for (const f of fields) {
     const [a, b] = [before.value?.[f], after.value?.[f]];
-    if (JSON.stringify(a) !== JSON.stringify(b)) parts.push(`${f.replace(/_/g, " ")} ${show(a)} → ${show(b)}`);
+    if (JSON.stringify(a) !== JSON.stringify(b)) parts.push(`${f.replace(/_/g, " ")} ${shown(f, a)} → ${shown(f, b)}`);
   }
   if (before.sort_order !== after.sort_order) parts.push("moved");
   return `${name} ${parts.join(", ") || "saved"}`;
