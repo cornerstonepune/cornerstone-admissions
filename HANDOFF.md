@@ -9,7 +9,8 @@ _Overwritten at the end of every session. Keep under 30 lines. Facts only._
 - This PR (not merged; needs an independent review: migration + webhook): migration 122 makes the Cal.com location
   pick the visit's campus (and fill a lead with none), and a repeat family notify every account member
   (`repeat_family` notification; the Notifications page opens the lead). English welcome wording redrafted.
-- Local checks on this branch: lint, typecheck, `npm test`, `npm run test:db` (fresh `db:reset`, 33 files, 253 tests) green.
+  Review fixes in migration 123: one notification per family per 24 h, lead locked, notifier takes no text.
+- Local checks on this branch: lint, typecheck, `npm test`, `npm run test:db` (fresh `db:reset`, 33 files, 257 tests) green.
 - Nimish's answers recorded in ADR 0033 and PROJECT.md §6: Gurukul default / Neev option on one Cal.com event;
   repeat family → everyone; Vercel; hosted Supabase `bfnrfpuaaifdhlundrum` (ap-northeast-2).
 
@@ -26,4 +27,3 @@ _Overwritten at the end of every session. Keep under 30 lines. Facts only._
 
 ## Don't repeat
 - Changing a function's arguments: DROP the old signature; a DEFAULT-NULL overload makes old calls ambiguous.
-- Update PROJECT.md §5 in the same PR that finishes a milestone (ADR 0032).

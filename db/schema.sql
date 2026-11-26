@@ -1766,7 +1766,8 @@ BEGIN
   END IF;
 
   IF NOT v_created THEN
-    SELECT * INTO v_old FROM leads WHERE id = v_lead;
+    -- one door at a time per family: a second request waits here, then sees the first one's note (review #2)
+    SELECT * INTO v_old FROM leads WHERE id = v_lead FOR UPDATE;
     v_details := concat_ws(', ', 'child ' || v_child, 'born ' || to_char(v_dob, 'DD/MM/YYYY'),
                            'grade ' || nullif(p_lead->>'grade', ''), 'source ' || v_source_label);
     IF coalesce(p_lead->>'note', '') <> '' THEN
@@ -1780,7 +1781,7 @@ BEGIN
       INSERT INTO contact_notes (contact_id, user_id, note_text, account_id)
         VALUES (v_contact, v_user, v_note, p_account_id);
       BEGIN
-        PERFORM notify_repeat_family(p_account_id, v_contact, v_note);
+        PERFORM notify_repeat_family(v_contact);
       EXCEPTION WHEN OTHERS THEN -- as wacrm's 027: a failed notification never loses the enquiry
         RAISE WARNING 'repeat_family notification failed for contact %: %', v_contact, SQLERRM;
       END;
@@ -2190,23 +2191,36 @@ $$;
 
 
 --
--- Name: notify_repeat_family(uuid, uuid, text); Type: FUNCTION; Schema: public; Owner: -
+-- Name: notify_repeat_family(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.notify_repeat_family(p_account_id uuid, p_contact_id uuid, p_body text) RETURNS void
+CREATE FUNCTION public.notify_repeat_family(p_contact_id uuid) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
+DECLARE
+  v_account uuid;
+  v_body text;
 BEGIN
-  IF auth.uid() IS NOT NULL AND NOT is_account_member(p_account_id, 'agent') THEN
+  SELECT account_id INTO v_account FROM contacts WHERE id = p_contact_id;
+  IF v_account IS NULL THEN RETURN; END IF;
+  IF auth.uid() IS NOT NULL AND NOT is_account_member(v_account, 'agent') THEN
     RAISE EXCEPTION 'Not a member of this account' USING ERRCODE = '42501';
   END IF;
+  SELECT note_text INTO v_body FROM contact_notes
+    WHERE contact_id = p_contact_id AND created_at = now() ORDER BY id DESC LIMIT 1;
+  IF v_body IS NULL OR EXISTS (
+    SELECT 1 FROM notifications
+    WHERE contact_id = p_contact_id AND type = 'repeat_family' AND created_at > now() - interval '24 hours'
+  ) THEN
+    RETURN;
+  END IF;
   INSERT INTO notifications (account_id, user_id, type, conversation_id, contact_id, actor_user_id, title, body)
-  SELECT p_account_id, p.user_id, 'repeat_family',
-         (SELECT cv.id FROM conversations cv WHERE cv.account_id = p_account_id AND cv.contact_id = c.id),
-         c.id, auth.uid(), 'Repeat enquiry: ' || coalesce(nullif(btrim(c.name), ''), c.phone), p_body
+  SELECT v_account, p.user_id, 'repeat_family',
+         (SELECT cv.id FROM conversations cv WHERE cv.account_id = v_account AND cv.contact_id = c.id),
+         c.id, auth.uid(), 'Repeat enquiry: ' || coalesce(nullif(btrim(c.name), ''), c.phone), v_body
   FROM contacts c JOIN profiles p ON p.account_id = c.account_id
-  WHERE c.id = p_contact_id AND c.account_id = p_account_id AND p.user_id IS DISTINCT FROM auth.uid();
+  WHERE c.id = p_contact_id AND p.user_id IS DISTINCT FROM auth.uid();
 END $$;
 
 

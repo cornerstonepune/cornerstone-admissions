@@ -1,8 +1,9 @@
 // Go-live answers (ADR 0033, migration 122): the Cal.com location picks the visit's campus, and a repeat family
 // notifies everyone in the account. Every test builds its own accounts inside tx(), which rolls back.
+import postgres from "postgres";
 import { afterAll, describe, expect, it } from "vitest";
 
-import { type Account, type Tx, account, actAs, actAsSuperuser, errorOf, lead, member, setting, sql, tx } from "./db";
+import { type Account, type Tx, DATABASE_URL, account, actAs, actAsSuperuser, errorOf, lead, member, setting, sql, tx } from "./db";
 
 afterAll(() => sql.end());
 
@@ -149,14 +150,91 @@ describe("a repeat family notifies the office", () => {
       expect(got[0]).toMatchObject({ contact_id: first.contact_id, title: "Repeat enquiry: +919800000403" });
     }));
 
+  it("one welcome chat, two answers (child, then date of birth): two notes, one notification each (migration 123)", () =>
+    tx(async (t) => {
+      const a = await account(t);
+      const staff = await member(t, a.accountId, "agent");
+      await actAs(t, staff);
+      const first = await intake(t, a.accountId, { phone: "919800000404", child: "Aarav" }); // quick-added
+      await actAsSuperuser(t); // the webhook runs intake_lead after each flow answer
+      await intake(t, a.accountId, { contact_id: first.contact_id, child: "Aarav Patil" });
+      await intake(t, a.accountId, { contact_id: first.contact_id, child: "Aarav Patil", child_dob: "2022-03-14" });
+      const [{ n }] = await t`select count(*)::int as n from contact_notes where contact_id = ${first.contact_id}`;
+      expect(n).toBe(2);
+      expect((await notes(t, a.accountId)).map((x) => x.user_id).sort()).toEqual([a.ownerId, staff].sort());
+    }));
+
+  it("a notification already read still holds back a second one for the same family within 24 hours", () =>
+    tx(async (t) => {
+      const a = await account(t);
+      const first = await intake(t, a.accountId, { phone: "919800000405", child: "Aarav" });
+      await intake(t, a.accountId, { contact_id: first.contact_id, child: "Meera" });
+      await t`update notifications set read_at = now() where contact_id = ${first.contact_id}`;
+      await intake(t, a.accountId, { contact_id: first.contact_id, child: "Kabir" });
+      expect(await notes(t, a.accountId)).toHaveLength(1);
+      // a day later the family enquiring again is news again
+      await t`update notifications set created_at = now() - interval '25 hours' where contact_id = ${first.contact_id}`;
+      await intake(t, a.accountId, { contact_id: first.contact_id, child: "Ira" });
+      expect(await notes(t, a.accountId)).toHaveLength(2);
+    }));
+
+  it("a member calling the notifier directly can't choose its text and sends nothing", () =>
+    tx(async (t) => {
+      const a = await account(t);
+      const { contactId } = await lead(t, a);
+      await member(t, a.accountId, "viewer");
+      await actAs(t, await member(t, a.accountId, "agent"));
+      expect((await errorOf(t, (s) => s`select notify_repeat_family(${a.accountId}, ${contactId}, 'Pay here: x')`))?.code).toBe("42883");
+      expect(await errorOf(t, (s) => s`select notify_repeat_family(${contactId})`)).toBeNull(); // no note in this call
+      await actAsSuperuser(t);
+      expect(await notes(t, a.accountId)).toEqual([]);
+    }));
+
   it("a signed-in user outside the account can't notify its members", () =>
     tx(async (t) => {
       const a = await account(t);
       const b = await account(t);
       const { contactId } = await lead(t, a);
       await actAs(t, await member(t, b.accountId, "owner"));
-      expect((await errorOf(t, (s) => s`select notify_repeat_family(${a.accountId}, ${contactId}, 'x')`))?.code).toBe("42501");
+      expect((await errorOf(t, (s) => s`select notify_repeat_family(${contactId})`))?.code).toBe("42501");
       await actAsSuperuser(t);
       expect(await notes(t, a.accountId)).toEqual([]);
     }));
+});
+
+describe("two requests for one family at the same moment", () => {
+  it("write one note and one notification: the second waits on the lead, then sees the first's", async () => {
+    // Real concurrency needs committed rows in two sessions, so this test commits and deletes its own account.
+    const one = postgres(DATABASE_URL, { onnotice: () => {}, max: 1 });
+    const two = postgres(DATABASE_URL, { onnotice: () => {}, max: 1 });
+    let a: Account | undefined;
+    let contactId: string | undefined;
+    try {
+      a = await sql.begin((t) => account(t));
+      const accountId = a.accountId;
+      contactId = (await sql.begin((t) => lead(t, a!))).contactId;
+      const again = { contact_id: contactId, child: "Meera", note: "Enquired again on the website." };
+      const call = (c: Tx) => c`select public.intake_lead(${accountId}, ${c.json(again)}) as r`;
+      let second: Promise<postgres.Row[]> | undefined;
+      await one.begin(async (t) => {
+        await call(t); // holds the lead locked, its note and notification uncommitted…
+        second = two.begin((u) => call(u)); // …so this one waits on the lead until the first commits
+        await new Promise((res) => setTimeout(res, 300));
+      });
+      await second!;
+      const [{ n }] = await sql`select count(*)::int as n from contact_notes where contact_id = ${contactId}`;
+      const sent = await sql`select user_id from notifications where account_id = ${accountId}`;
+      expect([n, sent.length]).toEqual([1, 1]); // the owner is the only member
+    } finally {
+      if (a) {
+        await sql`delete from notifications where account_id = ${a.accountId}`;
+        if (contactId) await sql`delete from contact_notes where contact_id = ${contactId}`;
+        await sql`delete from leads where account_id = ${a.accountId}`;
+        await sql`delete from deals where account_id = ${a.accountId}`;
+        await sql`delete from accounts where id = ${a.accountId}`;
+        await sql`delete from auth.users where id = ${a.ownerId}`;
+      }
+      await Promise.all([one.end(), two.end()]);
+    }
+  });
 });

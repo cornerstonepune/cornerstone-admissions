@@ -17,7 +17,7 @@ Cal.com is set up, whether a repeat family alerts the office, hosting, and the w
 - **A repeat family notifies the office.** When `intake_lead` writes the "enquired again" note on a family's open lead,
   every member of the account gets a `repeat_family` notification (upstream `notifications`, CHECK widened), except the
   staff member who saved it. Title "Repeat enquiry: <parent or phone>", body = the note (child, date of birth, source).
-  No staff-specific routing. The note's once-only check makes the notification once only. Written by
+  No staff-specific routing. At most one a day per family (see Review fixes). Written by
   `notify_repeat_family` (SECURITY DEFINER: quick-add runs through RLS and `notifications` has no insert policy; a
   signed-in caller must be an agent or up in the account). A failure is a warning, never a lost enquiry. The
   Notifications page opens the family's lead panel; if the lead has closed, the WhatsApp chat.
@@ -26,6 +26,14 @@ Cal.com is set up, whether a repeat family alerts the office, hosting, and the w
 - **Welcome wording:** drafted by Claude in `messages/en.json` (`StarterFlows.admissions_welcome`), pending Nimish's
   approval. Other locales unchanged.
 - **Still open:** date-of-birth cut-offs and grades per campus. Until then routing leaves the campus empty and staff pick.
+
+## Review fixes (PR #94 review, migration 123)
+- **One notification per family per day.** The welcome flow runs `intake_lead` on each answer, and the note grows
+  between them, so the note's own check let two through. Now no `repeat_family` notification is made for a contact that
+  had one in the last 24 hours, read or not. Later notes are still written.
+- **Concurrency:** `intake_lead` locks the family's open lead (`FOR UPDATE`) before the note check.
+- **No chosen text:** `notify_repeat_family(contact)` takes only the contact; its text is the note written in the same
+  transaction (`created_at = now()`), so a direct API call (its own transaction, no note) sends nothing.
 
 ## Consequences
 - A location that names neither campus, or both, books against the lead's campus (often none); staff fix it on the card.
