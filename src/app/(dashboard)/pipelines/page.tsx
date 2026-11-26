@@ -6,8 +6,9 @@ import type { Pipeline, PipelineStage, Deal } from "@/types";
 import { PipelineBoard } from "@/components/pipelines/pipeline-board";
 import { PipelineSettings } from "@/components/pipelines/pipeline-settings";
 import { DealForm } from "@/components/pipelines/deal-form";
-import { PipelineAnalytics } from "@/components/pipelines/pipeline-analytics";
+import { PipelineStats } from "@/admissions/components/pipeline-stats";
 import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
 import {
   Dialog,
   DialogContent,
@@ -31,7 +32,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { GatedButton } from "@/components/ui/gated-button";
 import { useTranslations } from "next-intl";
 import { PageHead } from "@/admissions/components/page-head";
-import { LEAD_SUMMARY_SELECT, stuckAfterByStage, type AlertSetting } from "@/admissions/lib/pipeline";
+import { LEAD_SUMMARY_SELECT, pipelineStats, stuckAfterByStage, type AlertSetting } from "@/admissions/lib/pipeline";
 import { LeadPanel } from "@/admissions/components/lead-panel";
 
 // Pipeline creation is admin-class (settings-tier write under
@@ -54,6 +55,7 @@ export default function PipelinesPage() {
   const t = useTranslations("Pipelines.page");
   const tGate = useTranslations("GatedButton");
   const supabase = createClient();
+  const router = useRouter();
   const canEditSettings = useCan("edit-settings");
   const canCreateDeals = useCan("send-messages");
   const { accountId } = useAuth();
@@ -70,8 +72,7 @@ export default function PipelinesPage() {
   const [creating, setCreating] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  // Deal form state is lifted here so both the top-bar "Add Deal" and
-  // the per-column "+" trigger the same Sheet.
+  // Deal form: only a deal without a lead opens it (a lead opens the lead panel; Add lead is the quick-add form).
   const [dealFormOpen, setDealFormOpen] = useState(false);
   const [editingDeal, setEditingDeal] = useState<Deal | null>(null);
   const [defaultStageId, setDefaultStageId] = useState<string>("");
@@ -80,6 +81,7 @@ export default function PipelinesPage() {
   const [openLeadId, setOpenLeadId] = useState<string | null>(null);
   const [alerts, setAlerts] = useState<AlertSetting[]>([]);
   const [showClosed, setShowClosed] = useState(false);
+  const [visits, setVisits] = useState({ booked: 0, nextWeek: 0 });
 
   // Guard against double-seeding (React StrictMode double-effect in dev).
   const seedAttempted = useRef(false);
@@ -190,7 +192,28 @@ export default function PipelinesPage() {
       .then(({ data }) => setAlerts((data ?? []) as AlertSetting[]));
   }, [supabase]);
 
+  // Upcoming booked visits, for the numbers above the board.
+  useEffect(() => {
+    const now = new Date();
+    const weekOut = now.getTime() + 7 * 86_400_000;
+    supabase
+      .from("visits")
+      .select("starts_at")
+      .eq("status", "booked")
+      .gte("starts_at", now.toISOString())
+      .then(({ data }) =>
+        setVisits({
+          booked: data?.length ?? 0,
+          nextWeek: (data ?? []).filter((v) => new Date(v.starts_at).getTime() < weekOut).length,
+        }),
+      );
+  }, [supabase, deals]);
+
   const stuckAfter = useMemo(() => stuckAfterByStage(stages, alerts), [stages, alerts]);
+  const stats = useMemo(
+    () => pipelineStats(deals.flatMap((d) => (d.lead ? [{ stage_id: d.stage_id, lead: d.lead }] : [])), stuckAfter),
+    [deals, stuckAfter],
+  );
   const hasLeads = deals.some((d) => d.lead);
   const boardDeals = useMemo(
     () => (showClosed ? deals : deals.filter((d) => !d.lead?.exit)),
@@ -272,15 +295,6 @@ export default function PipelinesPage() {
     [supabase, refreshDeals, t, deals],
   );
 
-  const handleAddDeal = useCallback(
-    (stageId?: string) => {
-      setEditingDeal(null);
-      setDefaultStageId(stageId ?? stages[0]?.id ?? "");
-      setDealFormOpen(true);
-    },
-    [stages],
-  );
-
   const handleEditDeal = useCallback((deal: Deal) => {
     if (deal.lead) return setOpenLeadId(deal.lead.id);
     setEditingDeal(deal);
@@ -355,7 +369,8 @@ export default function PipelinesPage() {
   }
 
   return (
-    <div className="space-y-6">
+    // On lg+ the page is exactly the main area's height and the board takes what is left (ADR 0038).
+    <div className="flex flex-col gap-4 lg:h-full">
       <PageHead eyebrow="Daily work" title="Pipeline" purpose="Move each lead from enquiry to admitted, one stage at a time." />
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -408,7 +423,12 @@ export default function PipelinesPage() {
           </DropdownMenu>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {hasLeads && (
+            <Button variant="outline" aria-pressed={showClosed} onClick={() => setShowClosed((v) => !v)}>
+              {showClosed ? "Hide closed" : "Show closed"}
+            </Button>
+          )}
           <GatedButton
             variant="outline"
             canAct={canEditSettings}
@@ -422,8 +442,7 @@ export default function PipelinesPage() {
           <GatedButton
             canAct={canCreateDeals}
             gateReason={tGate("reasons.createDeals")}
-            disabled={!selectedPipelineId || stages.length === 0}
-            onClick={() => handleAddDeal()}
+            onClick={() => router.push("/quick-add")}
             className="bg-primary text-primary-foreground hover:bg-primary/90"
           >
             <Plus className="mr-1 h-4 w-4" />
@@ -454,25 +473,12 @@ export default function PipelinesPage() {
         </div>
       ) : (
         <>
-          <PipelineAnalytics stages={stages} deals={deals} />
-          {hasLeads && (
-            <div className="flex justify-end">
-              <Button
-                variant="outline"
-                size="sm"
-                aria-pressed={showClosed}
-                onClick={() => setShowClosed((v) => !v)}
-              >
-                {showClosed ? "Hide closed" : "Show closed"}
-              </Button>
-            </div>
-          )}
+          <PipelineStats stats={stats} visits={visits} />
           <PipelineBoard
             stuckAfter={stuckAfter}
             stages={stages}
             deals={boardDeals}
             onDealMoved={handleDealMoved}
-            onAddDeal={handleAddDeal}
             onEditDeal={handleEditDeal}
           />
         </>

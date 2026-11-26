@@ -16,17 +16,16 @@ import {
 } from "@dnd-kit/core";
 import type { Deal, PipelineStage } from "@/types";
 import { DealCard } from "./deal-card";
-import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
-import { useAuth } from "@/hooks/use-auth";
-import { formatCurrency } from "@/lib/currency";
 import { useTranslations } from "next-intl";
+import { stageColour } from "@/admissions/components/parts";
 
+// Admissions (ADR 0038): no money on the board, no per-column "add" (a new lead comes in through Add lead, in
+// Enquiry), each stage in its own colour by position, and the board fills the page height so its sideways
+// scrollbar is always in view while each column scrolls on its own.
 interface PipelineBoardProps {
   stages: PipelineStage[];
   deals: Deal[];
   onDealMoved: (dealId: string, newStageId: string) => void;
-  onAddDeal: (stageId: string) => void;
   onEditDeal: (deal: Deal) => void;
   /** Admissions pipeline: days after which a lead is stuck, by stage id. */
   stuckAfter?: Record<string, number>;
@@ -36,11 +35,9 @@ export function PipelineBoard({
   stages,
   deals,
   onDealMoved,
-  onAddDeal,
   onEditDeal,
   stuckAfter,
 }: PipelineBoardProps) {
-  const { defaultCurrency } = useAuth();
   const [activeDealId, setActiveDealId] = useState<string | null>(null);
 
   const sortedStages = useMemo(
@@ -102,30 +99,21 @@ export function PipelineBoard({
     >
       {/* snap-x + snap-mandatory on mobile so swipes land the next
           stage cleanly at the viewport edge instead of mid-column.
-          Disabled on lg+ where snapping would interfere with the
-          natural layout. The board can still overflow horizontally on
-          lg+ once a pipeline has many stages (columns keep a 260px
-          min-width), so a thin scrollbar stays visible on desktop. */}
-      <div className="pipeline-scroll flex snap-x snap-mandatory gap-3 overflow-x-auto pb-4 lg:snap-none">
-        {sortedStages.map((stage) => {
-          const stageDeals = dealsByStage.get(stage.id) ?? [];
-          const totalValue = stageDeals.reduce(
-            (s, d) => s + Number(d.value || 0),
-            0,
-          );
-          return (
-            <StageColumn
-              key={stage.id}
-              stage={stage}
-              deals={stageDeals}
-              totalValue={totalValue}
-              currency={defaultCurrency}
-              onAddDeal={onAddDeal}
-              onEditDeal={onEditDeal}
-              stuckAfter={stuckAfter?.[stage.id]}
-            />
-          );
-        })}
+          Disabled on lg+, where the columns shrink to share the row
+          (six fit on a 1440px laptop) and overflow only past that, and
+          the board takes the rest of the page's height and never grows
+          past it, so the sideways scrollbar sits in view. */}
+      <div className="pipeline-scroll flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 lg:min-h-64 lg:flex-1 lg:snap-none lg:overflow-y-hidden">
+        {sortedStages.map((stage, i) => (
+          <StageColumn
+            key={stage.id}
+            stage={stage}
+            colour={stageColour(i)}
+            deals={dealsByStage.get(stage.id) ?? []}
+            onEditDeal={onEditDeal}
+            stuckAfter={stuckAfter?.[stage.id]}
+          />
+        ))}
       </div>
 
       <DragOverlay
@@ -144,6 +132,7 @@ export function PipelineBoard({
               onEdit={() => {}}
               isOverlay
               stuckAfter={stuckAfter?.[activeDeal.stage_id]}
+              stageColour={stageColour(sortedStages.findIndex((s) => s.id === activeDeal.stage_id))}
             />
           </div>
         ) : null}
@@ -193,18 +182,14 @@ export function PipelineBoard({
 
 function StageColumn({
   stage,
+  colour,
   deals,
-  totalValue,
-  currency,
-  onAddDeal,
   onEditDeal,
   stuckAfter,
 }: {
   stage: PipelineStage;
+  colour: string;
   deals: Deal[];
-  totalValue: number;
-  currency: string;
-  onAddDeal: (stageId: string) => void;
   onEditDeal: (deal: Deal) => void;
   stuckAfter?: number;
 }) {
@@ -212,33 +197,26 @@ function StageColumn({
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
 
   return (
-    // On mobile each column is `w-[85vw]` (with a reasonable min/max)
-    // so the next column's edge peeks in — a "there's more here" hint.
-    // snap-start lands each column cleanly when swiping. On lg+ we
-    // restore the flex-1 share-the-row behavior. The droppable ref is
-    // on the inner messages region below — intentionally NOT here, so
-    // a drag over the column header doesn't highlight the whole column.
-    <div className="flex w-[85vw] min-w-[260px] max-w-[320px] shrink-0 snap-start flex-col rounded-xl border border-border bg-card/60 p-4 lg:w-auto lg:max-w-none lg:flex-1 lg:basis-[260px] lg:shrink lg:snap-none">
-      {/* 3px colored top border — sits above the column's padding */}
-      <div
-        className="-mx-4 -mt-4 h-[3px] rounded-t-xl"
-        style={{ backgroundColor: stage.color }}
-      />
-      <div className="flex items-center justify-between pt-3">
-        <h3 className="truncate text-sm font-semibold text-foreground">
-          {stage.name}
+    // On a phone each column is most of the width so the next one's edge
+    // peeks in, and snap-start lands each cleanly when swiping. On lg+
+    // the columns share the row (at least 10rem each) and each list
+    // scrolls inside its column. The droppable ref is on the list below,
+    // so a drag over the header doesn't highlight the whole column.
+    <div className="flex w-5/6 max-w-xs shrink-0 snap-start flex-col overflow-hidden rounded-xl border border-border bg-card/60 lg:w-auto lg:min-w-40 lg:max-w-none lg:flex-1 lg:basis-0 lg:snap-none">
+      <div className="h-1 flex-none" style={{ background: colour }} />
+      <div className="flex flex-none items-center justify-between gap-2 px-3 pt-2">
+        <h3 className="flex min-w-0 items-center gap-1.5 text-label font-semibold text-foreground">
+          <span aria-hidden className="size-2 flex-none rounded-full" style={{ background: colour }} />
+          <span className="truncate">{stage.name}</span>
         </h3>
-        <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+        <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-caption font-semibold text-muted-foreground">
           {deals.length}
         </span>
       </div>
-      <p className="text-xs text-muted-foreground">
-        {formatCurrency(totalValue, currency)}
-      </p>
 
       <div
         ref={setNodeRef}
-        className={`mt-3 flex flex-1 flex-col gap-2 rounded-lg transition-all ${
+        className={`m-3 flex flex-1 flex-col gap-2 rounded-lg transition-all lg:min-h-0 lg:overflow-x-hidden lg:overflow-y-auto ${
           isOver
             ? "bg-primary/5 outline outline-2 outline-dashed outline-primary outline-offset-2"
             : ""
@@ -254,22 +232,13 @@ function StageColumn({
               key={deal.id}
               deal={deal}
               stage={stage}
+              colour={colour}
               onEdit={onEditDeal}
               stuckAfter={stuckAfter}
             />
           ))
         )}
       </div>
-
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => onAddDeal(stage.id)}
-        className="mt-3 w-full justify-start border border-dashed border-border bg-transparent text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground"
-      >
-        <Plus className="mr-1 h-3 w-3" />
-        {t("addDeal")}
-      </Button>
     </div>
   );
 }
@@ -277,11 +246,13 @@ function StageColumn({
 function DraggableDealCard({
   deal,
   stage,
+  colour,
   onEdit,
   stuckAfter,
 }: {
   deal: Deal;
   stage: PipelineStage;
+  colour: string;
   onEdit: (deal: Deal) => void;
   stuckAfter?: number;
 }) {
@@ -298,7 +269,7 @@ function DraggableDealCard({
       {...attributes}
       style={{ opacity: isDragging ? 0.3 : 1, touchAction: "none" }}
     >
-      <DealCard deal={deal} stage={stage} onEdit={onEdit} stuckAfter={stuckAfter} />
+      <DealCard deal={deal} stage={stage} onEdit={onEdit} stuckAfter={stuckAfter} stageColour={colour} />
     </div>
   );
 }

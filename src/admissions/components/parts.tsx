@@ -36,6 +36,31 @@ const KIND: Record<Kind, string> = {
   note: "text-[var(--kind-note)] bg-[var(--kind-note-bg)]",
 };
 
+/** Category colours from the token palette (design/tokens.css), one per stage by its position (ADR 0038): no data
+ * change needed, and a seventh stage wraps round. Admitted, the last of six, lands on green. */
+const STAGE_COLOURS = ["--kind-assessment", "--kind-activity", "--kind-objective", "--kind-skill", "--kind-child", "--state-ok"];
+export const stageColour = (position: number) => `var(${STAGE_COLOURS[position % STAGE_COLOURS.length]})`;
+
+/** A campus's tag colour by its sort order, so Gurukul and Neev differ at a glance. */
+const CAMPUS_TONES = ["child", "objective", "assessment", "note"];
+export const campusTone = (sortOrder: number) => {
+  const k = CAMPUS_TONES[Math.abs(sortOrder) % CAMPUS_TONES.length];
+  return { color: `var(--kind-${k})`, background: `var(--kind-${k}-bg)` };
+};
+
+/** A small fact on a card (grade, campus): quiet grey unless given a tone. */
+export function Tag({ tone, children }: { tone?: { color: string; background: string }; children: ReactNode }) {
+  return (
+    <span
+      data-block="Tag"
+      style={tone}
+      className="inline-block max-w-full truncate rounded-full bg-[var(--state-quiet-bg)] px-2 py-0.5 text-caption font-semibold text-[var(--state-quiet)]"
+    >
+      {children}
+    </span>
+  );
+}
+
 export function KindTile({ kind, icon: Icon }: { kind: Kind; icon: LucideIcon }) {
   return (
     <span
@@ -65,7 +90,13 @@ export function KeyValue({ rows }: { rows: readonly { label: string; value: Reac
 }
 
 /** The stages of a lead: passed green, current amber, the rest grey. */
-export function Stepper({ steps, label }: { steps: readonly { tone: Tone; words: string }[]; label: string }) {
+export function Stepper({
+  steps,
+  label,
+}: {
+  steps: readonly { tone: Tone; words: string; colour?: string }[];
+  label: string;
+}) {
   return (
     <ol data-block="Stepper" aria-label={label} className="m-0 flex list-none flex-wrap gap-2 p-0">
       {steps.map((s) => {
@@ -77,6 +108,7 @@ export function Stepper({ steps, label }: { steps: readonly { tone: Tone; words:
             aria-current={s.tone === "wait" ? "step" : undefined}
             className={`flex items-center gap-1 rounded-full border px-2 py-1 text-label font-semibold ${cls}`}
           >
+            {s.colour ? <span aria-hidden className="size-2 rounded-full" style={{ background: s.colour }} /> : null}
             <Icon aria-hidden className="size-3" />
             {s.words}
           </li>

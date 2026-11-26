@@ -6720,7 +6720,9 @@ ALTER TABLE public.deals ENABLE ROW LEVEL SECURITY;
 -- Name: deals deals_delete; Type: POLICY; Schema: public; Owner: -
 --
 
-CREATE POLICY deals_delete ON public.deals FOR DELETE USING (public.is_account_member(account_id, 'agent'::public.account_role_enum));
+CREATE POLICY deals_delete ON public.deals FOR DELETE USING ((public.is_account_member(account_id, 'agent'::public.account_role_enum) AND (public.is_account_member(account_id, 'admin'::public.account_role_enum) OR (NOT (EXISTS ( SELECT 1
+   FROM public.leads l
+  WHERE (l.deal_id = deals.id)))))));
 
 
 --
