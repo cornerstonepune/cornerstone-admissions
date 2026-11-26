@@ -346,6 +346,146 @@ $$;
 
 
 --
+-- Name: calcom_book(text, timestamp with time zone, uuid, text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.calcom_book(p_booking text, p_starts_at timestamp with time zone, p_lead_id uuid, p_phone text, p_from_booking text DEFAULT NULL::text) RETURNS TABLE(lead_id uuid, account_id uuid, contact_id uuid, owner_id uuid)
+    LANGUAGE plpgsql
+    SET search_path TO 'public'
+    AS $$
+#variable_conflict use_column
+DECLARE
+  v_lead uuid;
+  v_stage record;
+BEGIN
+  IF EXISTS (SELECT 1 FROM visits v WHERE v.cal_booking_id = p_booking) THEN RETURN; END IF;
+  v_lead := calcom_lead(p_lead_id, p_phone, p_from_booking);
+  IF v_lead IS NULL THEN RETURN; END IF;
+
+  INSERT INTO visits (account_id, lead_id, cal_booking_id, starts_at, campus_id)
+  SELECT l.account_id, l.id, p_booking, p_starts_at, l.campus_id FROM leads l WHERE l.id = v_lead
+  ON CONFLICT (cal_booking_id) DO NOTHING;
+  IF NOT FOUND THEN RETURN; END IF;  -- the same booking, in a webhook delivered twice at once
+
+  UPDATE visits v SET status = 'rescheduled'
+  WHERE v.cal_booking_id = p_from_booking AND v.lead_id = v_lead AND v.status = 'booked';
+
+  SELECT * INTO v_stage FROM visit_booked_stage(v_lead);
+  IF v_stage.current_pos < v_stage.stage_pos THEN
+    PERFORM move_lead(v_lead, v_stage.stage_id);
+  END IF;
+
+  RETURN QUERY SELECT l.id, l.account_id, l.contact_id, a.owner_user_id
+  FROM leads l JOIN accounts a ON a.id = l.account_id WHERE l.id = v_lead;
+END $$;
+
+
+--
+-- Name: calcom_cancel(text, timestamp with time zone, uuid, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.calcom_cancel(p_booking text, p_starts_at timestamp with time zone, p_lead_id uuid, p_phone text) RETURNS uuid
+    LANGUAGE plpgsql
+    SET search_path TO 'public'
+    AS $$
+DECLARE
+  v_lead uuid;
+  v_stage record;
+  v_back uuid;
+BEGIN
+  UPDATE visits v SET status = 'cancelled' WHERE v.cal_booking_id = p_booking AND v.status = 'booked'
+  RETURNING v.lead_id INTO v_lead;
+
+  IF v_lead IS NULL THEN
+    IF p_starts_at IS NULL OR EXISTS (SELECT 1 FROM visits v WHERE v.cal_booking_id = p_booking) THEN RETURN NULL; END IF;
+    v_lead := calcom_lead(p_lead_id, p_phone);
+    IF v_lead IS NULL THEN RETURN NULL; END IF;
+    INSERT INTO visits (account_id, lead_id, cal_booking_id, starts_at, campus_id, status)
+    SELECT l.account_id, l.id, p_booking, p_starts_at, l.campus_id, 'cancelled' FROM leads l WHERE l.id = v_lead
+    ON CONFLICT (cal_booking_id) DO NOTHING;
+    RETURN CASE WHEN FOUND THEN v_lead END;
+  END IF;
+
+  SELECT * INTO v_stage FROM visit_booked_stage(v_lead);
+  IF v_stage.current_pos = v_stage.stage_pos
+     AND EXISTS (SELECT 1 FROM leads l WHERE l.id = v_lead AND l.exit IS NULL AND l.admitted_at IS NULL)
+     AND NOT EXISTS (SELECT 1 FROM visits v WHERE v.lead_id = v_lead AND v.status = 'booked') THEN
+    SELECT h.stage_id INTO v_back
+    FROM lead_stage_history h
+    JOIN pipeline_stages s ON s.id = h.stage_id
+    JOIN leads l ON l.id = h.lead_id
+    JOIN deals d ON d.id = l.deal_id AND d.pipeline_id = s.pipeline_id
+    WHERE h.lead_id = v_lead AND s.position < v_stage.stage_pos
+      AND s.position < (SELECT max(ps.position) FROM pipeline_stages ps WHERE ps.pipeline_id = s.pipeline_id)
+    ORDER BY h.entered_at DESC, h.id DESC LIMIT 1;
+    IF v_back IS NOT NULL THEN PERFORM move_lead(v_lead, v_back); END IF;
+  END IF;
+  RETURN v_lead;
+END $$;
+
+
+--
+-- Name: calcom_lead(uuid, text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.calcom_lead(p_lead_id uuid, p_phone text, p_from_booking text DEFAULT NULL::text) RETURNS uuid
+    LANGUAGE plpgsql STABLE
+    SET search_path TO 'public'
+    AS $_$
+DECLARE
+  v_digits text := regexp_replace(coalesce(p_phone, ''), '\D', '', 'g');
+  v_alt text;
+  v_lead uuid;
+BEGIN
+  v_alt := CASE WHEN v_digits ~ '^91[0-9]{10}$' THEN substr(v_digits, 3) END;
+
+  SELECT l.id INTO v_lead FROM visits v JOIN leads l ON l.id = v.lead_id
+  WHERE v.cal_booking_id = p_from_booking AND l.exit IS NULL AND l.admitted_at IS NULL;
+  IF v_lead IS NOT NULL THEN RETURN v_lead; END IF;
+
+  SELECT l.id INTO v_lead FROM leads l JOIN contacts c ON c.id = l.contact_id
+  WHERE l.id = p_lead_id AND l.exit IS NULL AND l.admitted_at IS NULL
+    AND (v_digits = '' OR c.phone_normalized IN (v_digits, v_alt));
+  IF v_lead IS NOT NULL OR v_digits !~ '^\d{8,15}$' THEN RETURN v_lead; END IF;
+
+  WITH m AS (
+    SELECT l.id, l.account_id, l.created_at FROM leads l JOIN contacts c ON c.id = l.contact_id
+    WHERE l.exit IS NULL AND l.admitted_at IS NULL AND c.phone_normalized IN (v_digits, v_alt)
+  )
+  SELECT m.id INTO v_lead FROM m
+  WHERE (SELECT count(DISTINCT m2.account_id) FROM m m2) = 1
+  ORDER BY m.created_at DESC, m.id DESC LIMIT 1;
+  RETURN v_lead;
+END $_$;
+
+
+--
+-- Name: calcom_no_show(text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.calcom_no_show(p_booking text) RETURNS TABLE(lead_id uuid, account_id uuid, contact_id uuid, owner_id uuid)
+    LANGUAGE plpgsql
+    SET search_path TO 'public'
+    AS $$
+#variable_conflict use_column
+DECLARE
+  v_lead uuid;
+BEGIN
+  UPDATE visits v SET status = 'no_show' FROM leads l
+  WHERE l.id = v.lead_id AND l.exit IS NULL AND l.admitted_at IS NULL
+    AND v.cal_booking_id = p_booking AND v.status = 'booked'
+  RETURNING v.lead_id INTO v_lead;
+  IF v_lead IS NULL THEN RETURN; END IF;
+
+  INSERT INTO lead_activity (account_id, lead_id, kind, notes)
+  SELECT l.account_id, l.id, 'call_task', 'Missed the visit: call to rebook' FROM leads l WHERE l.id = v_lead;
+
+  RETURN QUERY SELECT l.id, l.account_id, l.contact_id, a.owner_user_id
+  FROM leads l JOIN accounts a ON a.id = l.account_id WHERE l.id = v_lead;
+END $$;
+
+
+--
 -- Name: check_lead_activity_refs(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -557,6 +697,62 @@ CREATE FUNCTION public.claim_due_follow_ups(p_now timestamp with time zone DEFAU
   JOIN accounts a ON a.id = d.account_id
   WHERE m.kind = 'follow_up_send'
 $$;
+
+
+--
+-- Name: claim_visit_reminders(timestamp with time zone); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.claim_visit_reminders(p_now timestamp with time zone DEFAULT now()) RETURNS TABLE(visit_id uuid, account_id uuid, contact_id uuid, owner_id uuid, template text)
+    LANGUAGE plpgsql
+    SET search_path TO 'public'
+    AS $$
+#variable_conflict use_column
+BEGIN
+  RETURN QUERY
+  WITH due AS (
+    SELECT v.id FROM visits v JOIN leads l ON l.id = v.lead_id
+    WHERE l.exit IS NULL AND l.admitted_at IS NULL AND v.status = 'booked' AND v.starts_at > p_now
+      AND v.rsvp_sent_at IS NULL
+      AND p_now >= v.starts_at - interval '24 hours' AND v.created_at < v.starts_at - interval '24 hours'
+    ORDER BY v.starts_at, v.id LIMIT 50
+    FOR UPDATE OF v SKIP LOCKED
+  ), s AS (
+    UPDATE visits v SET rsvp_sent_at = p_now FROM due, leads l WHERE v.id = due.id AND l.id = v.lead_id
+    RETURNING v.id, v.account_id, l.contact_id
+  ) SELECT s.id, s.account_id, s.contact_id, a.owner_user_id, 'visit_rsvp_24h'::text FROM s JOIN accounts a ON a.id = s.account_id;
+
+  RETURN QUERY
+  WITH due AS (
+    SELECT v.id FROM visits v JOIN leads l ON l.id = v.lead_id
+    WHERE l.exit IS NULL AND l.admitted_at IS NULL AND v.status = 'booked' AND v.starts_at > p_now
+      AND v.reminder_sent_at IS NULL
+      AND p_now >= ist_on_visit_day(v.starts_at, 0, '08:00') AND v.created_at < ist_on_visit_day(v.starts_at, 0, '08:00')
+    ORDER BY v.starts_at, v.id LIMIT 50
+    FOR UPDATE OF v SKIP LOCKED
+  ), s AS (
+    UPDATE visits v SET reminder_sent_at = p_now FROM due, leads l WHERE v.id = due.id AND l.id = v.lead_id
+    RETURNING v.id, v.account_id, l.contact_id
+  ) SELECT s.id, s.account_id, s.contact_id, a.owner_user_id, 'visit_reminder_morning'::text
+    FROM s JOIN accounts a ON a.id = s.account_id;
+
+  WITH due AS (
+    SELECT v.id FROM visits v JOIN leads l ON l.id = v.lead_id
+    WHERE l.exit IS NULL AND l.admitted_at IS NULL AND v.status = 'booked' AND v.starts_at > p_now
+      AND v.call_task_at IS NULL AND v.rsvp_sent_at IS NOT NULL
+      AND p_now >= GREATEST(ist_on_visit_day(v.starts_at, -1, '18:00'), v.rsvp_sent_at + interval '2 hours')
+      AND NOT EXISTS (SELECT 1 FROM conversations c
+                      WHERE c.account_id = v.account_id AND c.contact_id = l.contact_id
+                        AND c.last_inbound_at > v.rsvp_sent_at)
+    ORDER BY v.starts_at, v.id LIMIT 50
+    FOR UPDATE OF v SKIP LOCKED
+  ), s AS (
+    UPDATE visits v SET call_task_at = p_now FROM due WHERE v.id = due.id
+    RETURNING v.account_id, v.lead_id
+  )
+  INSERT INTO lead_activity (account_id, lead_id, kind, due_at, notes)
+  SELECT s.account_id, s.lead_id, 'call_task', p_now, 'Visit not confirmed: call before the visit' FROM s;
+END $$;
 
 
 --
@@ -1489,6 +1685,17 @@ CREATE FUNCTION public.is_account_member(target_account_id uuid, min_role public
             WHEN 'viewer' THEN 1
           END
   );
+$$;
+
+
+--
+-- Name: ist_on_visit_day(timestamp with time zone, integer, time without time zone); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.ist_on_visit_day(p_starts_at timestamp with time zone, p_days integer, p_time time without time zone) RETURNS timestamp with time zone
+    LANGUAGE sql IMMUTABLE
+    AS $$
+  SELECT (((p_starts_at AT TIME ZONE 'Asia/Kolkata')::date + p_days) + p_time) AT TIME ZONE 'Asia/Kolkata'
 $$;
 
 
@@ -2641,6 +2848,26 @@ $$;
 
 
 --
+-- Name: visit_booked_stage(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.visit_booked_stage(p_lead_id uuid, OUT stage_id uuid, OUT stage_pos integer, OUT current_pos integer) RETURNS record
+    LANGUAGE sql STABLE
+    SET search_path TO 'public'
+    AS $$
+  SELECT s.id, s.position, cur.position
+  FROM leads l
+  JOIN deals d ON d.id = l.deal_id
+  JOIN pipeline_stages cur ON cur.id = d.stage_id
+  JOIN LATERAL (
+    SELECT ps.id, ps.position FROM pipeline_stages ps WHERE ps.pipeline_id = d.pipeline_id
+    ORDER BY ps.position, ps.id OFFSET 1 LIMIT 1
+  ) s ON true
+  WHERE l.id = p_lead_id
+$$;
+
+
+--
 -- Name: account_invitations; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -3167,6 +3394,9 @@ CREATE TABLE public.visits (
     status public.visit_status DEFAULT 'booked'::public.visit_status NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    rsvp_sent_at timestamp with time zone,
+    reminder_sent_at timestamp with time zone,
+    call_task_at timestamp with time zone,
     CONSTRAINT visits_cal_booking_id_check CHECK ((btrim(cal_booking_id) <> ''::text))
 );
 
