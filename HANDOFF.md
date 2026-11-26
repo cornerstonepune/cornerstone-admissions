@@ -2,8 +2,8 @@
 
 _Overwritten at the end of every session. Keep under 30 lines. Facts only._
 
-**Updated:** 2026-11-27 · **By:** Old-sheet events loaded; calls on the Calendar (ADR 0040) · **Model:** claude-sonnet-5-5
-**Milestone:** M7 hosting live for testing; M2 hand checks open · **Branch:** main (PR #106 merged)
+**Updated:** 2026-11-27 · **By:** Permanent source QR links (ADR 0041) · **Model:** claude-sonnet-5-5
+**Milestone:** M7 hosting live for testing; M2 hand checks open · **Branch:** feat/qr-links
 
 ## State
 - Live: https://cornerstone-admissions.vercel.app (Vercel) on Supabase `bfnrfpuaaifdhlundrum`. Migrations 001–128 applied.
@@ -13,17 +13,15 @@ _Overwritten at the end of every session. Keep under 30 lines. Facts only._
 - Vercel production has `CALCOM_WEBHOOK_SECRET`, `ADMISSIONS_ACCOUNT_ID`, `ANTHROPIC_API_KEY`; not `SARVAM_API_KEY`.
 - Deploy: `git archive origin/main` + `.vercel/` → `vercel deploy --prod`. Migrations: psql.
 ## Next step
-1. Nimish: book one visit and one video call on the website with a new phone number; check both land on the Calendar
-   with the right kind and a new lead (source Website). Check Cal.com's webhook points at the live app.
-2. Nimish: add `SARVAM_API_KEY` on Vercel (Production) and redeploy; log one real call and check the sections.
-3. Pipeline board is cramped on a short laptop screen: compact the numbers above it.
-4. Earlier hand checks: password setup, WhatsApp settings and Meta callback, welcome wording.
+1. QR links (this branch): merge, set `ADMISSIONS_WHATSAPP_NUMBER=15551642653` on Vercel, deploy, scan one, remake the
+   email draft's QR codes. Agree the printed address first; at a number change, update the variable.
+2. WhatsApp on live is down (temporary token expired 26 Nov): Nimish saves a permanent token; templates pending.
+3. Nimish: `SARVAM_API_KEY` on Vercel; one real Cal.com visit and video booking with a new phone number.
+4. Compact the Pipeline board's numbers. Hand checks: password setup, Meta callback, welcome wording.
 ## Blocked / open questions
 - Not built: marking a meeting Visited/No-show in the app, editing or cancelling a staff-added meeting.
 - Unverified: Cal.com's real video payload fields and the child/grade question names; real Sarvam/Claude calls.
-- Grade cut-offs per campus; seat targets on Dashboard?
 - Hardening follow-up: hosted default grants; some upstream SECURITY DEFINER functions executable by anon.
 ## Don't repeat
 - Hosted DB password contains `%`: pass it raw via PGPASSWORD. Hosted default grants differ from local (LESSONS).
 - Lint changed folders, not `npm run lint` (it scans `.claude/worktrees`). Local dev: http://localhost:3000.
-- `tests/holdout/db/visits.test.ts` pins `lead_current_visit`'s columns: read new visit columns from `visits`.
