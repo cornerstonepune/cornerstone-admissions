@@ -18,6 +18,13 @@ to **Visit booked** and sends the WhatsApp messages. About 20 minutes.
 4. Copy the event's link (for example `https://cal.com/cornerstone/campus-visit`) into the app:
    Admissions Settings → Campuses → each campus → **Visit link**. The app adds the parent's name and phone to it.
 
+## 2b. The video-call event and new families (ADR 0040)
+- The website's "Book a 30-minute video call" event works with the same webhook: the app files it as a **Video call**
+  and keeps the Cal Video / Google Meet link. Use Cal Video or Google Meet as its location.
+- A family that books without ever having enquired becomes a new lead (source Website). For that the booking needs the
+  required **Phone number** question (step 2.3) on every event, and the app needs `ADMISSIONS_ACCOUNT_ID` set. Name the
+  child's question so it says "child" and the grade question so it says "grade", and the app fills them in.
+
 ## 3. Connect Cal.com to the app (the webhook)
 1. Make a secret: any long random text, at least 32 characters (a password manager's generator is fine).
 2. Cal.com → Settings → Developer → Webhooks → New.

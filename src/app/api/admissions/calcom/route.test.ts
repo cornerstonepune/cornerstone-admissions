@@ -4,15 +4,17 @@
 import crypto from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const h = vi.hoisted(() => ({ rpc: vi.fn(), send: vi.fn() }));
+const h = vi.hoisted(() => ({ rpc: vi.fn(), send: vi.fn(), seen: [] as unknown[] }));
 
 vi.mock("@/lib/automations/admin-client", () => ({
   supabaseAdmin: () => {
     const q: Record<string, unknown> = {};
-    for (const m of ["from", "select", "eq"]) q[m] = () => q;
+    for (const m of ["select", "eq", "limit"]) q[m] = () => q;
+    q.from = (table: string) => ((q.table = table), q);
     q.maybeSingle = async () => ({ data: { id: "conv-1" }, error: null });
-    // the approved-template language lookup awaits the query itself
-    q.then = (resolve: (v: unknown) => void) => resolve({ data: [{ language: "mr" }], error: null });
+    // awaited queries: has this booking been seen (visits), and the approved template's language
+    q.then = (resolve: (v: unknown) => void) =>
+      resolve({ data: q.table === "visits" ? h.seen : [{ language: "mr" }], error: null });
     q.rpc = h.rpc;
     return q;
   },
@@ -96,6 +98,7 @@ beforeEach(() => {
   vi.stubEnv("CALCOM_WEBHOOK_SECRET", SECRET);
   h.rpc.mockReset().mockResolvedValue({ data: recipient, error: null });
   h.send.mockReset().mockResolvedValue({ whatsapp_message_id: "wamid.1" });
+  h.seen = [];
 });
 afterEach(() => vi.unstubAllEnvs());
 
@@ -140,6 +143,8 @@ describe("events", () => {
       p_phone: "+91 98765 43210",
       p_from_booking: null,
       p_location: "Cornerstone Neev campus",
+      p_kind: "campus",
+      p_url: null,
     });
     expect(h.send).toHaveBeenCalledTimes(1);
     expect(h.send.mock.calls[0][0]).toMatchObject({
@@ -167,6 +172,64 @@ describe("events", () => {
     await post(calPayload("BOOKING_CREATED", { location: undefined }));
     await post(calPayload("BOOKING_CREATED", { location: { type: "inPerson" } }));
     expect(h.rpc.mock.calls.map((c) => c[1].p_location)).toEqual(["Gurukul campus, Baner Road, Pune", null, null]);
+  });
+
+  it("a video booking is a virtual meeting with its link; only an https link is kept (ADR 0040)", async () => {
+    await post(calPayload("BOOKING_CREATED", { location: "integrations:daily", metadata: { videoCallUrl: "https://app.cal.com/video/abc" } }));
+    await post(calPayload("BOOKING_CREATED", { location: "integrations:google:meet", metadata: {} }));
+    await post(calPayload("BOOKING_CREATED", { location: "https://zoom.us/j/123" }));
+    await post(calPayload("BOOKING_CREATED", { location: "Gurukul", metadata: { videoCallUrl: "javascript:alert(1)" } }));
+    await post(calPayload("BOOKING_CREATED", { location: "https://maps.app.goo.gl/HTibfEk8c4TD57mYA", metadata: {} }));
+    await post(calPayload("BOOKING_CREATED", { location: "https://zoom.us.evil.example/j/1", metadata: {} }));
+    expect(h.rpc.mock.calls.map((c) => [c[1].p_kind, c[1].p_url])).toEqual([
+      ["virtual", "https://app.cal.com/video/abc"],
+      ["virtual", null],
+      ["virtual", "https://zoom.us/j/123"],
+      ["campus", null],
+      ["campus", null], // a map link is an in-person place
+      ["campus", null],
+    ]);
+  });
+
+  describe("a family new to us books from the website", () => {
+    const NEW = "9a1b2c3d-4e5f-4a6b-8c7d-0e1f2a3b4c5d";
+    const answers = {
+      name: { label: "Your name", value: "Priya Sharma" },
+      attendeePhoneNumber: { label: "Phone", value: "+91 98765 43210" },
+      "child-first-name": { label: "Child's first name", value: "Aarav" },
+      grade: { label: "Grade", value: "Jr KG" },
+    };
+    beforeEach(() => {
+      vi.stubEnv("ADMISSIONS_ACCOUNT_ID", "acc-1");
+      h.rpc.mockImplementation(async (fn: string, args: { p_lead_id?: string }) => {
+        if (fn === "intake_lead") return { data: { contact_id: "con-1", lead_id: NEW, created: true }, error: null };
+        return { data: args.p_lead_id === NEW ? recipient : [], error: null }; // only the new lead matches
+      });
+    });
+
+    it("becomes a lead (with the parent, child and grade, never changing a family already with us), then is booked and confirmed", async () => {
+      const res = await post(calPayload("BOOKING_CREATED", { metadata: {}, responses: answers }));
+      expect(await res.json()).toEqual({ ok: true, event: "booked", changed: true });
+      const intakeCall = h.rpc.mock.calls.find((c) => c[0] === "intake_lead")!;
+      expect(intakeCall[1]).toMatchObject({
+        p_account_id: "acc-1",
+        p_lead: { phone: "919876543210", parent: "Priya Sharma", child: "Aarav", grade: "Jr KG", source_keys: ["website"], fill: false },
+      });
+      const books = h.rpc.mock.calls.filter((c) => c[0] === "calcom_book");
+      expect(books.map((c) => c[1].p_lead_id)).toEqual([null, NEW]);
+      expect(h.send).toHaveBeenCalledTimes(1);
+    });
+
+    it("a booking seen before, one without a phone, or no account set makes no lead", async () => {
+      h.seen = [{ id: "v-1" }];
+      await post(calPayload("BOOKING_CREATED", { metadata: {}, responses: answers }));
+      h.seen = [];
+      await post(calPayload("BOOKING_CREATED", { metadata: {}, responses: {}, attendees: [{ name: "No phone" }] }));
+      vi.stubEnv("ADMISSIONS_ACCOUNT_ID", "");
+      await post(calPayload("BOOKING_CREATED", { metadata: {}, responses: answers }));
+      expect(h.rpc.mock.calls.some((c) => c[0] === "intake_lead")).toBe(false);
+      expect(h.send).not.toHaveBeenCalled();
+    });
   });
 
   it("BOOKING_RESCHEDULED books the new uid and names the booking it replaces", async () => {

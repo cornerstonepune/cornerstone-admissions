@@ -17,6 +17,7 @@ export const MENU: readonly { group: string; doors: readonly Door[] }[] = [
     group: "Daily work",
     doors: [
       { href: "/today", label: "Today", icon: "today" },
+      { href: "/calendar", label: "Calendar", icon: "calendar" },
       { href: "/inbox", label: "Inbox", icon: "inbox" },
       { href: "/pipelines", label: "Pipeline", icon: "pipeline" },
       { href: "/contacts", label: "Parents", icon: "parents" },

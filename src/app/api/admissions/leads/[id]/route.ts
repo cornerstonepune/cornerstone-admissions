@@ -53,7 +53,7 @@ export async function GET(_request: Request, context: Ctx) {
         .select("id, kind, due_at, done_at, outcome, notes, created_by")
         .eq("lead_id", id)
         .order("due_at", { ascending: false }),
-      supabase.from("lead_current_visit").select("starts_at, status").eq("lead_id", id).maybeSingle(),
+      supabase.from("lead_current_visit").select("visit_id, starts_at, status").eq("lead_id", id).maybeSingle(),
       supabase
         .from("admissions_settings")
         .select("id, label")
@@ -79,6 +79,10 @@ export async function GET(_request: Request, context: Ctx) {
         ),
       ),
     ];
+    // the current meeting's kind and link (ADR 0040) live on visits, not on the view
+    const { data: meeting } = visit.data
+      ? await supabase.from("visits").select("kind, meeting_url").eq("id", visit.data.visit_id).maybeSingle()
+      : { data: null };
     const { data: people } = userIds.length
       ? await supabase.from("profiles").select("user_id, full_name").in("user_id", userIds)
       : { data: [] as { user_id: string; full_name: string | null }[] };
@@ -89,7 +93,7 @@ export async function GET(_request: Request, context: Ctx) {
       stages: stages.data,
       history: (history.data ?? []).map((h) => ({ ...h, moved_by_name: h.moved_by ? (names[h.moved_by] ?? null) : null })),
       activity: (activity.data ?? []).map((a) => ({ ...a, by_name: a.created_by ? (names[a.created_by] ?? null) : null })),
-      visit: visit.data,
+      visit: visit.data ? { ...visit.data, kind: meeting?.kind ?? "campus", meeting_url: meeting?.meeting_url ?? null } : null,
       lostReasons: lostReasons.data,
       campuses: (choices.data ?? []).filter((c) => c.kind === "campus"),
       sources: (choices.data ?? []).filter((c) => c.kind === "source"),

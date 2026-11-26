@@ -2,28 +2,33 @@
 
 _Overwritten at the end of every session. Keep under 30 lines. Facts only._
 
-**Updated:** 2026-11-26 · **By:** Nimish's live feedback built and deployed · **Model:** claude-sonnet-5-5
-**Milestone:** M7 hosting live for testing; M2 hand checks open · **Branch:** fix/conversation-grants
+**Updated:** 2026-11-27 · **By:** Calendar of meetings (ADR 0040) · **Model:** claude-opus-5-5
+**Milestone:** M7 hosting live for testing; M2 hand checks open · **Branch:** feat/calendar
 
 ## State
 - Live: https://cornerstone-admissions.vercel.app (Vercel) on Supabase `bfnrfpuaaifdhlundrum`. Migrations 001–127 applied.
-- Live now: lead edit/delete, parent email, stage and campus colours, side-scroll board (ADR 0038); admissions Dashboard
-  and visual Report (ADR 0037); Conversations tab: upload, record or type, Sarvam then Claude sections (ADR 0039).
-- Security: PRs #100 and #101 independently reviewed and fixed. Imported leads no longer count in dated numbers (#102).
+- This branch: Calendar screen (`/calendar`), meetings of three kinds (campus, video, phone) as visit rows (migration
+  128), "Meeting set on this call" in the call form, Cal.com files video bookings as video calls, and a family new to us
+  who books on Cal.com (the website embeds it) becomes a lead (ADR 0040). Tests: unit 2162+, db 286, build green locally.
+- Vercel production has `CALCOM_WEBHOOK_SECRET`, `ADMISSIONS_ACCOUNT_ID`, `ANTHROPIC_API_KEY`; not `SARVAM_API_KEY`.
 - Deploy: `git archive origin/main` export + `.vercel/` → `vercel deploy --prod`. Migrations: psql with PGPASSWORD.
 
 ## Next step
-1. Nimish: create `SARVAM_API_KEY` (dashboard.sarvam.ai) and `ANTHROPIC_API_KEY` (console.anthropic.com), add both in
-   Vercel → Settings → Environment Variables (Production), redeploy; then log one real call and check the sections.
-2. Pipeline board is cramped on a short laptop screen (about two cards per column): compact the numbers above it.
-3. Earlier hand checks: password setup, WhatsApp settings and Meta callback, real Cal.com booking, welcome wording.
+1. After merge: apply migration 128 on hosted, deploy, then book one real Cal.com visit and one video call from the
+   website with a new phone number; check both land on the Calendar with the right kind, and a new lead is made.
+2. Nimish: add `SARVAM_API_KEY` on Vercel (Production) and redeploy; log one real call and check the sections.
+3. Pipeline board is cramped on a short laptop screen: compact the numbers above it.
+4. Earlier hand checks: password setup, WhatsApp settings and Meta callback, welcome wording.
 
 ## Blocked / open questions
+- Not built: marking a meeting Visited/No-show in the app, editing or cancelling a staff-added meeting.
+- Unverified: Cal.com's real video payload fields and the child/grade question names; real Sarvam/Claude calls.
 - Grade from date of birth needs each campus's cut-off per grade. Seat targets per grade wanted on Dashboard?
-- Unverified: real Sarvam/Claude calls (upload method and output shape assumed), phone width and Safari on live.
-- Anonymous and signed-in roles hold default grants on hosted tables (RLS protects); some upstream SECURITY DEFINER
-  functions are executable by anon: hardening follow-up.
+- Hardening follow-up: hosted default grants; some upstream SECURITY DEFINER functions executable by anon.
 
 ## Don't repeat
 - Hosted DB password contains `%`: pass it raw via PGPASSWORD. Hosted default grants differ from local (LESSONS).
 - `npm run lint` in the main checkout scans `.claude/worktrees` and hangs: remove old worktrees or lint changed files.
+- Local dev in the browser pane: use http://localhost:3000, not 127.0.0.1 (Next dev's HMR socket fails there and the
+  page reloads, eating input).
+- `tests/holdout/db/visits.test.ts` pins `lead_current_visit`'s columns: read new visit columns from `visits` instead.

@@ -6,6 +6,8 @@ import crypto from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/lib/automations/admin-client";
 import { engineSendTemplate } from "@/lib/automations/meta-send";
+import { intake } from "./intake";
+import { safeUrl } from "./meetings";
 
 /**
  * Cal.com signs the raw body with the webhook's secret: `X-Cal-Signature-256: <hex HMAC-SHA256>`.
@@ -32,6 +34,11 @@ export interface CalEvent {
   leadId: string | null; // carried by our booking link (visitLink)
   phone: string | null;
   location: string | null; // the in-person location the parent picked: it names the campus (ADR 0033)
+  kind: "campus" | "virtual"; // a video call when Cal.com made a video link (ADR 0040)
+  meetingUrl: string | null;
+  parent: string | null; // who booked, for a family new to us (ADR 0040)
+  child: string | null;
+  grade: string | null;
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -39,19 +46,45 @@ type Obj = Record<string, unknown>;
 const obj = (v: unknown): Obj => (v && typeof v === "object" ? (v as Obj) : {});
 const str = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v.trim() : null);
 
+/** A booking question's answer, found by its key or its label (the school names its own questions on Cal.com). */
+function answer(responses: Obj, word: RegExp): string | null {
+  for (const [key, r] of Object.entries(responses)) {
+    const o = obj(r);
+    if (word.test(key) || word.test(String(o.label ?? ""))) {
+      const v = str(o.value);
+      if (v) return v.slice(0, 80);
+    }
+  }
+  return null;
+}
+
 /** Reads Cal.com's `{ triggerEvent, payload }`. Anything we don't act on is "ignored". */
 export function readCalEvent(body: unknown): CalEvent {
   const b = obj(body);
   const p = obj(b.payload);
   const attendees = Array.isArray(p.attendees) ? p.attendees.map(obj) : [];
-  const lead = str(obj(p.metadata).lead);
+  const meta = obj(p.metadata);
+  const lead = str(meta.lead);
+  const responses = obj(p.responses);
+  const location = str(p.location);
+  // a location that is a link counts only when it is a video service's (an in-person location may be a map link)
+  const videoLocation = /^https:\/\/([a-z0-9-]+\.)*(meet\.google\.com|zoom\.us|teams\.microsoft\.com|teams\.live\.com|cal\.com|cal\.video|whereby\.com)(\/|$)/i.test(location ?? "");
+  const meetingUrl = safeUrl(meta.videoCallUrl) ?? safeUrl(obj(p.videoCallData).url) ?? (videoLocation ? safeUrl(location) : null);
+  const name = obj(responses.name).value;
+  const parent = str(name) ?? (str([str(obj(name).firstName), str(obj(name).lastName)].filter(Boolean).join(" ")) || str(attendees[0]?.name));
   const base = {
     booking: str(p.uid) ?? str(p.bookingUid) ?? "",
     from: str(p.rescheduleUid),
     startsAt: str(p.startTime),
     leadId: lead && UUID.test(lead) ? lead : null,
     phone: str(obj(obj(p.responses).attendeePhoneNumber).value) ?? attendees.map((a) => str(a.phoneNumber)).find(Boolean) ?? null,
-    location: str(p.location),
+    location,
+    // Cal Video, Google Meet, Zoom: a link in the metadata, or an "integrations:…" location before the link is made
+    kind: meetingUrl || /^integrations:/i.test(location ?? "") ? ("virtual" as const) : ("campus" as const),
+    meetingUrl,
+    parent: parent ? parent.slice(0, 80) : null,
+    child: answer(responses, /child|student|kid/i),
+    grade: answer(responses, /grade|class/i),
   };
   const ignored = { ...base, event: "ignored" as const };
   if (!base.booking) return ignored;
@@ -76,7 +109,7 @@ interface Recipient {
 }
 
 /** One template into the parent's WhatsApp conversation. A failure is logged, never thrown: the visit is recorded. */
-async function sendTemplate(db: SupabaseClient, to: Recipient, template: string): Promise<boolean> {
+export async function sendTemplate(db: SupabaseClient, to: Recipient, template: string): Promise<boolean> {
   try {
     const { data: conv, error } = await db
       .from("conversations")
@@ -131,25 +164,62 @@ export async function handleCalEvent(db: SupabaseClient, ev: CalEvent): Promise<
     return error ? { ok: false, error: error.message } : { ok: true, event: ev.event, changed: data != null };
   }
 
-  const { data, error } =
-    ev.event === "booked"
-      ? await db.rpc("calcom_book", {
-          p_booking: ev.booking,
-          p_starts_at: ev.startsAt,
-          p_lead_id: ev.leadId,
-          p_phone: ev.phone,
-          p_from_booking: ev.from,
-          p_location: ev.location,
-        })
-      : await db.rpc("calcom_no_show", { p_booking: ev.booking });
+  const book = (leadId: string | null) =>
+    db.rpc("calcom_book", {
+      p_booking: ev.booking,
+      p_starts_at: ev.startsAt,
+      p_lead_id: leadId,
+      p_phone: ev.phone,
+      p_from_booking: ev.from,
+      p_location: ev.location,
+      p_kind: ev.kind,
+      p_url: ev.meetingUrl,
+    });
+  let { data, error } = ev.event === "booked" ? await book(ev.leadId) : await db.rpc("calcom_no_show", { p_booking: ev.booking });
   if (error) return { ok: false, error: error.message };
-  const to = ((data ?? []) as Recipient[])[0];
+  let to = ((data ?? []) as Recipient[])[0];
+  if (!to && ev.event === "booked") {
+    // A family new to us booked from the website: they become a lead first (ADR 0040), then the booking is theirs.
+    const leadId = await leadFromBooking(db, ev);
+    if (leadId) {
+      ({ data, error } = await book(leadId));
+      if (error) return { ok: false, error: error.message };
+      to = ((data ?? []) as Recipient[])[0];
+    }
+  }
   if (!to) {
     if (ev.event === "booked") console.warn("[calcom] booking matched no open lead, or was seen before:", ev.booking);
     return { ok: true, event: ev.event, changed: false };
   }
   await sendTemplate(db, to, ev.event === "booked" ? "visit_confirmed" : "visit_missed_rebook");
   return { ok: true, event: ev.event, changed: true };
+}
+
+/**
+ * The lead for a booking no open lead matched, through the one door (intake), in the account the website feeds
+ * (ADMISSIONS_ACCOUNT_ID). Null for a replay, a booking without a phone, or when the account isn't set. The booking's
+ * answers are the public's: a family already with us is never changed (fill: false), as with the website form.
+ */
+async function leadFromBooking(db: SupabaseClient, ev: CalEvent): Promise<string | null> {
+  const accountId = process.env.ADMISSIONS_ACCOUNT_ID;
+  if (!accountId || !ev.phone) return null;
+  const { data: seen, error } = await db.from("visits").select("id").eq("cal_booking_id", ev.booking).limit(1);
+  if (error || seen?.length) return null; // a replay books nothing twice
+  try {
+    const r = await intake(db, accountId, {
+      phone: ev.phone,
+      parent: ev.parent ?? undefined,
+      child: ev.child ?? undefined,
+      grade: ev.grade ?? undefined,
+      sources: ["website"],
+      note: "Booked a meeting on Cal.com.",
+      fill: false,
+    });
+    return r.lead_id;
+  } catch (e) {
+    console.error("[calcom] could not make a lead for a booking:", e instanceof Error ? e.message : e);
+    return null;
+  }
 }
 
 /**

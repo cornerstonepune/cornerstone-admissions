@@ -73,6 +73,7 @@ export interface IntakeInput {
   child?: string;
   dob?: string | null; // YYYY-MM-DD
   area?: string;
+  grade?: string; // as the family wrote it; the date's grade wins when the date names one
   campus?: string; // a campus setting's tag (the welcome flow's campus button); wins over the date's campus
   sources: string[]; // source tags, first one that exists wins
   note?: string; // added when the family already has an open lead
@@ -119,6 +120,7 @@ export async function intake(db: SupabaseClient, accountId: string, input: Intak
       note: input.note,
       reopen: input.reopen ?? true,
       fill: input.fill ?? true,
+      grade: input.grade,
       ...route,
     },
   });
