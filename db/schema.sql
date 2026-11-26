@@ -207,7 +207,7 @@ CREATE FUNCTION public.admissions_report(p_account_id uuid, p_from timestamp wit
     'dormant', (SELECT count(*) FROM l WHERE exit = 'dormant'),
     'days_to_admit', (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY
         (admitted_at AT TIME ZONE 'Asia/Kolkata')::date - (created_at AT TIME ZONE 'Asia/Kolkata')::date)
-      FROM l WHERE admitted_at IS NOT NULL),
+      FROM l WHERE admitted_at IS NOT NULL AND imported_at IS NULL),
     'stages', coalesce((SELECT jsonb_agg(jsonb_build_object(
         'id', st.id, 'name', st.name,
         'reached', (SELECT count(*) FROM top WHERE top.top >= st.position),
