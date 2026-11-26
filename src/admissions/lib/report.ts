@@ -3,7 +3,7 @@
 // which is the same number for the period before.
 import { addDays, addMonths, format, startOfMonth, startOfYear, subDays, subYears } from "date-fns";
 
-import { isStuck } from "@/admissions/lib/pipeline";
+import { happenedHere, isStuck } from "@/admissions/lib/pipeline";
 
 export type Period = "30" | "90" | "year";
 export const PERIODS: Record<Period, string> = { "30": "30 days", "90": "90 days", year: "This year" };
@@ -185,7 +185,8 @@ export function buildBreakdowns(rows: LeadRow[], campuses: { id: string; label: 
     return {
       label: format(s < from ? from : s, p === "year" ? "MMM" : "d MMM"),
       enquiries: count((r) => r.created_at, s, end),
-      admitted: count((r) => r.admitted_at, s, end),
+      admitted: rows.filter((r) => within(happenedHere(r.admitted_at, r.imported_at), s < from ? from : s, end > to ? to : end))
+        .length,
     };
   });
   const busiest = [...trend].sort((a, b) => b.enquiries - a.enquiries)[0];
@@ -201,6 +202,6 @@ export function buildBreakdowns(rows: LeadRow[], campuses: { id: string; label: 
     trend,
     trendPeak: busiest?.enquiries ? trend.indexOf(busiest) : -1,
     trendTake,
-    trendNote: imported ? `${imported} leads imported from the old sheet are left out: they have no real enquiry date.` : null,
+    trendNote: imported ? `${imported} leads imported from the old sheet are left out: they have no real enquiry or admission date.` : null,
   };
 }

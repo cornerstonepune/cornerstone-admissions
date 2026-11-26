@@ -21,13 +21,14 @@ export interface LeadSummary {
   days_in_stage: number | null;
   created_at: string;
   exited_at: string | null;
+  imported_at: string | null;
   campus: { label: string; sort_order: number } | null;
   source: { label: string } | null;
 }
 
 /** The PostgREST select for a deal's lead; `days_in_stage` is the computed field from migration 113. */
 export const LEAD_SUMMARY_SELECT =
-  "lead:leads(id, child_name, grade, exit, admitted_at, days_in_stage, created_at, exited_at, " +
+  "lead:leads(id, child_name, grade, exit, admitted_at, days_in_stage, created_at, exited_at, imported_at, " +
   "campus:admissions_settings!leads_campus_id_fkey(label, sort_order), source:admissions_settings!leads_source_id_fkey(label))";
 
 /** A "stuck" alert setting: `kind = 'alert'`, key starting `stuck`, value `{ stage: <stage id>, threshold: <days> }` (ADR 0025). */
@@ -198,6 +199,14 @@ export async function editLead(supabase: SupabaseClient, leadId: string, edit: L
   return { ok: true };
 }
 
+/**
+ * When something really happened to a lead, for dated numbers: null for what the old-sheet import stamped (ADR 0036).
+ * An imported lead's admission or loss counts only if it came after the import.
+ */
+export function happenedHere(at: string | null, importedAt: string | null): string | null {
+  return at && (!importedAt || new Date(at).getTime() > new Date(importedAt).getTime()) ? at : null;
+}
+
 /** The numbers above the board (S-board): admissions numbers, each with a yardstick to read it against. */
 export interface PipelineStats {
   open: number;
@@ -233,13 +242,13 @@ export function pipelineStats(
     lostLastMonth: 0,
   };
   for (const { stage_id, lead } of cards) {
-    const created = at(lead.created_at);
+    const created = lead.imported_at ? NaN : at(lead.created_at);
     if (created >= weekAgo) s.newThisWeek++;
     else if (created >= twoWeeksAgo) s.newLastWeek++;
-    const admitted = at(lead.admitted_at);
+    const admitted = at(happenedHere(lead.admitted_at, lead.imported_at));
     if (admitted >= monthStart) s.admittedThisMonth++;
     else if (admitted >= lastMonthStart) s.admittedLastMonth++;
-    const lost = lead.exit === "lost" ? at(lead.exited_at) : NaN;
+    const lost = lead.exit === "lost" ? at(happenedHere(lead.exited_at, lead.imported_at)) : NaN;
     if (lost >= monthStart) s.lostThisMonth++;
     else if (lost >= lastMonthStart) s.lostLastMonth++;
     if (!lead.exit && !lead.admitted_at) {

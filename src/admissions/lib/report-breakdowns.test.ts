@@ -52,7 +52,7 @@ describe("buildBreakdowns: grades, campuses and the trend", () => {
     expect(b.trend[0].label).toBe("27 Oct"); // the first week starts before the period: labelled from the period's start
     expect(b.trendPeak).toBe(4);
     expect(b.trendTake).toBe("Busiest week from 19 Nov: 2 new enquiries. 3 admitted in the period.");
-    expect(b.trendNote).toBe("1 leads imported from the old sheet are left out: they have no real enquiry date.");
+    expect(b.trendNote).toBe("1 leads imported from the old sheet are left out: they have no real enquiry or admission date.");
   });
 
   it("uses months for this year, and says when nothing happened", () => {

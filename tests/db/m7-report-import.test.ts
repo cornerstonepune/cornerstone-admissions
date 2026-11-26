@@ -53,6 +53,17 @@ async function known(t: Tx) {
 }
 
 describe("G7.2 the funnel comes from stage history and matches the board", () => {
+  it("leaves leads imported from the old sheet out of days to admit, but still counts them", () =>
+    tx(async (t) => {
+      const { a } = await known(t);
+      const imported = await lead(t, a);
+      await t`update leads set imported_at = now(), admitted_at = now() where id = ${imported.leadId}`;
+      await actAs(t, await member(t, a.accountId, "viewer"));
+      const r = await report(t, a.accountId);
+      expect(r.admitted).toBe(2);
+      expect(Number(r.days_to_admit)).toBe(19); // only the lead that was worked here
+    }));
+
   it("counts reached, days per stage, sources and lost reasons on known data", () =>
     tx(async (t) => {
       const { a } = await known(t);
