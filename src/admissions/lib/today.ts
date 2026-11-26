@@ -20,6 +20,7 @@ export interface OpenLead {
   child_name: string | null;
   grade: string | null;
   created_at: string;
+  imported_at?: string | null; // set when the lead came from the old enquiry sheet (migration 117)
   days_in_stage: number | null;
   deal: { stage_id: string } | null;
   contact: { name: string | null; conversations: Conversation[] } | null;
@@ -122,7 +123,10 @@ export function buildToday(input: TodayInput, now: Date = new Date()): Today {
 
     // Untouched (GLOSSARY): the family is waiting on us (new lead, or wrote last) and nobody has acted since —
     // no stage move by a person, no call logged, no reply from staff — for longer than the Settings alert.
-    const waitingSince = Math.max(ms(l.created_at), lastInbound);
+    // An imported lead is old, not new: it waits on us only once the parent writes after the import.
+    const waitingSince = l.imported_at
+      ? lastInbound > ms(l.imported_at) ? lastInbound : -Infinity
+      : Math.max(ms(l.created_at), lastInbound);
     const lastAction = Math.max(
       latest(l.lead_stage_history.filter((h) => h.moved_by).map((h) => h.entered_at)),
       latest(l.lead_activity.filter((a) => a.kind === "call_task").map((a) => a.done_at)),

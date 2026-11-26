@@ -18,7 +18,7 @@ export async function GET() {
       supabase
         .from("leads")
         .select(
-          "id, child_name, grade, created_at, days_in_stage, deal:deals(stage_id), " +
+          "id, child_name, grade, created_at, imported_at, days_in_stage, deal:deals(stage_id), " +
             "contact:contacts(name, conversations(last_inbound_at, last_reply_at)), " +
             "lead_stage_history(entered_at, moved_by), lead_activity(kind, done_at)",
         )
