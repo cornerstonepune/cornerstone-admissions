@@ -1,145 +1,46 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
-import { LogOut, Menu, Settings as SettingsIcon, User } from "lucide-react";
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@/components/ui/avatar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import Link from "@/admissions/components/link";
+import { BrandMark } from "@/admissions/components/brand-mark";
+import { Icon } from "@/admissions/components/icons";
 
-const pageTitles: Record<string, string> = {
-  "/dashboard": "dashboard",
-  "/inbox": "inbox",
-  "/notifications": "notifications",
-  "/contacts": "contacts",
-  "/pipelines": "pipelines",
-  "/broadcasts": "broadcasts",
-  "/automations": "automations",
-  "/settings": "settings",
-};
-
-function getPageTitleKey(pathname: string): string {
-  if (pageTitles[pathname]) return pageTitles[pathname];
-  const match = Object.entries(pageTitles).find(([path]) =>
-    pathname.startsWith(path),
-  );
-  return match ? match[1] : "dashboard";
-}
-
+// The Cornerstone bar (S-frame): the dark band across the top. The mark links to Today; on the right the member's name and role,
+// and Sign out. At 700 px or less the Menu button opens the sidebar's drawer and the name gives way.
 interface HeaderProps {
-  /** Wired to the shell's drawer state. Used only on mobile — the
-   *  hamburger button is hidden on lg+. */
   onOpenSidebar?: () => void;
 }
 
-import { useTranslations } from "next-intl";
+const BAR_BUTTON =
+  "inline-flex min-h-[var(--tap)] items-center gap-[var(--space-1)] rounded-[var(--radius-control)] px-[var(--space-2)] font-semibold text-[var(--bar-ink)] hover:bg-[var(--bar-hover)]";
 
 export function Header({ onOpenSidebar }: HeaderProps) {
-  const t = useTranslations("Header");
-  const pathname = usePathname();
-  const { profile, signOut } = useAuth();
-  const titleKey = getPageTitleKey(pathname);
-
-  const initial =
-    profile?.full_name?.charAt(0)?.toUpperCase() ??
-    profile?.email?.charAt(0)?.toUpperCase() ??
-    "U";
+  const { profile, accountRole, signOut } = useAuth();
+  const name = profile?.full_name ?? profile?.email ?? "";
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border bg-background px-4 lg:px-6">
-      <div className="flex min-w-0 items-center gap-2">
-        {/* Hamburger — mobile only. 44×44 hit target per Apple HIG. */}
-        <button
-          type="button"
-          onClick={onOpenSidebar}
-          aria-label={t("openMenu")}
-          className="flex h-10 w-10 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:hidden"
-        >
-          <Menu className="h-5 w-5" />
-        </button>
-        <h1 className="truncate text-base font-semibold text-foreground sm:text-lg">
-          {t(titleKey as string)}
-        </h1>
-      </div>
-
-      <div className="flex items-center gap-1 sm:gap-2">
-        <DropdownMenu>
-        <DropdownMenuTrigger
-          className="flex items-center gap-2 rounded-md px-1 py-1 transition-colors hover:bg-muted/70 focus:bg-muted/70 focus:outline-none data-popup-open:bg-muted/70 sm:gap-3 sm:pl-1 sm:pr-3"
-          aria-label={t("openAccountMenu")}
-        >
-          <Avatar className="size-8">
-            {profile?.avatar_url ? (
-              <AvatarImage
-                src={profile.avatar_url}
-                alt={profile.full_name ?? t("defaultAvatar")}
-              />
-            ) : null}
-            <AvatarFallback className="bg-primary/10 text-sm font-medium text-primary">
-              {initial}
-            </AvatarFallback>
-          </Avatar>
-          <span className="hidden text-sm font-medium text-foreground sm:inline">
-            {profile?.full_name ?? t("defaultUser")}
-          </span>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent
-          align="end"
-          sideOffset={6}
-          className="min-w-56 bg-popover text-popover-foreground ring-border"
-        >
-          <div className="px-2 py-1.5">
-            <p className="truncate text-sm font-medium text-foreground">
-              {profile?.full_name ?? t("defaultUser")}
-            </p>
-            <p className="truncate text-xs text-muted-foreground">
-              {profile?.email ?? ""}
-            </p>
-          </div>
-          <DropdownMenuSeparator className="bg-border" />
-          <DropdownMenuItem
-            render={
-              <Link
-                href="/settings?tab=profile"
-                className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
-              />
-            }
-          >
-            <User className="size-4" />
-            {t("menuProfile")}
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            render={
-              <Link
-                href="/settings?tab=whatsapp"
-                className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
-              />
-            }
-          >
-            <SettingsIcon className="size-4" />
-            {t("menuSettings")}
-          </DropdownMenuItem>
-          <DropdownMenuSeparator className="bg-border" />
-          <DropdownMenuItem
-            onClick={signOut}
-            className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
-          >
-            <LogOut className="size-4" />
-            {t("menuSignOut")}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+    <header
+      data-bar
+      className="flex min-h-[calc(var(--tap)+var(--space-2))] shrink-0 items-center gap-[var(--space-3)] bg-[var(--bar)] px-[var(--space-4)] text-label text-[var(--bar-ink)] max-wide:gap-[var(--space-2)] max-wide:px-[var(--space-3)]"
+    >
+      <button type="button" onClick={onOpenSidebar} aria-haspopup="dialog" className={`${BAR_BUTTON} wide:hidden`}>
+        <Icon name="menu" />
+        Menu
+      </button>
+      <Link href="/today" aria-label="Today" className="flex shrink-0 items-center rounded-[var(--radius-control)] no-underline">
+        <BrandMark />
+      </Link>
+      <span className="flex-1" />
+      {name ? (
+        <span className="truncate max-wide:hidden">
+          {name}
+          {accountRole ? ` · ${accountRole}` : null}
+        </span>
+      ) : null}
+      <button type="button" onClick={signOut} className={BAR_BUTTON}>
+        <Icon name="sign-out" />
+        Sign out
+      </button>
     </header>
   );
 }

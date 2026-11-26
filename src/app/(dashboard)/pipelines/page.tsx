@@ -30,6 +30,7 @@ import { useCan } from "@/hooks/use-can";
 import { useAuth } from "@/hooks/use-auth";
 import { GatedButton } from "@/components/ui/gated-button";
 import { useTranslations } from "next-intl";
+import { PageHead } from "@/admissions/components/page-head";
 
 // Pipeline creation is admin-class (settings-tier write under
 // the new RLS); deal creation is operational and only requires
@@ -318,6 +319,7 @@ export default function PipelinesPage() {
 
   return (
     <div className="space-y-6">
+      <PageHead eyebrow="Daily work" title="Pipeline" purpose="Move each lead from enquiry to admitted, one stage at a time." />
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">

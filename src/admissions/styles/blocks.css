@@ -1,0 +1,5 @@
+/* The frame's share of the platform's blocks.css (design/platform/components/blocks.css); later screens port the rules they use. */
+@layer components {
+  /* an icon in a flex row keeps its size */
+  [data-block] svg[data-icon] { flex: none; }
+}
