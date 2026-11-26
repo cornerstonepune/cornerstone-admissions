@@ -9,6 +9,9 @@ import { isDate } from "./settings";
 /** A phone as anyone types it (+91, spaces, 10 digits, a leading 0) → digits with the country code, or null. */
 export const phoneDigits = (raw: string | null | undefined): string | null => (raw ? sheetPhone(raw) : null);
 
+/** A plausible email address: something@something.tld, no spaces, at most 254 characters. */
+export const isEmail = (s: string) => s.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
 
 /** A date of birth as a parent types it: 2022-03-14, 14/03/2022, 14-3-2022, 14.03.2022, 14 March 2022 → YYYY-MM-DD.

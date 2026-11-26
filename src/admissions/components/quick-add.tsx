@@ -29,6 +29,7 @@ export function QuickAdd({ sources, added }: { sources: { key: string; label: st
   const [phone, setPhone] = useState("");
   const [parent, setParent] = useState("");
   const [child, setChild] = useState("");
+  const [email, setEmail] = useState("");
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<Status>(null);
@@ -43,7 +44,7 @@ export function QuickAdd({ sources, added }: { sources: { key: string; label: st
       const res = await fetch("/api/admissions/intake", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ phone, parent, child, source }),
+        body: JSON.stringify({ phone, parent, child, source, ...(email.trim() ? { email } : {}) }),
       });
       const body = (await res.json().catch(() => ({}))) as { created?: boolean; error?: string };
       if (!res.ok) return setStatus({ tone: "late", text: body.error ?? "Couldn't save. Nothing was lost." });
@@ -52,6 +53,7 @@ export function QuickAdd({ sources, added }: { sources: { key: string; label: st
       setPhone("");
       setParent("");
       setChild("");
+      setEmail("");
       router.refresh();
     } catch {
       setStatus({ tone: "late", text: "Couldn't save. Nothing was lost." });
@@ -116,6 +118,20 @@ export function QuickAdd({ sources, added }: { sources: { key: string; label: st
         <div className="grid gap-[var(--space-1)]">
           <Label htmlFor="qa-parent">Parent&apos;s name</Label>
           <Input id="qa-parent" autoComplete="name" value={parent} onChange={(e) => setParent(e.target.value)} className="min-h-[var(--tap)]" />
+        </div>
+        <div className="grid gap-[var(--space-1)]">
+          <Label htmlFor="qa-email">
+            Parent&apos;s email <span className="text-caption text-[var(--ink-muted)]">(optional)</span>
+          </Label>
+          <Input
+            id="qa-email"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="min-h-[var(--tap)]"
+          />
         </div>
         <div className="grid gap-[var(--space-1)]">
           <Label htmlFor="qa-child">

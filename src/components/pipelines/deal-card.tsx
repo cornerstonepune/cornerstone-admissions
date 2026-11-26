@@ -13,6 +13,8 @@ interface DealCardProps {
   isOverlay?: boolean;
   /** Days after which a lead in this stage is stuck (Admissions pipeline). */
   stuckAfter?: number;
+  /** The stage's colour token, for a lead card's edge (Admissions pipeline). */
+  stageColour?: string;
 }
 
 function formatDate(dateStr: string, locale: string) {
@@ -30,13 +32,14 @@ function initials(name?: string, fallback?: string) {
 }
 
 export function DealCard(props: DealCardProps) {
-  const { deal, onEdit, isOverlay, stuckAfter } = props;
+  const { deal, onEdit, isOverlay, stuckAfter, stageColour } = props;
   if (deal.lead)
     return (
       <LeadCard
         lead={deal.lead}
         parent={deal.contact?.name || deal.contact?.phone || null}
         stuckAfter={stuckAfter}
+        stageColour={stageColour}
         onOpen={() => onEdit(deal)}
         isOverlay={isOverlay}
       />

@@ -762,8 +762,8 @@
       "noPipelinesYet": "No pipelines yet",
       "managePipelines": "Manage Pipelines",
       "addPipeline": "Add Pipeline",
-      "addDeal": "Add Deal",
-      "createToStartTracking": "Create a pipeline to start tracking deals",
+      "addDeal": "Add lead",
+      "createToStartTracking": "Create a pipeline to start tracking leads",
       "createPipeline": "Create Pipeline",
       "newPipeline": "New Pipeline",
       "pipelineName": "Pipeline Name",
@@ -773,7 +773,7 @@
       "creating": "Creating...",
       "createPipelineBtn": "Create Pipeline",
       "toastFailedLoadPipelines": "Failed to load pipelines",
-      "toastFailedMoveDeal": "Failed to move deal",
+      "toastFailedMoveDeal": "Couldn't move this lead",
       "toastFailedCreatePipeline": "Failed to create pipeline",
       "toastPipelineCreated": "Pipeline created",
       "toastNotLinkedToAccount": "Your profile is not linked to an account.",
@@ -787,8 +787,8 @@
       }
     },
     "board": {
-      "dropDealHere": "Drop a deal here",
-      "addDeal": "Add Deal"
+      "dropDealHere": "Drop a lead here",
+      "addDeal": "Add lead"
     },
     "card": {
       "noContact": "No contact",
@@ -841,7 +841,7 @@
     "settings": {
       "managePipeline": "Manage Pipeline",
       "deletePipeline": "Delete Pipeline",
-      "deletePipelineDesc": "This will archive all deals in this pipeline. This cannot be undone.",
+      "deletePipelineDesc": "This will archive all leads in this pipeline. This cannot be undone.",
       "cancel": "Cancel",
       "deleting": "Deleting...",
       "deletePipelineBtn": "Delete Pipeline",
@@ -857,7 +857,7 @@
       "toastFailedSave": "Failed to save pipeline",
       "toastSaved": "Pipeline saved",
       "toastFailedAddStage": "Failed to add stage",
-      "toastMoveOrDeleteDeals": "Move or delete deals in this stage first",
+      "toastMoveOrDeleteDeals": "Move the leads in this stage to another stage first",
       "toastFailedDeleteStage": "Failed to delete stage",
       "toastFailedDeletePipeline": "Failed to delete pipeline",
       "toastDeleted": "Pipeline deleted",
@@ -2442,7 +2442,7 @@
       "deleteContacts": "delete contacts",
       "createFlows": "create flows",
       "createPipelines": "create pipelines",
-      "createDeals": "create deals",
+      "createDeals": "add leads",
       "sendMessages": "send messages"
     }
   },

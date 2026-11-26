@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 
 import { requireRole, toErrorResponse, type AccountContext } from "@/lib/auth/account";
 import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from "@/lib/rate-limit";
-import { intake, IntakeError, phoneDigits, QUICK_ADD_SOURCES } from "@/admissions/lib/intake";
+import { intake, IntakeError, isEmail, phoneDigits, QUICK_ADD_SOURCES } from "@/admissions/lib/intake";
 
 const bad = (error: string, status = 400) => NextResponse.json({ error }, { status });
 const name = (v: unknown) => (typeof v === "string" ? v.trim() : "");
@@ -26,6 +26,8 @@ export async function POST(request: Request) {
   const child = name(body.child);
   if (!parent || parent.length > 80) return bad("Enter the parent's name.");
   if (child.length > 80) return bad("Keep the child's name to 80 characters.");
+  const email = name(body.email).toLowerCase();
+  if (email && !isEmail(email)) return bad("Enter a valid email address.");
   // no source (none set up, or switched off in Settings) still saves: the lead's source stays empty
   const source = body.source === undefined || body.source === null || body.source === "" ? null : body.source;
   if (source !== null && !(QUICK_ADD_SOURCES as readonly unknown[]).includes(source)) return bad("Pick how they reached us.");
@@ -40,6 +42,8 @@ export async function POST(request: Request) {
       sources: source === null ? [] : [source as string],
       note: `Came in again, ${day}${me?.full_name ? `, ${me.full_name}` : ""}.`,
     });
+    // the parent's email, if given, fills an empty one; an email already on file is changed only in the lead panel
+    if (email) await ctx.supabase.from("contacts").update({ email }).eq("id", r.contact_id).is("email", null);
     return NextResponse.json({ created: r.created, lead_id: r.lead_id }, { status: r.created ? 201 : 200 });
   } catch (err) {
     if (err instanceof IntakeError) return bad(err.message);
