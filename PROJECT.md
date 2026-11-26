@@ -103,39 +103,43 @@ _M0 is the data model. Every later milestone is a vertical slice Nimish can clic
 - **Issues:** label `M0`, all closed. Last: #56 (migration 111, ADR 0017, PR #58). `db/schema.sql` regenerated after 111; `npm run test:db` 23 files, 157 tests pass (2026-11-26).
 - **Out of scope:** any UI; Cal.com and WhatsApp wiring (tables only).
 
-### M1 — Look and frame · In progress
+_Status as of 2026-11-26 (ADR 0032). "Built" = merged with CI green; Nimish has not clicked any milestone through yet. A ticked goal names its test; nothing here was checked in a running app._
+
+### M1 — Look and frame · Built, one goal open
 - **Delivers:** every existing screen in the Cornerstone theme, light only; signup, broadcasts and AI hidden.
 - **Screens:** S-frame (plus snapshots of built screens approved with `loop approve --all`).
-- **Goals:** [ ] G1.1 no theme picker, `<html data-scheme="light">` · [ ] G1.2 hidden routes return 404 and are not in the menu · [ ] G1.3 CI token check passes on all `src/` (no raw colours) · [ ] G1.4 upstream tests pass.
+- **Goals:** [x] G1.1 no theme picker, `<html data-scheme="light">` (code read: `src/app/layout.tsx`; the upstream picker `appearance-panel.tsx` is mounted nowhere; no test) · [x] G1.2 hidden routes return 404 and are not in the menu (`src/admissions/hidden-routes.test.ts`, `src/middleware.test.ts`) · [ ] G1.3 CI token check passes on all `src/` — **fails:** CI checks only lines a PR adds; CI's own rule over all of `src/` finds 228 raw-style lines in 71 of 161 screen files, mostly upstream screens (auth, automations, broadcasts, contacts, flows) · [x] G1.4 upstream tests pass (`npm test` in CI).
 - **Depends on:** M0.
-- **Issues:** done: #52 (hidden routes), #7 (theme). Left: #63 (theme follow-ups, `ready`), then #18 (the frame: sidebar, top bar, page head, icon map; absorbs #8, #9, #12; G1.3 is in its Done when).
+- **Issues:** all closed: #52 (hidden routes), #7 (theme), #63 (theme follow-ups), #18 (frame). PRs #60, #62, #75, #79.
 
-### M2 — WhatsApp on the test number · Not started
+### M2 — WhatsApp on the test number · Code merged, hand checks not done
 - **Delivers:** tunnel, Meta test app, webhook; written finding on connecting the real number.
-- **Goals:** [ ] G2.1 an inbound message appears in the inbox · [ ] G2.2 a reply is delivered · [ ] G2.3 a template sends · [ ] G2.4 an unsigned webhook POST is rejected (test).
-- **Issue:** #65.
-- **Needs from Nimish:** brief §10 items 4–7.
+- **Goals:** [ ] G2.1 an inbound message appears in the inbox · [ ] G2.2 a reply is delivered · [ ] G2.3 a template sends · [x] G2.4 an unsigned webhook POST is rejected (`src/app/api/whatsapp/webhook/route.signature.test.ts`).
+- **Issue:** #65 (open until G2.1–G2.3 are checked by hand on the test number). PR #83 (signature check, setup doc).
+- **Needs from Nimish:** brief §10 items 4–7 (Meta test app, a phone).
 
-### M3 — Admissions pipeline · Not started
-- **Delivers:** Admissions pipeline with the six stages from settings, child fields on the card, stage history, days in stage, lost reason. Screens: S-board changes, S-lead. **Issue:** #66 (ports what the two screens use).
-- **Goals:** [ ] G3.1 moving a card writes one history row · [ ] G3.2 days in stage comes from history · [ ] G3.3 Lost cannot be saved without a reason (API and UI).
+### M3 — Admissions pipeline · Built
+- **Delivers:** Admissions pipeline with the six stages from settings, child fields on the card, stage history, days in stage, lost reason. Screens: S-board changes, S-lead. **Issue:** #66 (closed). PRs #80, #82.
+- **Goals:** [x] G3.1 moving a card writes one history row · [x] G3.2 days in stage comes from history · [x] G3.3 Lost cannot be saved without a reason (API and UI) — tests: `tests/db/m3-pipeline.test.ts`, `src/app/api/admissions/leads/[id]/route.test.ts`, `src/admissions/components/lost-form.test.tsx`.
 
-### M4 — Entry: one door · Not started
-- **Delivers:** welcome flow, staff quick-add, website form endpoint, source tag per QR. Screen: S-quick-add. **Issue:** #67.
-- **Goals:** [ ] G4.1 same phone twice gives one lead · [ ] G4.2 date of birth routes correctly at the cut-off boundary · [ ] G4.3 quick-add under 30 s on a phone (timed by Nimish).
-- **Needs from Nimish:** cut-off date and grades (§6), welcome wording.
+### M4 — Entry: one door · Built, one goal for Nimish
+- **Delivers:** welcome flow, staff quick-add, website form endpoint, source tag per QR. Screen: S-quick-add. **Issue:** #67 (closed). PRs #91, #92 (ADR 0031).
+- **Goals:** [x] G4.1 same phone twice gives one lead · [x] G4.2 date of birth routes correctly at the cut-off boundary — tests: `tests/db/m4-intake.test.ts`, `src/admissions/lib/intake.test.ts` · [ ] G4.3 quick-add under 30 s on a phone (timed by Nimish).
+- **Needs from Nimish:** cut-off date and grades (§6), welcome wording, the G4.3 timing.
 
-### M5 — Booking · Not started
-- **Delivers:** Cal.com webhook moves the lead; confirmation, T-24h RSVP, morning reminder, no-show. **Issue:** #68.
-- **Goals:** [ ] G5.1 a booking moves the lead once even if the webhook repeats · [ ] G5.2 cancel moves it back · [ ] G5.3 unconfirmed leads appear on the call list.
+### M5 — Booking · Built
+- **Delivers:** Cal.com webhook moves the lead; confirmation, T-24h RSVP, morning reminder, no-show. **Issue:** #68 (closed). PR #90 (ADR 0030).
+- **Goals:** [x] G5.1 a booking moves the lead once even if the webhook repeats · [x] G5.2 cancel moves it back · [x] G5.3 unconfirmed leads appear on the call list — test: `tests/db/m5-booking.test.ts`.
+- **Needs from Nimish:** a Cal.com account (not yet connected to a real one).
 
-### M6 — Follow-ups, Today, Settings · Not started
-- **Delivers:** stage-changed trigger, rules engine on the settings tables, pause on reply, call tasks, S-today, S-admissions-settings. **Issues:** #69 (follow-ups + S-today), #70 (Admissions Settings).
-- **Goals:** [ ] G6.1 a reply stops the next scheduled message · [ ] G6.2 changing a day count in Settings changes behaviour without a restart · [ ] G6.3 no message sent twice for the same rule and lead · [ ] G6.4 a rule switched off sends nothing.
+### M6 — Follow-ups, Today, Settings · Built
+- **Delivers:** stage-changed trigger, rules engine on the settings tables, pause on reply, call tasks, S-today, S-admissions-settings. **Issues:** #69, #70 (closed). PRs #81, #85, #87, #89.
+- **Goals:** [x] G6.1 a reply stops the next scheduled message · [x] G6.2 changing a day count in Settings changes behaviour without a restart · [x] G6.3 no message sent twice for the same rule and lead · [x] G6.4 a rule switched off sends nothing — test: `tests/db/m6-follow-ups.test.ts`.
 
-### M7 — Report, import, hosting, go-live · Not started
-- **Delivers:** S-report and sheet import (**Issue:** #71); then hosting via `loop-release` (no ticket): a new hosted Supabase project for admissions (Nimish creates it) with all migrations applied, real number.
-- **Goals:** [ ] G7.1 imported leads dedupe by phone · [ ] G7.2 report counts match the board · [ ] G7.3 the hosted project has the same tables as `db/schema.sql` · [ ] G7.4 a signed-in non-member reads zero rows on live.
+### M7 — Report, import, hosting, go-live · Report and import built; hosting not started
+- **Delivers:** S-report and sheet import (**Issue:** #71, closed; PRs #86, #88); then hosting via `loop-release` (no ticket): a new hosted Supabase project for admissions (Nimish creates it) with all migrations applied, real number.
+- **Goals:** [x] G7.1 imported leads dedupe by phone · [x] G7.2 report counts match the board — test: `tests/db/m7-report-import.test.ts` · [ ] G7.3 the hosted project has the same tables as `db/schema.sql` · [ ] G7.4 a signed-in non-member reads zero rows on live.
+- **Needs from Nimish:** the hosted Supabase project, the real number; production needs a proxy that overwrites X-Real-IP (ADR 0031).
 
 ## 6. Open questions (Plan resolves before the milestone they block)
 - ~~Local Supabase ports~~ resolved (ADR 0011): the defaults are free on this Mac; `config.toml` unchanged.
