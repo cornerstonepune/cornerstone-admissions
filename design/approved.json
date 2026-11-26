@@ -1,1 +1,68 @@
-{"screens": {}}
+{
+  "screens": {
+    "S-admissions-settings": {
+      "date": "2026-11-26",
+      "hash": "c2733cb5f1848023"
+    },
+    "S-automations": {
+      "date": "2026-11-26",
+      "hash": "d7585e2bf38c8178"
+    },
+    "S-board": {
+      "date": "2026-11-26",
+      "hash": "6d8acc46badd457c"
+    },
+    "S-contacts": {
+      "date": "2026-11-26",
+      "hash": "8d801bc0ad256ccc"
+    },
+    "S-dashboard": {
+      "date": "2026-11-26",
+      "hash": "f765900c073a0d52"
+    },
+    "S-flows": {
+      "date": "2026-11-26",
+      "hash": "8b912e129ba99753"
+    },
+    "S-frame": {
+      "date": "2026-11-26",
+      "hash": "420cff005130e804"
+    },
+    "S-inbox": {
+      "date": "2026-11-26",
+      "hash": "36408a3ee1c4e044"
+    },
+    "S-join": {
+      "date": "2026-11-26",
+      "hash": "7e10a5c8f53978c8"
+    },
+    "S-lead": {
+      "date": "2026-11-26",
+      "hash": "401c03b2624f568b"
+    },
+    "S-login": {
+      "date": "2026-11-26",
+      "hash": "bd24a31039141994"
+    },
+    "S-notifications": {
+      "date": "2026-11-26",
+      "hash": "5f984b7159311bb4"
+    },
+    "S-quick-add": {
+      "date": "2026-11-26",
+      "hash": "ff0c88569341fcf8"
+    },
+    "S-report": {
+      "date": "2026-11-26",
+      "hash": "a598b757f4dee0db"
+    },
+    "S-settings-upstream": {
+      "date": "2026-11-26",
+      "hash": "8181224346f15e1e"
+    },
+    "S-today": {
+      "date": "2026-11-26",
+      "hash": "c0df4d27c66a91bd"
+    }
+  }
+}
