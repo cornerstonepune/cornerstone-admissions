@@ -4,16 +4,51 @@ import { addDays, endOfMonth, endOfWeek, format, startOfMonth, startOfWeek } fro
 
 import { MEETING_KINDS, type MeetingKind } from "./meetings";
 
+type Family = { child_name: string | null; grade: string | null; contact: { name: string | null } | null } | null;
+
+/** One entry on the Calendar: a meeting (a visit row), or a call (a call task: still to make, or made). */
 export interface Meeting {
   id: string;
   lead_id: string;
   starts_at: string;
-  status: "booked" | "visited" | "no_show";
-  kind: MeetingKind;
+  status: "booked" | "visited" | "no_show" | "to_call" | "called";
+  kind: MeetingKind | "call";
   meeting_url: string | null;
   campus: { label: string } | null;
-  lead: { child_name: string | null; grade: string | null; contact: { name: string | null } | null } | null;
+  lead: Family;
+  note?: string | null; // a call's outcome and note
 }
+
+export interface CallTask {
+  id: string;
+  lead_id: string;
+  due_at: string;
+  done_at: string | null;
+  outcome: string | null;
+  notes: string | null;
+  lead: Family;
+}
+
+/** A call task as a Calendar entry: on its due time while open, on the time it was made once done. */
+export const callEntry = (c: CallTask): Meeting => ({
+  id: c.id,
+  lead_id: c.lead_id,
+  starts_at: c.done_at ?? c.due_at,
+  status: c.done_at ? "called" : "to_call",
+  kind: "call",
+  meeting_url: null,
+  campus: null,
+  lead: c.lead,
+  note: [c.outcome, c.notes].filter(Boolean).join(" · ") || null,
+});
+
+export const labelOf = (m: Pick<Meeting, "kind" | "status">) =>
+  m.kind === "call" ? (m.status === "called" ? "Call made" : "Call to make") : MEETING_KINDS[m.kind];
+
+const ORDER = { booked: 0, visited: 0, no_show: 0, to_call: 1, called: 2 } as const;
+/** Within a day: meetings, then calls to make, then calls made; each by time. */
+export const inDayOrder = (a: Meeting, b: Meeting) =>
+  ORDER[a.status] - ORDER[b.status] || Date.parse(a.starts_at) - Date.parse(b.starts_at);
 
 const IST = "Asia/Kolkata";
 
@@ -41,12 +76,21 @@ export const familyOf = (m: Meeting) =>
     ? `${m.lead.child_name}${m.lead.grade ? ` (${m.lead.grade})` : ""}`
     : (m.lead?.contact?.name ?? "A family");
 
-/** What to notice: past meetings nobody marked first (they spoil the visit numbers), then the next one coming up. */
-export function takeaway(meetings: Meeting[], now = new Date()): string {
-  const unmarked = meetings.filter((m) => m.status === "booked" && Date.parse(m.starts_at) < now.getTime()).length;
-  const next = meetings.find((m) => m.status === "booked" && Date.parse(m.starts_at) >= now.getTime());
-  const nextLine = next
-    ? `Next: ${familyOf(next)}, ${new Date(next.starts_at).toLocaleString("en-IN", { timeZone: IST, weekday: "short", day: "numeric", month: "short" })} at ${timeOf(next.starts_at)} · ${MEETING_KINDS[next.kind]}.`
-    : "Nothing else booked this month.";
-  return unmarked ? `${unmarked} past ${unmarked === 1 ? "meeting is" : "meetings are"} not marked Visited or No-show yet. ${nextLine}` : nextLine;
+/** What to notice: what was missed first (meetings nobody marked, calls overdue), then the next meeting coming up. */
+export function takeaway(entries: Meeting[], now = new Date()): string {
+  const past = (m: Meeting) => Date.parse(m.starts_at) < now.getTime();
+  const unmarked = entries.filter((m) => m.status === "booked" && past(m)).length;
+  const overdue = entries.filter((m) => m.status === "to_call" && past(m)).length;
+  const next = entries
+    .filter((m) => m.status === "booked" && !past(m))
+    .sort((a, b) => Date.parse(a.starts_at) - Date.parse(b.starts_at))[0];
+  return [
+    unmarked ? `${unmarked} past ${unmarked === 1 ? "meeting is" : "meetings are"} not marked Visited or No-show yet.` : "",
+    overdue ? `${overdue} ${overdue === 1 ? "call is" : "calls are"} overdue.` : "",
+    next
+      ? `Next: ${familyOf(next)}, ${new Date(next.starts_at).toLocaleString("en-IN", { timeZone: IST, weekday: "short", day: "numeric", month: "short" })} at ${timeOf(next.starts_at)} · ${labelOf(next)}.`
+      : "Nothing else booked this month.",
+  ]
+    .filter(Boolean)
+    .join(" ");
 }

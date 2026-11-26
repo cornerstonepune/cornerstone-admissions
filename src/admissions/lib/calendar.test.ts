@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { dayKey, monthGrid, takeaway, type Meeting } from "./calendar";
+import { callEntry, dayKey, inDayOrder, labelOf, monthGrid, takeaway, type Meeting } from "./calendar";
 
 const meeting = (o: Partial<Meeting>): Meeting => ({
   id: "v",
@@ -47,5 +47,28 @@ describe("takeaway", () => {
   it("says so when nothing more is booked; a parent's name stands in for a missing child name", () => {
     expect(takeaway([meeting({ status: "visited" })], now)).toBe("Nothing else booked this month.");
     expect(takeaway([meeting({ starts_at: "2026-12-09T05:30:00Z", lead: { child_name: null, grade: null, contact: { name: "Priya" } } })], now)).toContain("Next: Priya,");
+  });
+});
+
+describe("calls on the Calendar", () => {
+  const task = { id: "c", lead_id: "l", due_at: "2026-12-01T05:30:00Z", done_at: null, outcome: null, notes: "fees", lead: null };
+
+  it("an open task sits on its due day as a call to make; a done one on the day it was made, with its outcome", () => {
+    const open = callEntry(task);
+    expect(open).toMatchObject({ starts_at: task.due_at, status: "to_call", note: "fees" });
+    expect(labelOf(open)).toBe("Call to make");
+    const done = callEntry({ ...task, done_at: "2026-12-03T05:30:00Z", outcome: "Talked" });
+    expect(done).toMatchObject({ starts_at: "2026-12-03T05:30:00Z", status: "called", note: "Talked · fees" });
+    expect(labelOf(done)).toBe("Call made");
+  });
+
+  it("orders a day as meetings, calls to make, calls made", () => {
+    const list = [callEntry({ ...task, done_at: task.due_at }), callEntry(task), meeting({ starts_at: "2026-12-01T09:00:00Z" })];
+    expect(list.sort(inDayOrder).map((m) => m.status)).toEqual(["booked", "to_call", "called"]);
+  });
+
+  it("the takeaway counts overdue calls, and a made call is never missed or next", () => {
+    const now = new Date("2026-12-05T00:00:00Z");
+    expect(takeaway([callEntry(task), callEntry({ ...task, done_at: task.due_at })], now)).toBe("1 call is overdue. Nothing else booked this month.");
   });
 });

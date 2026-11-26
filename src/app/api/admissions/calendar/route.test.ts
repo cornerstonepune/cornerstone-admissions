@@ -10,10 +10,20 @@ const get = (q: string) => GET(new Request(`http://test/api/admissions/calendar?
 
 function fakeDb() {
   const calls: [string, ...unknown[]][] = [];
-  const q: Record<string, unknown> = {};
-  for (const m of ["from", "select", "gte", "lt", "not"]) q[m] = (...a: unknown[]) => (calls.push([m, ...a]), q);
-  q.order = async () => ({ data: [{ id: "v-1" }], error: null });
-  return { db: q, calls };
+  const rows: Record<string, unknown[]> = {
+    visits: [{ id: "v-1" }],
+    lead_activity: [{ id: "c-1", lead_id: "l-1", due_at: "2026-12-01T05:30:00Z", done_at: null, outcome: null, notes: "fees", lead: null }],
+  };
+  const db = {
+    from(table: string) {
+      calls.push(["from", table]);
+      const q: Record<string, unknown> = {};
+      for (const m of ["select", "gte", "lt", "not", "eq", "or"]) q[m] = (...a: unknown[]) => (calls.push([m, ...a]), q);
+      q.order = async () => ({ data: rows[table], error: null });
+      return q;
+    },
+  };
+  return { db, calls };
 }
 
 describe("GET /api/admissions/calendar", () => {
@@ -22,7 +32,12 @@ describe("GET /api/admissions/calendar", () => {
     requireRole.mockResolvedValueOnce({ supabase: db });
     const res = await get("from=2026-11-30&to=2027-01-11");
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ meetings: [{ id: "v-1" }] });
+    const { meetings } = await res.json();
+    expect(meetings[0]).toEqual({ id: "v-1" });
+    expect(meetings[1]).toMatchObject({ id: "c-1", kind: "call", status: "to_call", starts_at: "2026-12-01T05:30:00Z", note: "fees" });
+    const [a, b] = ["2026-11-29T18:30:00.000Z", "2027-01-10T18:30:00.000Z"];
+    expect(calls).toContainEqual(["eq", "kind", "call_task"]);
+    expect(calls).toContainEqual(["or", `and(done_at.is.null,due_at.gte.${a},due_at.lt.${b}),and(done_at.gte.${a},done_at.lt.${b})`]);
     expect(calls).toContainEqual(["from", "visits"]);
     expect(calls).toContainEqual(["gte", "starts_at", "2026-11-29T18:30:00.000Z"]);
     expect(calls).toContainEqual(["lt", "starts_at", "2027-01-10T18:30:00.000Z"]);
