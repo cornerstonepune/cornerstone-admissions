@@ -1060,10 +1060,18 @@ CREATE TABLE public.leads (
     admitted_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    imported_at timestamp with time zone,
     CONSTRAINT leads_admitted_or_exited CHECK (((exit IS NULL) OR (admitted_at IS NULL))),
     CONSTRAINT leads_exit_has_time CHECK (((exit IS NULL) = (exited_at IS NULL))),
     CONSTRAINT leads_lost_has_reason CHECK (((NOT (exit IS DISTINCT FROM 'lost'::public.lead_exit)) = (lost_reason_id IS NOT NULL)))
 );
+
+
+--
+-- Name: COLUMN leads.imported_at; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.leads.imported_at IS 'When import_leads opened this lead from the old enquiry sheet; null otherwise. Follow-ups skip these leads.';
 
 
 --
@@ -1307,17 +1315,24 @@ $$;
 CREATE FUNCTION public.import_leads(p_account_id uuid, p_rows jsonb) RETURNS jsonb
     LANGUAGE plpgsql
     SET search_path TO 'public'
-    AS $$
+    AS $_$
 DECLARE
   r jsonb;
   v_contact uuid;
   v_deal uuid;
   v_out jsonb := '[]';
 BEGIN
+  IF NOT is_account_member(p_account_id, 'admin') THEN
+    RETURN coalesce((SELECT jsonb_agg(jsonb_build_object('status', 'failed', 'error', 'Only an owner or admin can import leads'))
+                     FROM jsonb_array_elements(p_rows)), '[]');
+  END IF;
   FOR r IN SELECT * FROM jsonb_array_elements(p_rows) LOOP
     BEGIN
       SELECT id INTO v_contact FROM contacts
-        WHERE account_id = p_account_id AND phone_normalized = r->>'phone' LIMIT 1;
+        WHERE account_id = p_account_id
+          AND phone_normalized IN (r->>'phone', CASE WHEN r->>'phone' ~ '^91[0-9]{10}$' THEN substr(r->>'phone', 3) END)
+        ORDER BY phone_normalized = r->>'phone' DESC
+        LIMIT 1;
       IF v_contact IS NOT NULL AND EXISTS (
         SELECT 1 FROM leads WHERE contact_id = v_contact AND exit IS NULL AND admitted_at IS NULL) THEN
         v_out := v_out || jsonb_build_object('status', 'duplicate');
@@ -1336,20 +1351,21 @@ BEGIN
       IF v_deal IS NULL THEN
         RAISE EXCEPTION 'Unknown stage' USING ERRCODE = '23514';
       END IF;
-      INSERT INTO leads (account_id, deal_id, contact_id, child_name, grade, area, campus_id, source_id)
+      INSERT INTO leads (account_id, deal_id, contact_id, child_name, grade, area, campus_id, source_id, imported_at, created_at)
         VALUES (p_account_id, v_deal, v_contact, nullif(r->>'child', ''), nullif(r->>'grade', ''),
-                nullif(r->>'area', ''), (r->>'campus_id')::uuid, (r->>'source_id')::uuid);
+                nullif(r->>'area', ''), (r->>'campus_id')::uuid, (r->>'source_id')::uuid,
+                now(), least(coalesce((r->>'enquired_at')::timestamptz, now()), now()));
       v_out := v_out || jsonb_build_object('status', 'imported');
     EXCEPTION WHEN unique_violation THEN
       v_out := v_out || jsonb_build_object('status', 'duplicate');
     WHEN OTHERS THEN
       -- A refusal (RLS, a check) is reported per row; anything unexpected still aborts the whole import.
-      IF SQLSTATE NOT IN ('42501', '23514', '23503', '23502', '22P02') THEN RAISE; END IF;
+      IF SQLSTATE NOT IN ('42501', '23514', '23503', '23502', '22P02', '22007', '22008') THEN RAISE; END IF;
       v_out := v_out || jsonb_build_object('status', 'failed', 'error', SQLERRM);
     END;
   END LOOP;
   RETURN v_out;
-END $$;
+END $_$;
 
 
 --

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isLeadSheet, parseLeadSheet, sheetPhone } from "./import";
+import { isLeadSheet, parseLeadSheet, sheetDate, sheetPhone } from "./import";
 
 const look = {
   campuses: [{ id: "c-neev", label: "Neev" }],
@@ -63,5 +63,27 @@ describe("parseLeadSheet validates every row at the boundary", () => {
 
   it("needs a phone column", () => {
     expect(parseLeadSheet("child,grade\nA,B", look).errors).toEqual([{ line: 1, phone: "", reason: "The sheet needs a phone column." }]);
+  });
+});
+
+describe("#71 review: cells and enquiry dates", () => {
+  it("strips only the quotes that wrap a cell", () => {
+    const { rows } = parseLeadSheet("phone,parent,child\n'9876543210',\"D'Souza\",O'Brien", look);
+    expect(rows[0]).toMatchObject({ phone: "919876543210", parent: "D'Souza", child: "O'Brien" });
+  });
+
+  it("reads the enquiry date day first, as India writes it, and refuses a date that isn't a past one", () => {
+    const now = new Date("2026-11-26T10:00:00+05:30");
+    expect(sheetDate("25/11/2026", now)).toBe("2026-11-25T00:00:00+05:30");
+    expect(sheetDate("5-1-2026", now)).toBe("2026-01-05T00:00:00+05:30");
+    expect(sheetDate("2026-03-09", now)).toBe("2026-03-09T00:00:00+05:30");
+    expect(sheetDate("", now)).toBe("");
+    for (const bad of ["31/02/2026", "27/11/2026", "11/25", "yesterday"]) expect(sheetDate(bad, now)).toBeNull();
+  });
+
+  it("puts the enquiry date on the row, or reports the line", () => {
+    const { rows, errors } = parseLeadSheet("phone,child,enquiry date\n9876543210,A,01/06/2026\n9876543211,B,\n9876543212,C,31/02/2026", look);
+    expect(rows.map((r) => r.enquired_at)).toEqual(["2026-06-01T00:00:00+05:30", undefined]);
+    expect(errors.map((e) => e.line)).toEqual([4]);
   });
 });
