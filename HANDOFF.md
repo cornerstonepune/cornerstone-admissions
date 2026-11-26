@@ -6,8 +6,9 @@ _Overwritten at the end of every session. Keep under 30 lines. Facts only._
 **Milestone:** M1 — look and frame · **Branch:** plan/t63-rebudget
 
 ## State
-- This session: #63 re-budgeted to files<=5 lines<=65 (issue, PR #75 body, PR comment); its old budget ignored the ticket's own ~33 deleted lines and the `changes/` fragment. loop-guard on #75 re-run. LESSONS line added.
-- Earlier today: flaky `api/ai/usage` truncation test (blocked #63's finish gate) gets a 30s timeout, assertions unchanged; full `npm test` green (1812/1812). Root cause is a perf bug in product code: #73 (`size:small`, `queued`) caches the formatter and removes the timeout.
+- 2026-11-26 10:20: Nimish decided the size budget is a CI warning (ADR 0022, PR #77) and asked for more pace: seed ticket N+1 while ticket N builds.
+- This session: #63 re-budgeted to files<=5 lines<=65 (issue, PR #75 body, PR comment); budget check on #75 now passes. LESSONS: count deletions and the `changes/` fragment; loop-guard merge-ref bug.
+- Earlier: flaky `api/ai/usage` truncation test (blocked #63's finish gate) gets a 30s timeout, assertions unchanged; full `npm test` green (1812/1812). Root cause is a perf bug in product code: #73 (`size:small`, `queued`) caches the formatter and removes the timeout.
 - Build re-scoped on Nimish's instruction (ADR 0021): one build ticket per milestone (two in M6), wacrm reused first, components ported only inside the screen ticket that needs them.
 - Open tickets: #63 (M1 theme follow-ups, seeded, `ready`, unchanged) → #18 (M1 frame; absorbs #8, #9, #12 and hiding Settings › Appearance) → #65 M2 · #66 M3 · #67 M4 · #68 M5 · #69, #70 M6 · #71 M7. All but #63 are `queued`, no seed yet.
 - Closed as folded: #8, #9, #12 → #18; #10, #11, #13, #16 → #66; #15 → #69; #14 → #70; #17 → #71.
@@ -16,7 +17,7 @@ _Overwritten at the end of every session. Keep under 30 lines. Facts only._
 
 ## Next step
 0. #73 can run any time (independent, small).
-1. PR #75: budget now passes; loop-guard still red on a guard bug (merge-ref checkout counts #74's HANDOFF.md/route.test.ts as builder edits; see LESSONS). Builder diff is clean. Coordinator: either fix the plugin's loop-guard checkout (head.sha) and re-run, or merge main into `plan/t63`, set Plan-base to that tip, merge it into the build branch. Then review + merge.
+1. PR #75 loop-guard still red, not on budget: the guard checks out GitHub's merge ref, so #74's HANDOFF.md/route.test.ts count as builder edits (builder diff vs Plan-base is clean; see LESSONS). Fix the plugin's loop-guard checkout (`ref: head.sha`), or merge main into `plan/t63`, set Plan-base to that tip, merge it into the build branch. Then review + merge.
 2. Next plan job: seed #18 (blocked by #63; label `ready` when #63 merges). Then one plan job per milestone to seed its ticket.
 
 ## Blocked / open questions
