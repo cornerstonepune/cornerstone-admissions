@@ -1,4 +1,4 @@
-// The Today list (S-today, #69, ADR 0027): who to call, who visits, who is stuck. Pure: the API route reads the rows with
+// The Today list (S-today, #69, ADR 0028): who to call, who visits, who is stuck. Pure: the API route reads the rows with
 // the caller's RLS client and this turns them into the four lists, worst first. "Today" is the day in India.
 import { isStuck, stuckAfterByStage, type AlertSetting } from "./pipeline";
 

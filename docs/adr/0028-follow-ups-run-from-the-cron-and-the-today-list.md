@@ -1,4 +1,4 @@
-# ADR 0027: Follow-ups run from wacrm's cron; what the Today list counts
+# ADR 0028: Follow-ups run from wacrm's cron; what the Today list counts
 
 **Date:** 2026-11-26 · **Decided by:** builder for #69 (assumptions, open to Nimish) · **Status:** accepted
 
@@ -22,6 +22,10 @@
    since (a stage move by a person, a call logged, a staff reply) for longer than the `untouched` alert's hours. A lead
    quietly waiting with nothing owed is not untouched. A family shows once in "Call now": untouched beats its call tasks.
 7. **Today** is the India day. Calls due = open call tasks due before tonight, overdue first. Stuck = `isStuck` (M3).
+8. **Old leads from a sheet import (M7, `import_leads`, migration 116).** The import leaves no mark on a lead, so
+   follow-ups cannot tell an imported lead from a new one yet: a follow-up fix after the M7 import mark lands skips
+   the stage entry an import created. Untouched needs nothing extra: the import's first stage entry is the staff
+   member's (`moved_by`), at the creation moment, so an imported lead counts as acted on until the parent writes.
 
 ## Considered
 - Queue the sends at stage change with a fixed `due_at`: a later change to the rule's days would not apply (G6.2).

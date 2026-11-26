@@ -1,4 +1,4 @@
--- 115 — M6 follow-ups (#69, ADR 0027): wacrm's cron claims each due follow-up once, here, in one statement.
+-- 115 — M6 follow-ups (#69, ADR 0028): wacrm's cron claims each due follow-up once, here, in one statement.
 --
 -- A follow-up is due when an open lead's current stage entry is in an active rule's stage and the rule's days have
 -- passed (India calendar days, as days_in_stage counts them). The rule is read on every run, so a changed day count or a

@@ -91,6 +91,15 @@ describe("untouched", () => {
     expect(t.calls[1].reason).toBe("Parent wrote, no reply yet");
   });
 
+  it("does not list an old lead imported from a sheet, until the parent writes", () => {
+    // import_leads runs as the staff member: the first stage entry is theirs, at the moment the lead was made.
+    const at = hoursAgo(40);
+    const imported = (inbound?: string) =>
+      lead("imported", { created_at: at, inbound, lead_stage_history: [{ entered_at: at, moved_by: "staff" }] });
+    expect(today({ leads: [imported()] }).calls).toEqual([]);
+    expect(today({ leads: [imported(hoursAgo(30))] }).calls.map((c) => c.reason)).toEqual(["Parent wrote, no reply yet"]);
+  });
+
   it("lists nobody as untouched when the alert is not set", () => {
     const t = buildToday(
       { leads: [lead("old", { created_at: hoursAgo(300) })], tasks: [], visits: [], alerts: [], stages: STAGES },

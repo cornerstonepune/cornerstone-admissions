@@ -6,7 +6,7 @@ _Overwritten at the end of every session. Keep under 30 lines. Facts only._
 **Milestone:** M6 — Today list and follow-ups · **Branch:** m6-today-followups
 
 ## State
-- Follow-ups (ADR 0027): migration 115 `claim_due_follow_ups()` claims each due follow-up once (invariant 6), reads the
+- Follow-ups (ADR 0028): migration 115 `claim_due_follow_ups()` claims each due follow-up once (invariant 6), reads the
   rules at run time, pauses on a parent's message since the stage entry; Dormant rules close the lead. wacrm's
   automations cron calls `runFollowUps` (src/admissions/lib/follow-ups.ts), which sends via `engineSendTemplate`.
 - S-today: `/today` (protected in middleware), `/api/admissions/today`, pure `buildToday` in src/admissions/lib/today.ts.
@@ -20,7 +20,9 @@ _Overwritten at the end of every session. Keep under 30 lines. Facts only._
 3. The cron must be scheduled (Vercel Cron / pinger with AUTOMATION_CRON_SECRET) before follow-ups send anywhere.
 
 ## Blocked / open questions
-- Not built (ADR 0027): call task on a parent's reply, Mine/Everyone, "+ Add a lead", sidebar Today count.
+- Imported leads (#86) carry no mark yet: follow-ups treat them as new until the M7 marker lands; the review-fixes PR
+  then skips the stage entry an import created (ADR 0028 §8). Schedule no cron before that.
+- Not built (ADR 0028): call task on a parent's reply, Mine/Everyone, "+ Add a lead", sidebar Today count.
 - Template sends carry no variables: a template with {{1}} fails at Meta and is recorded "Not sent".
 - Not verified in a browser (no signed-in session for a second dev server); covered by a jsdom render test only.
 - `tests/holdout/db/invariants-stage-history.test.ts` "leaves a deal that has no lead alone" still counts every history

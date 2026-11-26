@@ -1,4 +1,4 @@
-// M6 follow-ups (#69, ADR 0027). wacrm's automations cron calls runFollowUps every run. The database decides what is due
+// M6 follow-ups (#69, ADR 0028). wacrm's automations cron calls runFollowUps every run. The database decides what is due
 // and claims it once (claim_due_follow_ups, migration 115): it reads the rules at run time, skips a lead whose parent has
 // written since it entered its stage, makes call tasks, closes Dormant leads, and returns the template sends. This file
 // only sends those through wacrm's automation sender and records the result on the follow-up.

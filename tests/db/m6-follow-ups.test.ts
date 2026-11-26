@@ -1,4 +1,4 @@
-// M6 follow-ups (#69, migration 115, ADR 0027): the cron claims each due follow-up once. Every test rolls back, and only
+// M6 follow-ups (#69, migration 115, ADR 0028): the cron claims each due follow-up once. Every test rolls back, and only
 // looks at its own account's rows (the local database is shared).
 import { afterAll, describe, expect, it } from "vitest";
 import { type Account, type Tx, account, actAs, errorOf, lead, member, setting, sql, tx } from "./db";
