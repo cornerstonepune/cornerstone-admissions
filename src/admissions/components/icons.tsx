@@ -10,6 +10,8 @@ import {
   Menu,
   PanelLeftClose,
   PanelLeftOpen,
+  Pencil,
+  Plus,
   Settings,
   SlidersHorizontal,
   Sun,
@@ -40,6 +42,9 @@ export const ICONS = {
   collapse: PanelLeftClose,
   expand: PanelLeftOpen,
   close: X,
+  // S-admissions-settings: add a setting, and a change-log line
+  add: Plus,
+  edit: Pencil,
 } satisfies Record<string, LucideIcon>;
 export type IconName = keyof typeof ICONS;
 
