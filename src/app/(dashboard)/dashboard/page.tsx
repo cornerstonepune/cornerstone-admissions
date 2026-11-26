@@ -30,15 +30,21 @@ import { PipelineCard } from '@/components/dashboard/pipeline-card'
 import { ReplyQueueCard } from '@/components/dashboard/reply-queue-card'
 import { SetupChecklist } from '@/components/dashboard/setup-checklist'
 import { TeamCard } from '@/components/dashboard/team-card'
+import { AdmissionsDashboard } from '@/admissions/components/dashboard'
 
 const POLL_MS = 60_000
 const REALTIME_DEBOUNCE_MS = 2_000
 
+// Admissions first (ADR 0037); upstream's WhatsApp overview below it, mounted only when opened.
 export default function DashboardPage() {
   return (
-    <Suspense fallback={null}>
-      <DashboardPageInner />
-    </Suspense>
+    <AdmissionsDashboard
+      inbox={
+        <Suspense fallback={null}>
+          <DashboardPageInner />
+        </Suspense>
+      }
+    />
   )
 }
 
