@@ -49,7 +49,7 @@ describe("pipelineStats (the numbers above the board)", () => {
   const daysAgo = (n: number) => new Date(now.getTime() - n * 86_400_000).toISOString();
   const card = (stage_id: string, l: Partial<LeadSummary>) => ({
     stage_id,
-    lead: { id: "l", child_name: null, grade: null, exit: null, admitted_at: null, days_in_stage: 1, created_at: daysAgo(30), exited_at: null, campus: null, source: null, ...l },
+    lead: { id: "l", child_name: null, grade: null, exit: null, admitted_at: null, days_in_stage: 1, created_at: daysAgo(30), exited_at: null, imported_at: null, campus: null, source: null, ...l },
   });
 
   it("counts open, stuck, new this week against last week, and admitted and lost this month against last month", () => {
@@ -77,5 +77,20 @@ describe("pipelineStats (the numbers above the board)", () => {
       lostThisMonth: 1,
       lostLastMonth: 0,
     });
+  });
+
+  it("ignores what the old-sheet import stamped, but counts what happened after it", () => {
+    const imported_at = daysAgo(2);
+    const s = pipelineStats(
+      [
+        card("s1", { imported_at, created_at: imported_at }), // not a new enquiry
+        card("s6", { imported_at, admitted_at: imported_at }), // already admitted on the sheet
+        card("s3", { imported_at, exit: "lost", exited_at: imported_at }), // already lost on the sheet
+        card("s6", { imported_at, admitted_at: daysAgo(1) }), // admitted here, after the import
+      ],
+      {},
+      now,
+    );
+    expect(s).toMatchObject({ open: 1, newThisWeek: 0, admittedThisMonth: 1, lostThisMonth: 0 });
   });
 });

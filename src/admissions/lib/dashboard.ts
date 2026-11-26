@@ -1,6 +1,7 @@
 // The admissions dashboard (ADR 0037): this week at a glance for counsellors and leadership. Pure: dashboard.tsx reads
 // the rows with the caller's RLS client, plus the Today list (/api/admissions/today) for what needs attention and the
 // funnel report (admissions_report) for the last 90 days; this file turns them into numbers with yardsticks, worst first.
+import { happenedHere } from "@/admissions/lib/pipeline";
 import { startOfMonth, subDays, subMonths } from "date-fns";
 
 import { buildFunnel, change, MIN_LEADS, type RawReport } from "./report";
@@ -54,12 +55,14 @@ export function buildDashboard(input: DashInput, now: Date = new Date()) {
   const t = now.getTime();
   const [d7, d14] = [t - 7 * DAY, t - 14 * DAY];
   const [month, lastMonth] = [startOfMonth(now).getTime(), startOfMonth(subMonths(now, 1)).getTime()];
-  // New enquiries and admissions by date leave out imported leads: their dates are the import's (ADR 0036).
+  // Imported leads are never new enquiries, and count as admitted only if admitted after the import (ADR 0036).
   const live = input.leads.filter((l) => !l.imported_at);
   const newIn = (a: number, b: number, campus?: string | null) =>
     live.filter((l) => within(l.created_at, a, b) && (campus === undefined || l.campus_id === campus)).length;
   const admittedIn = (a: number, b: number, campus?: string | null) =>
-    live.filter((l) => within(l.admitted_at, a, b) && (campus === undefined || l.campus_id === campus)).length;
+    input.leads.filter(
+      (l) => within(happenedHere(l.admitted_at, l.imported_at), a, b) && (campus === undefined || l.campus_id === campus),
+    ).length;
   const open = input.leads.filter((l) => isOpen(l, t + 1));
   const openWeekAgo = input.leads.filter((l) => isOpen(l, d7)).length;
 
