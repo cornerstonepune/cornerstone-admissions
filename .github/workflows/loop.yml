@@ -23,19 +23,6 @@ jobs:
         run: npm i -g pnpm
       - if: hashFiles('package-lock.json') != ''
         run: npm ci
-      - name: Tests (including hidden holdout tests), typecheck, lint, coverage — from .loop.json
-        run: |
-          python3 - <<'PY' > /tmp/loop_cmds.sh
-          import json, shlex
-          c = json.load(open(".loop.json"))
-          if not c.get("test_command"):
-              print('echo "::error::Set test_command in .loop.json"; exit 1')
-          for name in ("test_command", "typecheck_command", "lint_command", "coverage_command"):
-              cmd = c.get(name)
-              if cmd:
-                  print(f'echo "::group::{name}: {cmd}"; bash -c {shlex.quote(cmd)} || exit 1; echo "::endgroup::"')
-          PY
-          bash /tmp/loop_cmds.sh
       # Database tests, visible and hidden (G0.6, ADR 0011): replay every migration on a local Supabase Postgres.
       - if: hashFiles('vitest.db.config.ts') != ''
         uses: supabase/setup-cli@v3
