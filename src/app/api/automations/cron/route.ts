@@ -10,6 +10,10 @@ import {
 import type { AutomationContext } from '@/lib/automations/engine'
 import { runFollowUps } from '@/admissions/lib/follow-ups'
 import { runVisitReminders } from '@/admissions/lib/booking'
+import { runConversationJobs } from '@/admissions/lib/conversations'
+
+// Conversation jobs (ADR 0039) can upload a recording to Sarvam and wait on Claude.
+export const maxDuration = 300
 
 /**
  * Drain due `automation_pending_executions` rows. Meant to be hit
@@ -46,6 +50,11 @@ export async function GET(request: Request) {
   const followUps = await runFollowUps()
   // Admissions visit reminders (#68, ADR 0030): same cron, no second scheduler.
   const visitReminders = await runVisitReminders()
+  // Admissions conversation log (ADR 0039): transcribe and analyse what the upload and the panel didn't finish.
+  // Its failure must not stop the automations below.
+  const conversations = await runConversationJobs().catch((e: unknown) => ({
+    error: e instanceof Error ? e.message : String(e),
+  }))
 
   const admin = supabaseAdmin()
   const { data: due, error } = await admin
@@ -57,7 +66,7 @@ export async function GET(request: Request) {
     .limit(50)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  if (!due || due.length === 0) return NextResponse.json({ processed: 0, expired, requeued, followUps, visitReminders })
+  if (!due || due.length === 0) return NextResponse.json({ processed: 0, expired, requeued, followUps, visitReminders, conversations })
 
   let processed = 0
   for (const row of due) {
@@ -81,5 +90,5 @@ export async function GET(request: Request) {
     processed++
   }
 
-  return NextResponse.json({ processed, expired, requeued, followUps, visitReminders })
+  return NextResponse.json({ processed, expired, requeued, followUps, visitReminders, conversations })
 }

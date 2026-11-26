@@ -99,6 +99,25 @@ _Avoid_: stale, overdue
 **Quick-add**:
 The three-field form staff use to log a walk-in or call.
 
+**Conversation**:
+One call, campus visit, meeting or staff note with a family, logged on the lead with its recording or typed note; transcribed and broken into sections (ADR 0039). Not the WhatsApp thread.
+_Avoid_: chat, conversation (for WhatsApp; that's the Inbox thread)
+
+**Concern**:
+A worry or objection a family raised, tagged from a fixed list (fees, distance/transport, curriculum/board, teachers/quality, safety, facilities, timings, age/grade eligibility, admission process, comparing other schools, other).
+_Avoid_: objection, complaint
+
+**Action point**:
+Something someone agreed to do in a conversation; the school's become call tasks.
+_Avoid_: next step (in code), to-do
+
+**Interest**:
+How close a family is to joining, read from a conversation: hot (ready to apply), warm (undecided), cold (unlikely).
+_Avoid_: score, temperature
+
+**Where we stand**:
+The top of a lead's Conversations tab: the latest summary and interest, every concern raised so far, the latest action points.
+
 ## Automation
 
 **Welcome flow**:

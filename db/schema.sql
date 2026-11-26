@@ -534,6 +534,22 @@ END $$;
 
 
 --
+-- Name: check_lead_conversation_lead(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.check_lead_conversation_lead() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO 'public'
+    AS $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.leads WHERE id = NEW.lead_id AND account_id = NEW.account_id) THEN
+    RAISE EXCEPTION 'A conversation can only belong to a lead of its own account' USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END $$;
+
+
+--
 -- Name: check_lead_integrity(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -775,6 +791,24 @@ BEGIN
   INSERT INTO lead_activity (account_id, lead_id, kind, due_at, notes)
   SELECT s.account_id, s.lead_id, 'call_task', p_now, 'Visit not confirmed: call before the visit' FROM s;
 END $$;
+
+
+--
+-- Name: conversation_audio_to_sweep(integer); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.conversation_audio_to_sweep(p_limit integer DEFAULT 100) RETURNS TABLE(name text)
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+  SELECT o.name FROM storage.objects o
+  WHERE o.bucket_id = 'conversation-audio'
+    AND (o.created_at < now() - interval '12 months'
+         OR (o.created_at < now() - interval '1 day'
+             AND NOT EXISTS (SELECT 1 FROM public.lead_conversations c WHERE c.audio_path = o.name)))
+  ORDER BY o.created_at
+  LIMIT p_limit;
+$$;
 
 
 --
@@ -2447,6 +2481,7 @@ BEGIN
     UNION ALL SELECT 1 FROM visits WHERE account_id = v_old_account_id
     UNION ALL SELECT 1 FROM lead_stage_history WHERE account_id = v_old_account_id
     UNION ALL SELECT 1 FROM lead_activity WHERE account_id = v_old_account_id
+    UNION ALL SELECT 1 FROM lead_conversations WHERE account_id = v_old_account_id
     UNION ALL SELECT 1 FROM settings_changes WHERE account_id = v_old_account_id
     UNION ALL SELECT 1 FROM webhook_endpoints WHERE account_id = v_old_account_id
     UNION ALL SELECT 1 FROM quick_replies WHERE account_id = v_old_account_id
@@ -3558,6 +3593,43 @@ CREATE TABLE public.lead_activity (
 
 
 --
+-- Name: lead_conversations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.lead_conversations (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    account_id uuid NOT NULL,
+    lead_id uuid NOT NULL,
+    kind text NOT NULL,
+    happened_at timestamp with time zone DEFAULT now() NOT NULL,
+    created_by uuid,
+    audio_path text,
+    audio_deleted_at timestamp with time zone,
+    duration_s integer,
+    typed_note text,
+    status text DEFAULT 'pending'::text NOT NULL,
+    error text,
+    attempts smallint DEFAULT 0 NOT NULL,
+    claimed_at timestamp with time zone,
+    provider_job_id text,
+    transcript_en text,
+    summary text,
+    concerns jsonb DEFAULT '[]'::jsonb NOT NULL,
+    questions jsonb DEFAULT '[]'::jsonb NOT NULL,
+    action_points jsonb DEFAULT '[]'::jsonb NOT NULL,
+    interest text,
+    suggested_stage text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT lead_conversations_audio_in_folder CHECK (((audio_path IS NULL) OR ((audio_path ~~ ((((account_id)::text || '/'::text) || (lead_id)::text) || '/%'::text)) AND (audio_path !~~ '%..%'::text)))),
+    CONSTRAINT lead_conversations_duration_s_check CHECK ((duration_s >= 0)),
+    CONSTRAINT lead_conversations_interest_check CHECK ((interest = ANY (ARRAY['hot'::text, 'warm'::text, 'cold'::text]))),
+    CONSTRAINT lead_conversations_kind_check CHECK ((kind = ANY (ARRAY['call'::text, 'visit'::text, 'meeting'::text, 'note'::text]))),
+    CONSTRAINT lead_conversations_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'transcribing'::text, 'analysing'::text, 'done'::text, 'failed'::text])))
+);
+
+
+--
 -- Name: visits; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -4178,6 +4250,14 @@ ALTER TABLE ONLY public.flows
 
 ALTER TABLE ONLY public.lead_activity
     ADD CONSTRAINT lead_activity_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: lead_conversations lead_conversations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lead_conversations
+    ADD CONSTRAINT lead_conversations_pkey PRIMARY KEY (id);
 
 
 --
@@ -4941,6 +5021,27 @@ CREATE INDEX lead_activity_open_calls_idx ON public.lead_activity USING btree (a
 
 
 --
+-- Name: lead_conversations_audio_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX lead_conversations_audio_idx ON public.lead_conversations USING btree (audio_path) WHERE (audio_path IS NOT NULL);
+
+
+--
+-- Name: lead_conversations_lead_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX lead_conversations_lead_idx ON public.lead_conversations USING btree (lead_id, happened_at DESC);
+
+
+--
+-- Name: lead_conversations_open_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX lead_conversations_open_idx ON public.lead_conversations USING btree (created_at) WHERE (status = ANY (ARRAY['pending'::text, 'transcribing'::text, 'analysing'::text]));
+
+
+--
 -- Name: lead_stage_history_lead_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -5102,6 +5203,13 @@ CREATE TRIGGER lead_activity_rule_made AFTER INSERT OR UPDATE ON public.lead_act
 
 
 --
+-- Name: lead_conversations lead_conversations_check_lead; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER lead_conversations_check_lead BEFORE INSERT OR UPDATE OF lead_id, account_id ON public.lead_conversations FOR EACH ROW EXECUTE FUNCTION public.check_lead_conversation_lead();
+
+
+--
 -- Name: leads leads_check_integrity; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -5225,6 +5333,13 @@ CREATE TRIGGER update_admissions_settings_updated_at BEFORE UPDATE ON public.adm
 --
 
 CREATE TRIGGER update_lead_activity_updated_at BEFORE UPDATE ON public.lead_activity FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: lead_conversations update_lead_conversations_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_lead_conversations_updated_at BEFORE UPDATE ON public.lead_conversations FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 
 --
@@ -5822,6 +5937,30 @@ ALTER TABLE ONLY public.lead_activity
 
 ALTER TABLE ONLY public.lead_activity
     ADD CONSTRAINT lead_activity_stage_history_id_fkey FOREIGN KEY (stage_history_id) REFERENCES public.lead_stage_history(id) ON DELETE CASCADE;
+
+
+--
+-- Name: lead_conversations lead_conversations_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lead_conversations
+    ADD CONSTRAINT lead_conversations_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(id) ON DELETE CASCADE;
+
+
+--
+-- Name: lead_conversations lead_conversations_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lead_conversations
+    ADD CONSTRAINT lead_conversations_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: lead_conversations lead_conversations_lead_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lead_conversations
+    ADD CONSTRAINT lead_conversations_lead_id_fkey FOREIGN KEY (lead_id) REFERENCES public.leads(id) ON DELETE CASCADE;
 
 
 --
@@ -6866,6 +7005,33 @@ CREATE POLICY lead_activity_select ON public.lead_activity FOR SELECT TO authent
 --
 
 CREATE POLICY lead_activity_update ON public.lead_activity FOR UPDATE TO authenticated USING ((public.is_account_member(account_id, 'agent'::public.account_role_enum) AND (kind = 'call_task'::public.lead_activity_kind))) WITH CHECK ((public.is_account_member(account_id, 'agent'::public.account_role_enum) AND (kind = 'call_task'::public.lead_activity_kind)));
+
+
+--
+-- Name: lead_conversations; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.lead_conversations ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: lead_conversations lead_conversations_delete; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY lead_conversations_delete ON public.lead_conversations FOR DELETE TO authenticated USING (public.is_account_member(account_id, 'admin'::public.account_role_enum));
+
+
+--
+-- Name: lead_conversations lead_conversations_insert; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY lead_conversations_insert ON public.lead_conversations FOR INSERT TO authenticated WITH CHECK ((public.is_account_member(account_id, 'agent'::public.account_role_enum) AND (created_by = auth.uid())));
+
+
+--
+-- Name: lead_conversations lead_conversations_select; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY lead_conversations_select ON public.lead_conversations FOR SELECT TO authenticated USING (public.is_account_member(account_id));
 
 
 --
