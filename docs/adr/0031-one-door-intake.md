@@ -40,3 +40,17 @@ webhook, contacts, flows (`collect_input` stores answers in `flow_runs.vars`) an
   shape (a later ADR), or one campus row per grade.
 - Not done: telling the office when a known family comes in again (only the note); keeping staff to quick-add only
   (they can still open other pages); a quick-add link in the sidebar (S-frame is approved as is).
+
+## Review fixes (#91 security review, migration 121)
+- **Website form spam.** The per-IP limit is in memory (per process) and keyed on `getClientIp`, which trusts
+  `X-Real-IP` first. **Production must sit behind a proxy that overwrites `X-Real-IP`** (and appends to
+  `X-Forwarded-For`); otherwise a bot rotates the header and the limit is void. Added: a honeypot input `website_url`
+  (hidden on the website's form; filled → the same 201, nothing written) and an optional `started_at` (ms, set when
+  the form is shown; under 3 s → the same 201, nothing written). Both stop naive bots only; a CAPTCHA is the next step.
+- **The website form never changes a known family.** It passes `fill = false`: an existing lead and contact keep their
+  fields exactly, and the form only adds a note. An anonymous form can no longer write a known family's child or name.
+- **A known family's note carries what was submitted** (child, date of birth, grade, source), so a sibling's details
+  are kept (ADR 0007). WhatsApp, which has no note of its own, writes "Another enquiry on this number: …" only when
+  the child or date of birth differs from the lead's, and never the same note twice.
+- **Switched-off sources are never set** (`AND s.active`); the next listed tag that is on wins, else none.
+- **Quick-add saves with no source** when Walk-in / Phone call are missing or switched off; the lead's source is empty.

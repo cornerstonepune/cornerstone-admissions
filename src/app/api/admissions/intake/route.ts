@@ -26,7 +26,9 @@ export async function POST(request: Request) {
   const child = name(body.child);
   if (!parent || parent.length > 80) return bad("Enter the parent's name.");
   if (child.length > 80) return bad("Keep the child's name to 80 characters.");
-  if (!(QUICK_ADD_SOURCES as readonly unknown[]).includes(body.source)) return bad("Pick how they reached us.");
+  // no source (none set up, or switched off in Settings) still saves: the lead's source stays empty
+  const source = body.source === undefined || body.source === null || body.source === "" ? null : body.source;
+  if (source !== null && !(QUICK_ADD_SOURCES as readonly unknown[]).includes(source)) return bad("Pick how they reached us.");
 
   const { data: me } = await ctx.supabase.from("profiles").select("full_name").eq("user_id", ctx.userId).maybeSingle();
   const day = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" }).format(new Date());
@@ -35,7 +37,7 @@ export async function POST(request: Request) {
       phone: body.phone as string,
       parent,
       child: child || undefined,
-      sources: [body.source as string],
+      sources: source === null ? [] : [source as string],
       note: `Came in again, ${day}${me?.full_name ? `, ${me.full_name}` : ""}.`,
     });
     return NextResponse.json({ created: r.created, lead_id: r.lead_id }, { status: r.created ? 201 : 200 });

@@ -68,6 +68,27 @@ describe("a good enquiry", () => {
   });
 });
 
+describe("spam checks and known families (#91 review)", () => {
+  it("a filled honeypot gets the same 201 and writes nothing", async () => {
+    const res = await post({ ...good, website_url: "http://spam.example" }, { json: false });
+    expect([res.status, await res.json()]).toEqual([201, { ok: true }]);
+    expect(h.calls).toHaveLength(0);
+  });
+  it("a form sent under 3 seconds after it was shown gets the same 201 and writes nothing", async () => {
+    expect((await post({ ...good, started_at: String(Date.now() - 1_000) })).status).toBe(201);
+    expect((await post({ ...good, started_at: "soon" })).status).toBe(201);
+    expect(h.calls).toHaveLength(0);
+  });
+  it("a form filled at human speed goes through", async () => {
+    expect((await post({ ...good, website_url: "", started_at: String(Date.now() - 20_000) }, { json: false })).status).toBe(201);
+    expect(h.calls).toHaveLength(1);
+  });
+  it("never fills a known family's fields, only notes them", async () => {
+    await post(good);
+    expect((h.calls[0] as [unknown, string, Record<string, unknown>])[2]).toMatchObject({ fill: false });
+  });
+});
+
 describe("the public form is rate-limited", () => {
   it("five tries per IP in ten minutes, then 429; another IP is unaffected", async () => {
     for (let i = 0; i < 5; i++) expect((await post(good, { from: "203.0.113.9" })).status).toBe(201);
