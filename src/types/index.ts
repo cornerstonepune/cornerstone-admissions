@@ -411,6 +411,8 @@ export interface Deal {
   contact?: Contact;
   stage?: PipelineStage;
   assignee?: Profile;
+  /** Admissions pipeline only: the lead this deal carries (ADR 0007). */
+  lead?: import("@/admissions/lib/pipeline").LeadSummary | null;
 }
 
 export type BroadcastStatus = 'draft' | 'scheduled' | 'sending' | 'sent' | 'failed';

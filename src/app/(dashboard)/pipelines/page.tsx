@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Pipeline, PipelineStage, Deal } from "@/types";
 import { PipelineBoard } from "@/components/pipelines/pipeline-board";
@@ -31,6 +31,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { GatedButton } from "@/components/ui/gated-button";
 import { useTranslations } from "next-intl";
 import { PageHead } from "@/admissions/components/page-head";
+import { LEAD_SUMMARY_SELECT, stuckAfterByStage, type AlertSetting } from "@/admissions/lib/pipeline";
+import { LeadPanel } from "@/admissions/components/lead-panel";
 
 // Pipeline creation is admin-class (settings-tier write under
 // the new RLS); deal creation is operational and only requires
@@ -74,6 +76,11 @@ export default function PipelinesPage() {
   const [editingDeal, setEditingDeal] = useState<Deal | null>(null);
   const [defaultStageId, setDefaultStageId] = useState<string>("");
 
+  // Admissions pipeline: the open lead panel, "stuck" alert settings, and whether Lost/Dormant leads show.
+  const [openLeadId, setOpenLeadId] = useState<string | null>(null);
+  const [alerts, setAlerts] = useState<AlertSetting[]>([]);
+  const [showClosed, setShowClosed] = useState(false);
+
   // Guard against double-seeding (React StrictMode double-effect in dev).
   const seedAttempted = useRef(false);
 
@@ -105,7 +112,7 @@ export default function PipelinesPage() {
     async (pipelineId: string) => {
       const { data } = await supabase
         .from("deals")
-        .select("*, contact:contacts(*), assignee:profiles!deals_assigned_to_fkey(*)")
+        .select(`*, contact:contacts(*), assignee:profiles!deals_assigned_to_fkey(*), ${LEAD_SUMMARY_SELECT}`)
         .eq("pipeline_id", pipelineId)
         .order("created_at", { ascending: false });
       return (data ?? []) as Deal[];
@@ -173,6 +180,23 @@ export default function PipelinesPage() {
     };
   }, [loadPipelines, seedDefaultPipeline, accountId]);
 
+  useEffect(() => {
+    supabase
+      .from("admissions_settings")
+      .select("key, value")
+      .eq("kind", "alert")
+      .eq("active", true)
+      .like("key", "stuck%")
+      .then(({ data }) => setAlerts((data ?? []) as AlertSetting[]));
+  }, [supabase]);
+
+  const stuckAfter = useMemo(() => stuckAfterByStage(stages, alerts), [stages, alerts]);
+  const hasLeads = deals.some((d) => d.lead);
+  const boardDeals = useMemo(
+    () => (showClosed ? deals : deals.filter((d) => !d.lead?.exit)),
+    [deals, showClosed],
+  );
+
   // Load stages + deals whenever selected pipeline changes.
   // Clearing on no-selection is a legitimate sync with URL/prop
   // state; the load completion uses async setters inside promise
@@ -224,6 +248,18 @@ export default function PipelinesPage() {
       setDeals((prev) =>
         prev.map((d) => (d.id === dealId ? { ...d, stage_id: newStageId } : d)),
       );
+      const leadId = deals.find((d) => d.id === dealId)?.lead?.id;
+      if (leadId) {
+        // A lead moves through the API (move_lead: one history row, Admitted on the last stage).
+        const res = await fetch(`/api/admissions/leads/${leadId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ stage_id: newStageId }),
+        });
+        if (!res.ok) toast.error((await res.json().catch(() => null))?.error ?? t("toastFailedMoveDeal"));
+        refreshDeals();
+        return;
+      }
       const { error } = await supabase
         .from("deals")
         .update({ stage_id: newStageId })
@@ -233,7 +269,7 @@ export default function PipelinesPage() {
         refreshDeals();
       }
     },
-    [supabase, refreshDeals, t],
+    [supabase, refreshDeals, t, deals],
   );
 
   const handleAddDeal = useCallback(
@@ -246,6 +282,7 @@ export default function PipelinesPage() {
   );
 
   const handleEditDeal = useCallback((deal: Deal) => {
+    if (deal.lead) return setOpenLeadId(deal.lead.id);
     setEditingDeal(deal);
     setDefaultStageId(deal.stage_id);
     setDealFormOpen(true);
@@ -418,9 +455,22 @@ export default function PipelinesPage() {
       ) : (
         <>
           <PipelineAnalytics stages={stages} deals={deals} />
+          {hasLeads && (
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                aria-pressed={showClosed}
+                onClick={() => setShowClosed((v) => !v)}
+              >
+                {showClosed ? "Hide closed" : "Show closed"}
+              </Button>
+            </div>
+          )}
           <PipelineBoard
+            stuckAfter={stuckAfter}
             stages={stages}
-            deals={deals}
+            deals={boardDeals}
             onDealMoved={handleDealMoved}
             onAddDeal={handleAddDeal}
             onEditDeal={handleEditDeal}
@@ -483,6 +533,12 @@ export default function PipelinesPage() {
           }}
         />
       )}
+
+      <LeadPanel
+        leadId={openLeadId}
+        onOpenChange={(open) => !open && setOpenLeadId(null)}
+        onChanged={refreshDeals}
+      />
 
       {/* Deal Form (Sheet) */}
       <DealForm

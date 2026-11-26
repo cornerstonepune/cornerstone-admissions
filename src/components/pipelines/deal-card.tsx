@@ -4,12 +4,15 @@ import type { Deal, PipelineStage } from "@/types";
 import { Calendar, Check, X } from "lucide-react";
 import { formatCurrency } from "@/lib/currency";
 import { useLocale, useTranslations } from "next-intl";
+import { LeadCard } from "@/admissions/components/lead-card";
 
 interface DealCardProps {
   deal: Deal;
   stage: PipelineStage | null;
   onEdit: (deal: Deal) => void;
   isOverlay?: boolean;
+  /** Days after which a lead in this stage is stuck (Admissions pipeline). */
+  stuckAfter?: number;
 }
 
 function formatDate(dateStr: string, locale: string) {
@@ -26,7 +29,22 @@ function initials(name?: string, fallback?: string) {
   return source.charAt(0).toUpperCase();
 }
 
-export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
+export function DealCard(props: DealCardProps) {
+  const { deal, onEdit, isOverlay, stuckAfter } = props;
+  if (deal.lead)
+    return (
+      <LeadCard
+        lead={deal.lead}
+        parent={deal.contact?.name || deal.contact?.phone || null}
+        stuckAfter={stuckAfter}
+        onOpen={() => onEdit(deal)}
+        isOverlay={isOverlay}
+      />
+    );
+  return <UpstreamDealCard {...props} />;
+}
+
+function UpstreamDealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
   const t = useTranslations("Pipelines.card");
   const locale = useLocale();
   const contactLabel = deal.contact?.name || deal.contact?.phone || t("noContact");

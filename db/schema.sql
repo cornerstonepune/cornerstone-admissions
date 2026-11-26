@@ -979,6 +979,49 @@ END;
 $$;
 
 
+SET default_tablespace = '';
+
+SET default_table_access_method = heap;
+
+--
+-- Name: leads; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.leads (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    account_id uuid NOT NULL,
+    deal_id uuid NOT NULL,
+    contact_id uuid NOT NULL,
+    child_name text,
+    child_dob date,
+    grade text,
+    campus_id uuid,
+    area text,
+    source_id uuid,
+    exit public.lead_exit,
+    lost_reason_id uuid,
+    exited_at timestamp with time zone,
+    admitted_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT leads_admitted_or_exited CHECK (((exit IS NULL) OR (admitted_at IS NULL))),
+    CONSTRAINT leads_exit_has_time CHECK (((exit IS NULL) = (exited_at IS NULL))),
+    CONSTRAINT leads_lost_has_reason CHECK (((NOT (exit IS DISTINCT FROM 'lost'::public.lead_exit)) = (lost_reason_id IS NOT NULL)))
+);
+
+
+--
+-- Name: days_in_stage(public.leads); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.days_in_stage(public.leads) RETURNS integer
+    LANGUAGE sql STABLE
+    SET search_path TO 'public'
+    AS $_$
+  SELECT public.lead_days_in_stage($1.id)
+$_$;
+
+
 --
 -- Name: deal_matches_lead(uuid, uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -1091,10 +1134,6 @@ BEGIN
 END;
 $$;
 
-
-SET default_tablespace = '';
-
-SET default_table_access_method = heap;
 
 --
 -- Name: contacts; Type: TABLE; Schema: public; Owner: -
@@ -1516,6 +1555,37 @@ CREATE FUNCTION public.message_in_account(p_message_id uuid, p_account_id uuid) 
     AND EXISTS (SELECT 1 FROM public.messages m JOIN public.conversations c ON c.id = m.conversation_id
     WHERE m.id = p_message_id AND c.account_id = p_account_id)
 $$;
+
+
+--
+-- Name: move_lead(uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.move_lead(p_lead_id uuid, p_stage_id uuid) RETURNS void
+    LANGUAGE plpgsql
+    SET search_path TO 'public'
+    AS $$
+DECLARE
+  v_deal uuid;
+  v_last boolean;
+BEGIN
+  SELECT l.deal_id, s.position = (SELECT max(position) FROM pipeline_stages WHERE pipeline_id = d.pipeline_id)
+    INTO v_deal, v_last
+  FROM leads l
+  JOIN deals d ON d.id = l.deal_id
+  JOIN pipeline_stages s ON s.id = p_stage_id AND s.pipeline_id = d.pipeline_id
+  WHERE l.id = p_lead_id AND l.exit IS NULL;
+  IF v_deal IS NULL THEN
+    RAISE EXCEPTION 'An open lead can only move to a stage of its own pipeline' USING ERRCODE = '23514';
+  END IF;
+
+  UPDATE deals SET stage_id = p_stage_id WHERE id = v_deal;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'You cannot move this lead' USING ERRCODE = '42501';
+  END IF;
+  UPDATE leads SET admitted_at = CASE WHEN v_last THEN now() END
+    WHERE id = p_lead_id AND (admitted_at IS NULL) = v_last;
+END $$;
 
 
 --
@@ -2944,33 +3014,6 @@ CREATE TABLE public.lead_stage_history (
     stage_id uuid NOT NULL,
     entered_at timestamp with time zone DEFAULT now() NOT NULL,
     moved_by uuid
-);
-
-
---
--- Name: leads; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.leads (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    account_id uuid NOT NULL,
-    deal_id uuid NOT NULL,
-    contact_id uuid NOT NULL,
-    child_name text,
-    child_dob date,
-    grade text,
-    campus_id uuid,
-    area text,
-    source_id uuid,
-    exit public.lead_exit,
-    lost_reason_id uuid,
-    exited_at timestamp with time zone,
-    admitted_at timestamp with time zone,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT leads_admitted_or_exited CHECK (((exit IS NULL) OR (admitted_at IS NULL))),
-    CONSTRAINT leads_exit_has_time CHECK (((exit IS NULL) = (exited_at IS NULL))),
-    CONSTRAINT leads_lost_has_reason CHECK (((NOT (exit IS DISTINCT FROM 'lost'::public.lead_exit)) = (lost_reason_id IS NOT NULL)))
 );
 
 
