@@ -1,9 +1,10 @@
 "use client";
 
-// S-report (M7, #71): where families drop out, which sources bring admissions, how long each stage takes and why leads
-// are lost. Every section opens with what to notice; the worst stage or source is marked; numbers carry a yardstick.
-// Numbers come from admissions_report (migration 116) through the caller's own client, so RLS scopes them.
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+// S-report (M7, #71; charts ADR 0037): where families drop out, which sources bring admissions, which grades and campuses
+// fill, how long each stage takes, why leads are lost, and the trend. Every section opens with what to notice; the worst
+// stage or source is marked; headline numbers carry last period as their yardstick. Numbers come from admissions_report
+// (migration 116) and the period's leads, through the caller's own client, so RLS scopes them.
+import { useCallback, useEffect, useState } from "react";
 import { format } from "date-fns";
 
 import { Button } from "@/components/ui/button";
@@ -11,10 +12,12 @@ import { useAuth } from "@/hooks/use-auth";
 import { createClient } from "@/lib/supabase/client";
 import { PageHead } from "@/admissions/components/page-head";
 import { StatusChip } from "@/admissions/components/parts";
+import { Bars, CARD, Columns, Funnel, Section, Skeleton, Tiles } from "@/admissions/components/charts";
 import { stuckAfterByStage, type AlertSetting } from "@/admissions/lib/pipeline";
-import { buildReport, PERIODS, periodRange, type Period, type RawReport } from "@/admissions/lib/report";
+import { buildBreakdowns, buildReport, PERIODS, periodRange, type Group, type LeadRow, type Period, type RawReport } from "@/admissions/lib/report";
 
-type Built = ReturnType<typeof buildReport> & { leads: number; lost: number; dormant: number; from: Date; to: Date };
+type Built = ReturnType<typeof buildReport> &
+  ReturnType<typeof buildBreakdowns> & { leads: number; lost: number; dormant: number; from: Date; to: Date; period: Period };
 const pct = (x: number | null) => (x == null ? "—" : `${Math.round(x * 100)}%`);
 
 export function ReportScreen() {
@@ -33,17 +36,36 @@ export function ReportScreen() {
     const r = periodRange(period);
     const call = (from: Date, to: Date) =>
       supabase.rpc("admissions_report", { p_account_id: accountId, p_from: from.toISOString(), p_to: to.toISOString(), p_campus_id: campus || null });
-    const [cur, prev, settings] = await Promise.all([
+    const [from, to] = [r.from.toISOString(), r.to.toISOString()];
+    // shortcut: one request, so PostgREST's row cap (1000 by default) bounds the leads of one period; page it past that.
+    let rowsQuery = supabase
+      .from("leads")
+      .select("created_at, admitted_at, imported_at, grade, campus_id")
+      .eq("account_id", accountId)
+      .or(`and(created_at.gte.${from},created_at.lt.${to}),and(admitted_at.gte.${from},admitted_at.lt.${to})`);
+    if (campus) rowsQuery = rowsQuery.eq("campus_id", campus);
+    const [cur, prev, settings, rows] = await Promise.all([
       call(r.from, r.to),
       call(r.prevFrom, r.prevTo),
       supabase.from("admissions_settings").select("id, kind, key, label, value").eq("account_id", accountId).in("kind", ["alert", "campus"]),
+      rowsQuery,
     ]);
-    if (cur.error || prev.error || settings.error) return setFailed(true);
-    const rows = settings.data ?? [];
+    if (cur.error || prev.error || settings.error || rows.error) return setFailed(true);
+    const all = settings.data ?? [];
     const now = cur.data as RawReport;
-    setCampuses(rows.filter((s) => s.kind === "campus"));
-    const stuckAfter = stuckAfterByStage(now.stages, rows.filter((s) => s.kind === "alert") as AlertSetting[]);
-    setData({ ...buildReport(now, prev.data as RawReport, stuckAfter), leads: now.leads, lost: now.lost, dormant: now.dormant, from: r.from, to: r.to });
+    const campusRows = all.filter((s) => s.kind === "campus");
+    setCampuses(campusRows);
+    const stuckAfter = stuckAfterByStage(now.stages, all.filter((s) => s.kind === "alert") as AlertSetting[]);
+    setData({
+      ...buildReport(now, prev.data as RawReport, stuckAfter),
+      ...buildBreakdowns((rows.data ?? []) as LeadRow[], campusRows, period, r.from, r.to),
+      leads: now.leads,
+      lost: now.lost,
+      dormant: now.dormant,
+      from: r.from,
+      to: r.to,
+      period,
+    });
   }, [accountId, period, campus]);
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch on mount and on each filter change
@@ -51,7 +73,7 @@ export function ReportScreen() {
   }, [load]);
 
   return (
-    <div className="grid gap-[var(--space-4)]">
+    <div className="grid min-w-0 gap-[var(--space-4)]">
       <p className="text-caption text-[var(--ink-muted)]">Report</p>
       <div className="flex flex-wrap items-end gap-[var(--space-3)]">
         <PageHead
@@ -90,133 +112,121 @@ export function ReportScreen() {
         </label>
       </div>
       {failed && (
-        <p className="flex items-center gap-[var(--space-2)]">
+        <div className={`${CARD} flex flex-wrap items-center gap-[var(--space-2)] p-[var(--space-2)]`}>
           <StatusChip tone="late">Couldn&apos;t load the report</StatusChip>
           <Button variant="link" onClick={() => void load()}>
             Try again
           </Button>
-        </p>
+        </div>
       )}
-      {!data && !failed && <div aria-busy="true" className="h-[var(--space-7)] animate-pulse rounded-[var(--radius-card)] bg-[var(--panel)]" />}
+      {!data && !failed && <Skeleton />}
       {data && <Loaded r={data} />}
     </div>
   );
 }
 
-const card = "rounded-[var(--radius-card)] border border-[var(--line)] bg-[var(--panel)]";
-const th = "px-[var(--space-2)] py-[var(--space-1)] text-start font-semibold whitespace-nowrap text-[var(--ink-muted)]";
-const td = "border-t border-[var(--line)] px-[var(--space-2)] py-[var(--space-2)] align-middle";
-const num = `${td} text-end tabular-nums`;
-const Yard = ({ children }: { children: ReactNode }) => <span className="block text-caption text-[var(--ink-muted)]">{children}</span>;
-const Bar = ({ of }: { of: number | null }) => (
-  <span className="block h-[var(--space-2)] rounded-[var(--radius-small)] bg-[var(--kind-child)]" style={{ width: `${Math.round((of ?? 0) * 100)}%` }} />
-);
-
-function Section({ title, meta, take, children }: { title: string; meta: string; take: string; children: ReactNode }) {
+/** Leads per group with admitted drawn over them; the best converter is marked. */
+function GroupBars({ g, rates, empty }: { g: { groups: Group[]; best: string | null }; rates: boolean; empty: string }) {
   return (
-    <section className="grid min-w-0 content-start gap-[var(--space-2)]">
-      <header className="flex flex-wrap items-baseline gap-[var(--space-2)]">
-        <h2 className="font-[family-name:var(--font-title-section)] text-title-section text-[var(--ink)]">{title}</h2>
-        <p className="text-label text-[var(--ink-muted)]">{meta}</p>
-      </header>
-      <p className="rounded-[var(--radius-control)] bg-[var(--highlight)] px-[var(--space-2)] py-[var(--space-1)] text-label">{take}</p>
-      {children}
-    </section>
+    <Bars
+      empty={empty}
+      legend="Grey: leads · green: admitted"
+      rows={g.groups.map((x) => ({
+        key: x.label,
+        label: x.label,
+        n: x.leads,
+        inner: x.admitted,
+        value: `${x.admitted}/${x.leads}`,
+        note: rates ? `${pct(x.rate)} admitted` : undefined,
+        mark: rates && x.label === g.best ? { tone: "ok" as const, words: "Best conversion" } : undefined,
+      }))}
+    />
   );
 }
 
-function Table({ head, children }: { head: string[]; children: ReactNode }) {
-  return (
-    <div className={`${card} overflow-x-auto`}>
-      <table className="w-full border-collapse text-label">
-        <thead>
-          <tr>
-            {head.map((h, i) => (
-              <th key={h} className={i ? `${th} text-end` : th}>
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>{children}</tbody>
-      </table>
-    </div>
-  );
-}
+const GRID = "grid grid-cols-[repeat(auto-fit,minmax(min(100%,calc(var(--space-7)*3.5)),1fr))] items-start gap-[var(--space-4)]";
 
 function Loaded({ r }: { r: Built }) {
   const lowSource = r.rates && r.sources.length > 1 ? r.sources.length - 1 : -1;
+  const lostTop = r.reasons[0]?.n ?? 0;
   return (
     <>
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(calc(var(--space-7)*2),1fr))] gap-[var(--space-3)]">
-        {r.stats.map((s) => (
-          <div key={s.label} className={`${card} grid gap-[var(--space-0)] p-[var(--space-3)]`}>
-            <span className="text-title-page font-semibold tabular-nums">{s.value}</span>
-            <span className="text-label font-semibold">{s.label}</span>
-            {s.alert ? <StatusChip tone="wait">{s.yard}</StatusChip> : <Yard>{s.yard}</Yard>}
-          </div>
-        ))}
-      </div>
+      <Tiles stats={[r.leadsStat, ...r.stats.map((s) => ({ ...s, tone: s.alert ? ("wait" as const) : undefined }))]} />
       {!r.rates && <p className="text-caption text-[var(--ink-muted)]">Fewer than 20 leads in this period: rates are hidden, counts still show.</p>}
 
-      <Section title="Funnel" meta="leads that reached each stage" take={r.funnelTake}>
-        <Table head={["Stage", "Reached", "Share of leads", "Lost from previous", "On the board now"]}>
-          {r.funnel.map((s, i) => (
-            <tr key={s.id} data-state={i === r.worst ? "late" : undefined}>
-              <td className={td}>{s.name}</td>
-              <td className={num}>
-                {s.reached}
-                <Yard>last period {s.prevReached}</Yard>
-              </td>
-              <td className={`${td} min-w-[calc(var(--space-7)*1.5)]`}>
-                <Bar of={s.share} />
-              </td>
-              <td className={num}>{i === r.worst && r.rates ? <StatusChip tone="late">{pct(s.lostFromPrev)}</StatusChip> : r.rates ? pct(s.lostFromPrev) : "—"}</td>
-              <td className={num}>{s.on_board}</td>
-            </tr>
-          ))}
-        </Table>
+      <Section title="Funnel" meta="leads that reached each stage · bar = share of all leads" take={r.funnelTake}>
+        <Funnel stages={r.funnel} worst={r.worst} leads={r.leads} rates={r.rates} />
+        <p className="text-caption text-[var(--ink-muted)]">
+          On the board now: {r.funnel.map((s) => `${s.name} ${s.on_board}`).join(" · ")}
+        </p>
       </Section>
 
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(calc(var(--space-7)*3.5),1fr))] items-start gap-[var(--space-4)]">
+      <Section
+        title="Trend"
+        meta={`new enquiries and admissions by ${r.period === "year" ? "month" : "week"}`}
+        take={r.trendTake}
+      >
+        <Columns
+          label="Enquiries and admissions"
+          peak={r.trendPeak}
+          cols={r.trend.map((t) => ({ key: t.label, label: t.label, a: t.enquiries, b: t.admitted }))}
+          legend={`Grey: new enquiries (busiest in teal) · green: admitted${r.trendNote ? ` · ${r.trendNote}` : ""}`}
+        />
+      </Section>
+
+      <div className={GRID}>
         <Section title="By source" meta="admitted per 100 leads · best first" take={r.sourceTake}>
-          <Table head={["Source", "Leads", "Admitted", "Rate"]}>
-            {r.sources.map((s, i) => (
-              <tr key={s.label}>
-                <td className={td}>{s.label}</td>
-                <td className={num}>{s.leads}</td>
-                <td className={num}>{s.admitted}</td>
-                <td className={num}>
-                  {!r.rates ? "—" : i === lowSource ? <StatusChip tone="wait">{pct(s.rate)}</StatusChip> : pct(s.rate)}
-                  {r.rates && <Yard>last period {pct(s.prevRate)}</Yard>}
-                </td>
-              </tr>
-            ))}
-          </Table>
+          <Bars
+            empty="No leads in this period yet."
+            legend="Grey: leads · green: admitted"
+            rows={r.sources.map((s, i) => ({
+              key: s.label,
+              label: s.label,
+              n: s.leads,
+              inner: s.admitted,
+              value: `${s.admitted}/${s.leads}`,
+              note: r.rates ? `${pct(s.rate)} admitted · last period ${pct(s.prevRate)}` : undefined,
+              mark: !r.rates ? undefined : i === 0 && s.admitted ? { tone: "ok" as const, words: "Best" } : i === lowSource ? { tone: "wait" as const, words: "Lowest" } : undefined,
+            }))}
+          />
         </Section>
 
-        <Section title="Days per stage" meta="median · against the stuck limit" take={r.daysTake}>
-          <Table head={["Stage", "Median days", "Stuck limit"]}>
-            {r.days.map((d) => (
-              <tr key={d.id}>
-                <td className={td}>{d.name}</td>
-                <td className={num}>{d.over ? <StatusChip tone="wait">{d.median}</StatusChip> : (d.median ?? "—")}</td>
-                <td className={num}>{d.limit ?? "—"}</td>
-              </tr>
-            ))}
-          </Table>
+        <Section title="By grade" meta="leads and admitted · most leads first" take={r.grades.take}>
+          <GroupBars g={r.grades} rates={r.rates} empty="No leads in this period yet." />
         </Section>
 
-        <Section title="Why leads were lost" meta={`${r.lost} Lost · ${r.dormant} Dormant`} take={r.lostTake}>
-          <ul className={`${card} m-0 grid list-none gap-[var(--space-0)] p-[var(--space-2)]`}>
-            {r.reasons.map((x) => (
-              <li key={x.label} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-[var(--space-2)] py-[var(--space-1)] text-label">
-                {x.label}
-                <Bar of={x.share} />
-                <span className="tabular-nums">{x.n}</span>
-              </li>
-            ))}
-          </ul>
+        <Section title="By campus" meta="leads and admitted" take={r.campuses.take}>
+          <GroupBars g={r.campuses} rates={r.rates} empty="No leads in this period yet." />
+        </Section>
+
+        <Section title="Days per stage" meta="median days · line = stuck limit" take={r.daysTake}>
+          <Bars
+            empty="No stage yet."
+            rows={r.days.map((d) => ({
+              key: d.id,
+              label: d.name,
+              n: d.median ?? 0,
+              limit: d.limit,
+              value: d.median ?? "—",
+              note: d.limit != null ? `stuck after ${d.limit} days` : "no stuck limit set",
+              mark: d.over ? { tone: "wait" as const, words: "Over the limit" } : undefined,
+            }))}
+          />
+        </Section>
+
+        <Section title="Why leads were lost" meta={`${r.lost} Lost · ${r.dormant} Dormant · most first`} take={r.lostTake}>
+          <Bars
+            empty="No lead was lost in this period."
+            max={lostTop}
+            rows={r.reasons.map((x, i) => ({
+              key: x.label,
+              label: x.label,
+              n: x.n,
+              value: x.n,
+              note: `${pct(x.share)} of lost`,
+              mark: i === 0 && r.reasons.length > 1 ? { tone: "late" as const, words: "Top reason" } : undefined,
+            }))}
+          />
         </Section>
       </div>
     </>

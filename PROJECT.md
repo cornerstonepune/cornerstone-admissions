@@ -67,13 +67,13 @@ _The locked blueprint. Agents read §1–4 and the current milestone every sessi
 | S-contacts | Contacts | Lakshmi ma'am | find a parent | `design/wireframes/S-contacts.html` | built |
 | S-board | Pipeline board | Lakshmi ma'am, Akanksha | move leads between stages | `design/wireframes/S-board.html` | built; card changes in M3 |
 | S-flows, S-automations | Flow and automation editors | Nimish | edit welcome flow, rules | `S-flows.html`, `S-automations.html` | built |
-| S-dashboard, S-notifications, S-settings-upstream | Overview, notifications, account settings | admin | | `S-dashboard.html`, `S-notifications.html`, `S-settings-upstream.html` | built |
+| S-dashboard, S-notifications, S-settings-upstream | Admissions dashboard (ADR 0037; WhatsApp overview below it), notifications, account settings | admin, leadership | this week at a glance | `S-dashboard.html`, `S-notifications.html`, `S-settings-upstream.html` | built; dashboard rebuilt (ADR 0037) |
 | S-frame | Cornerstone frame: sidebar, top bar, theme | all | the restyle | `design/wireframes/S-frame.html` | new, M1 |
 | S-lead | Lead card and its right-side panel | Lakshmi ma'am | child details, stage history, calls | `design/wireframes/S-lead.html` | new, M3 |
 | S-quick-add | Staff quick-add (3 fields, phone) | staff | log a walk-in in 30 s | `design/wireframes/S-quick-add.html` | new, M4 |
 | S-today | Today list | Lakshmi ma'am | who to call, who visits, who is stuck | `design/wireframes/S-today.html` | new, M6 |
 | S-admissions-settings | Admissions Settings (8 tabs, brief §7) | Nimish, Akanksha, Lakshmi ma'am | change rules without a developer | `design/wireframes/S-admissions-settings.html` | new, M6 |
-| S-report | Funnel report | Nimish, Akanksha | funnel by stage and source, days per stage, lost reasons | `design/wireframes/S-report.html` | new, M7 |
+| S-report | Funnel report | Nimish, Akanksha | funnel by stage and source, days per stage, lost reasons | `design/wireframes/S-report.html` | new, M7; charts, grade, campus, trend (ADR 0037) |
 
   Hidden in v1: signup, broadcasts, agents (AI). The built screens get static snapshots in `design/wireframes/` (one file per ID, ADR 0014) and one `loop approve --all` from Nimish; until then they're not changed.
 - **Key flows:** (1) Parent says "Hi" or scans a QR → welcome menu (call back, visit, online meeting) → child's name and date of birth → a call on S-today, or that campus's (or the online) Cal.com link → S-board shows Visit booked (ADR 0035). (2) Staff quick-add on a phone → lead in Enquiry with source. (3) Lakshmi ma'am opens S-today → calls → logs on S-lead → moves stage. (4) Admin changes a day count on S-admissions-settings → next scheduler run uses it.
