@@ -506,8 +506,8 @@ CREATE FUNCTION public.claim_due_follow_ups(p_now timestamp with time zone DEFAU
     SET search_path TO 'public'
     AS $$
   WITH due AS (
-    SELECT l.id AS lead_id, l.account_id, l.contact_id, s.id AS rule_id, h.id AS entry_id,
-           s.value->>'action' AS action, s.value->>'template' AS template
+    SELECT l.id AS lead_id, l.account_id, l.contact_id, s.id AS rule_id, h.id AS entry_id, h.entered_at,
+           (s.value->>'days')::int AS days, s.value->>'action' AS action, s.value->>'template' AS template
     FROM leads l
     JOIN LATERAL (
       SELECT id, stage_id, entered_at FROM lead_stage_history
@@ -517,15 +517,29 @@ CREATE FUNCTION public.claim_due_follow_ups(p_now timestamp with time zone DEFAU
       ON s.account_id = l.account_id AND s.kind = 'follow_up_rule' AND s.active
      AND s.value->>'stage' = h.stage_id::text
     WHERE l.exit IS NULL AND l.admitted_at IS NULL
+      AND NOT (l.imported_at IS NOT NULL AND h.entered_at <= l.imported_at)
       AND (p_now AT TIME ZONE 'Asia/Kolkata')::date - (h.entered_at AT TIME ZONE 'Asia/Kolkata')::date
           >= (s.value->>'days')::int
       AND NOT EXISTS (
         SELECT 1 FROM conversations c
         WHERE c.account_id = l.account_id AND c.contact_id = l.contact_id AND c.last_inbound_at > h.entered_at)
   ),
+  ranked AS (
+    SELECT *, bool_or(action = 'dormant') OVER w AS closes, max(days) OVER w AS top
+    FROM due WINDOW w AS (PARTITION BY lead_id, entry_id)
+  ),
+  todo AS (
+    SELECT * FROM ranked r
+    WHERE (CASE WHEN r.closes THEN r.action = 'dormant' ELSE r.days = r.top END)
+      AND NOT EXISTS (
+        SELECT 1 FROM lead_activity a
+        WHERE a.lead_id = r.lead_id AND a.rule_id = r.rule_id AND a.stage_history_id = r.entry_id)
+    ORDER BY r.entered_at, r.lead_id, r.rule_id
+    LIMIT 50
+  ),
   dormant AS (
     UPDATE leads l SET exit = 'dormant', exited_at = p_now
-    FROM due WHERE due.lead_id = l.id AND due.action = 'dormant'
+    FROM todo WHERE todo.lead_id = l.id AND todo.action = 'dormant'
     RETURNING l.id
   ),
   made AS (
@@ -533,13 +547,13 @@ CREATE FUNCTION public.claim_due_follow_ups(p_now timestamp with time zone DEFAU
     SELECT account_id, lead_id,
            (CASE action WHEN 'send_template' THEN 'follow_up_send' ELSE 'call_task' END)::lead_activity_kind,
            rule_id, entry_id, p_now
-    FROM due WHERE action IN ('send_template', 'call_task')
+    FROM todo WHERE action IN ('send_template', 'call_task')
     ON CONFLICT (lead_id, rule_id, stage_history_id) WHERE rule_id IS NOT NULL DO NOTHING
     RETURNING id, lead_id, rule_id, kind
   )
   SELECT m.id, d.account_id, d.contact_id, a.owner_user_id, d.template
   FROM made m
-  JOIN due d ON d.lead_id = m.lead_id AND d.rule_id = m.rule_id
+  JOIN todo d ON d.lead_id = m.lead_id AND d.rule_id = m.rule_id
   JOIN accounts a ON a.id = d.account_id
   WHERE m.kind = 'follow_up_send'
 $$;

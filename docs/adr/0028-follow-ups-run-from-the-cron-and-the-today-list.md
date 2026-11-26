@@ -22,10 +22,16 @@
    since (a stage move by a person, a call logged, a staff reply) for longer than the `untouched` alert's hours. A lead
    quietly waiting with nothing owed is not untouched. A family shows once in "Call now": untouched beats its call tasks.
 7. **Today** is the India day. Calls due = open call tasks due before tonight, overdue first. Stuck = `isStuck` (M3).
-8. **Old leads from a sheet import (M7, `import_leads`, migration 116).** The import leaves no mark on a lead, so
-   follow-ups cannot tell an imported lead from a new one yet: a follow-up fix after the M7 import mark lands skips
-   the stage entry an import created. Untouched needs nothing extra: the import's first stage entry is the staff
-   member's (`moved_by`), at the creation moment, so an imported lead counts as acted on until the parent writes.
+8. **Old leads from a sheet import** (*amended by migration 118, #87 review*). `leads.imported_at` (117) marks them.
+   Follow-ups skip the stage entry the import made (`h.entered_at <= imported_at`); a stage move by a person makes a
+   new entry and starts them. Untouched ignores the import and the sheet's enquiry date: an imported lead waits on us
+   only once the parent writes after the import. A lead staff add by hand still counts as touched (its first stage
+   entry is theirs).
+9. **Review fixes (migration 118).** No catch-up burst: per stage entry only the latest due day fires; earlier due
+   rules are passed over for good, and a due Dormant rule wins (the lead closes, nothing is sent or made). At most 50
+   follow-ups per run, oldest stage entry first, follow-ups already made left out before the cut. The sender checks the
+   error of every stamp on a follow-up (a failed stamp is logged and counted `unrecorded`; a send that went out is never
+   relabelled "Not sent"), and sends the approved template's own language instead of the en_US default.
 
 ## Considered
 - Queue the sends at stage change with a fixed `due_at`: a later change to the rule's days would not apply (G6.2).
