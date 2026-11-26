@@ -10,6 +10,24 @@ import { parseLeadSheet, type Choice } from "@/admissions/lib/import";
 const MAX_BYTES = 1_000_000;
 const bad = (error: string, status = 400) => NextResponse.json({ error }, { status });
 
+/** The body as text, or null once it passes `max` bytes: refused on its Content-Length, else reading stops there. */
+async function readCapped(request: Request, max: number): Promise<string | null> {
+  if (Number(request.headers.get("content-length") ?? 0) > max) return null;
+  if (!request.body) return "";
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (let r = await reader.read(); !r.done; r = await reader.read()) {
+    size += r.value.byteLength;
+    if (size > max) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(r.value);
+  }
+  return new TextDecoder().decode(Buffer.concat(chunks));
+}
+
 export async function POST(request: Request) {
   let ctx: AccountContext;
   try {
@@ -20,9 +38,9 @@ export async function POST(request: Request) {
   const limit = checkRateLimit(`admin:admissions-import:${ctx.userId}`, RATE_LIMITS.adminAction);
   if (!limit.success) return rateLimitResponse(limit);
 
-  const text = await request.text();
+  const text = await readCapped(request, MAX_BYTES);
+  if (text === null) return bad("The sheet is too big (over 1 MB): import it in parts.", 413);
   if (!text.trim()) return bad("The sheet is empty.");
-  if (text.length > MAX_BYTES) return bad("The sheet is too big: import it in parts of 2000 rows.", 413);
 
   const [settings, stages] = await Promise.all([
     ctx.supabase.from("admissions_settings").select("id, kind, label").eq("account_id", ctx.accountId).in("kind", ["campus", "source"]),
