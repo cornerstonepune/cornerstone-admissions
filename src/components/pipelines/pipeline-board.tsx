@@ -28,6 +28,8 @@ interface PipelineBoardProps {
   onDealMoved: (dealId: string, newStageId: string) => void;
   onAddDeal: (stageId: string) => void;
   onEditDeal: (deal: Deal) => void;
+  /** Admissions pipeline: days after which a lead is stuck, by stage id. */
+  stuckAfter?: Record<string, number>;
 }
 
 export function PipelineBoard({
@@ -36,6 +38,7 @@ export function PipelineBoard({
   onDealMoved,
   onAddDeal,
   onEditDeal,
+  stuckAfter,
 }: PipelineBoardProps) {
   const { defaultCurrency } = useAuth();
   const [activeDealId, setActiveDealId] = useState<string | null>(null);
@@ -119,6 +122,7 @@ export function PipelineBoard({
               currency={defaultCurrency}
               onAddDeal={onAddDeal}
               onEditDeal={onEditDeal}
+              stuckAfter={stuckAfter?.[stage.id]}
             />
           );
         })}
@@ -139,6 +143,7 @@ export function PipelineBoard({
               }
               onEdit={() => {}}
               isOverlay
+              stuckAfter={stuckAfter?.[activeDeal.stage_id]}
             />
           </div>
         ) : null}
@@ -193,6 +198,7 @@ function StageColumn({
   currency,
   onAddDeal,
   onEditDeal,
+  stuckAfter,
 }: {
   stage: PipelineStage;
   deals: Deal[];
@@ -200,6 +206,7 @@ function StageColumn({
   currency: string;
   onAddDeal: (stageId: string) => void;
   onEditDeal: (deal: Deal) => void;
+  stuckAfter?: number;
 }) {
   const t = useTranslations("Pipelines.board");
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
@@ -248,6 +255,7 @@ function StageColumn({
               deal={deal}
               stage={stage}
               onEdit={onEditDeal}
+              stuckAfter={stuckAfter}
             />
           ))
         )}
@@ -270,13 +278,17 @@ function DraggableDealCard({
   deal,
   stage,
   onEdit,
+  stuckAfter,
 }: {
   deal: Deal;
   stage: PipelineStage;
   onEdit: (deal: Deal) => void;
+  stuckAfter?: number;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: deal.id,
+    // a closed lead (Lost, Dormant) is shown, not moved
+    disabled: !!deal.lead?.exit,
   });
 
   return (
@@ -286,7 +298,7 @@ function DraggableDealCard({
       {...attributes}
       style={{ opacity: isDragging ? 0.3 : 1, touchAction: "none" }}
     >
-      <DealCard deal={deal} stage={stage} onEdit={onEdit} />
+      <DealCard deal={deal} stage={stage} onEdit={onEdit} stuckAfter={stuckAfter} />
     </div>
   );
 }
