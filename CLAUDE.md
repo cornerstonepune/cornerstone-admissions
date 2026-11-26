@@ -34,7 +34,7 @@ Build folders have no `tests/holdout/` (hidden tests); CI runs them. Hooks keep 
 4. After his approval, `loop-release`: staging → his go → production → live check. Merged isn't done; live is done.
 
 ## 4. Building rules
-- One ticket = one seed branch `plan/t<N>` (skeleton + tests, by the orchestrator) → one build branch → one PR, opened by `loop finish` with the ticket's `Budget:` and `Screens:` lines. CI fails PRs >20% over budget.
+- One ticket = one seed branch `plan/t<N>` (skeleton + tests, by the orchestrator) → one build branch → one PR, opened by `loop finish` with the ticket's `Budget:` and `Screens:` lines. Going >20% over budget is a CI warning, not a failure (ADR 0022).
 - Never edit or delete a test to make it pass. 3 failed attempts → one Fable rescue → `escalated`, back to plan.
 - UI uses design tokens only (`var(--…)` / the Tailwind preset). No raw hex, rgb, or arbitrary `[..px]` values; CI rejects them.
 - Spec looks wrong mid-build → stop, write it under "Blocked" in `docs/loop/handoff/<N>.md`. Never quietly build something different.

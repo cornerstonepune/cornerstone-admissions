@@ -110,11 +110,12 @@ def main():
                 lines += int(a) + int(d)
         slack = 1.2
         if len(files) > max_files * slack or lines > max_lines * slack:
-            errors.append(f"Over the ticket's size budget: {len(files)} files / {lines} lines vs "
-                          f"budget {max_files} / {max_lines}. The ticket is too big or the build sprawled — split it.")
+            # a warning, not a gate: the budget is an estimate (ADR 0022)
+            print(f"::warning::Over the ticket's size budget: {len(files)} files / {lines} lines vs "
+                  f"budget {max_files} / {max_lines}. Check the build didn't sprawl.")
 
     # 4. wireframe gate
-    fe = sorted(p for s, p in changes if s != "D" and matches(p, frontend) and not p.startswith("design/"))
+    fe = sorted(p for s, p in changes if s != "D" and matches(p, frontend) and not matches(p, tests) and not p.startswith("design/"))
     if fe:
         m = re.search(r"^Screens:\s*(.+)$", os.environ.get("PR_BODY", ""), re.M | re.I)
         listed = [x.strip() for x in m.group(1).split(",") if x.strip()] if m else []
