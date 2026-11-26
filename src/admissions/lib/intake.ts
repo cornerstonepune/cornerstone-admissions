@@ -70,7 +70,7 @@ export interface IntakeInput {
   child?: string;
   dob?: string | null; // YYYY-MM-DD
   area?: string;
-  campus?: string; // a campus setting's tag (the welcome flow's campus button); used when the date picks none
+  campus?: string; // a campus setting's tag (the welcome flow's campus button); wins over the date's campus
   sources: string[]; // source tags, first one that exists wins
   note?: string; // added when the family already has an open lead
   reopen?: boolean; // false: a family whose lead has closed gets no new one
@@ -99,8 +99,9 @@ export async function intake(db: SupabaseClient, accountId: string, input: Intak
     if (error) throw error;
     const campuses = (data ?? []) as (Campus & { key: string })[];
     if (input.dob) route = routeByDob(input.dob, campuses);
+    // the campus the parent chose to visit wins over the date's guess; the date's grade stays only if it agrees
     const picked = campuses.find((c) => c.key === input.campus);
-    if (!route.campus_id && picked) route = { campus_id: picked.id };
+    if (picked && route.campus_id !== picked.id) route = { campus_id: picked.id };
   }
   const { data, error } = await db.rpc("intake_lead", {
     p_account_id: accountId,
@@ -165,7 +166,8 @@ export async function intakeFromWhatsApp(
     const lead = await intake(db, p.accountId, {
       contactId: p.contactId,
       sources: code ? [code, "whatsapp"] : ["whatsapp"],
-      reopen: code !== null, // a closed family's "thank you" is not a new enquiry; a scanned QR is
+      // a closed family's "thank you" is not a new enquiry; a scanned QR, or a tap on the welcome menu, is
+      reopen: code !== null || typeof vars.menu === "string",
       parent: text(vars.parent_name),
       child: text(vars.child_name),
       dob: parseDob(text(vars.child_dob)),

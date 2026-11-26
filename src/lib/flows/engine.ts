@@ -992,9 +992,10 @@ export async function dispatchInboundToFlows(
   input: DispatchInboundInput & { isFirstInboundMessage: boolean },
 ): Promise<DispatchInboundResult> {
   const text = input.message.kind === "text" ? input.message.text : input.message.reply_title;
-  // Admissions: a scanned QR or source link (its code in the text) starts the welcome flow again, as a first message does.
-  const isFirstInboundMessage = input.isFirstInboundMessage || sourceCode(text) !== null;
-  const result = await dispatchToRuns({ ...input, isFirstInboundMessage });
+  // Admissions: a scanned QR or source link (its code in the text) starts the welcome flow again, as a first message
+  // does, ending any chat in progress.
+  const restart = sourceCode(text) !== null;
+  const result = await dispatchToRuns({ ...input, isFirstInboundMessage: input.isFirstInboundMessage || restart, restart });
   // Admissions one door (M4, #67): every inbound opens or reuses the parent's lead, with the source from a QR code in
   // the text and the welcome flow's answers. After the run, so this message's answer is already in its vars.
   await intakeFromWhatsApp(supabaseAdmin(), {
@@ -1007,7 +1008,7 @@ export async function dispatchInboundToFlows(
 }
 
 async function dispatchToRuns(
-  input: DispatchInboundInput & { isFirstInboundMessage: boolean },
+  input: DispatchInboundInput & { isFirstInboundMessage: boolean; restart?: boolean },
 ): Promise<DispatchInboundResult> {
   const db = supabaseAdmin();
   let ownedRunId: string | null = null;
@@ -1036,30 +1037,36 @@ async function dispatchToRuns(
           outcome: "duplicate_inbound_ignored",
         };
       }
-      // One SELECT for the whole flow's nodes — advance loop is now
-      // in-memory. See loadAllNodes.
-      const [runFlow, nodes] = await Promise.all([
-        loadFlow(db, activeRun.flow_id),
-        loadAllNodes(db, activeRun.flow_id),
-      ]);
-      const now = new Date();
-      const closure = closureForActiveRun({
-        run: activeRun,
-        flow: runFlow,
-        nodeKeys: nodes,
-        now,
-      });
-      if (!closure) {
-        return handleReplyForActiveRun(
-          db,
-          activeRun,
-          runFlow!,
-          input.message,
-          nodes,
-        );
+      if (input.restart) {
+        // Admissions: a scanned QR mid-chat starts afresh, instead of being taken as the answer to a question.
+        await endRun(db, activeRun.id, "cancelled", "restarted_by_source_code");
+        ownedRunId = null;
+      } else {
+        // One SELECT for the whole flow's nodes — advance loop is now
+        // in-memory. See loadAllNodes.
+        const [runFlow, nodes] = await Promise.all([
+          loadFlow(db, activeRun.flow_id),
+          loadAllNodes(db, activeRun.flow_id),
+        ]);
+        const now = new Date();
+        const closure = closureForActiveRun({
+          run: activeRun,
+          flow: runFlow,
+          nodeKeys: nodes,
+          now,
+        });
+        if (!closure) {
+          return handleReplyForActiveRun(
+            db,
+            activeRun,
+            runFlow!,
+            input.message,
+            nodes,
+          );
+        }
+        await closeActiveRun(db, activeRun, closure, now);
+        ownedRunId = null;
       }
-      await closeActiveRun(db, activeRun, closure, now);
-      ownedRunId = null;
     }
 
     // No active run → look for a flow whose entry trigger matches.
@@ -1284,7 +1291,12 @@ async function startNewRun(
 ): Promise<DispatchInboundResult> {
   // The contact's number (digits with country code) as vars.contact_phone, so a message can put it in a link
   // (a booking link that recognises the parent). Not found → the var is absent.
-  const { data: who } = await db.from("contacts").select("phone_normalized").eq("id", input.contactId).maybeSingle();
+  const { data: who } = await db
+    .from("contacts")
+    .select("phone_normalized")
+    .eq("id", input.contactId)
+    .eq("account_id", input.accountId)
+    .maybeSingle();
   const startVars = who?.phone_normalized ? { contact_phone: String(who.phone_normalized) } : {};
   // INSERT — partial unique index `idx_one_active_run_per_contact`
   // catches concurrent inserts with 23505. We catch and return as

@@ -20,8 +20,14 @@ fourth "something else" option.
   the campus settings' tags (`neev`, `gurukul`).
 - **Call back = a call task** due now on the Today list, made by WhatsApp intake when `vars.menu = call_back`; one open
   call-back task per lead at a time (intake runs on every message of the chat).
-- **Campus from the tap:** intake sets the lead's campus from `vars.campus` when the date of birth picks none
-  (cut-offs are still open, ADR 0033).
+- **Campus from the tap:** intake sets the lead's campus from `vars.campus`; the campus the parent chose wins over the
+  date of birth's campus (cut-offs are still open, ADR 0033).
+- **A menu tap is a new enquiry:** it reopens a family whose lead had closed, as a scanned QR does, so a closed
+  family's call-back request still reaches Today.
+- **A call made closes the open call tasks:** logging a call on a lead closes its open call tasks (a rule's or a
+  call-back request's) with that outcome instead of adding a second row; until now they stayed on Today for ever.
+- **A QR mid-chat restarts:** a message with a source code ends the chat in progress and starts the menu again,
+  instead of being taken as the answer (the child's name).
 - **Booking links recognise the family:** each run starts with `vars.contact_phone` (the contact's digits), and
   `{{vars.x|url}}` URL-encodes a value. Links carry `attendeePhoneNumber=%2B<phone>` and `child-first-name=<name>`
   (Cal.com prefills a booking question from the URL parameter with its identifier), so the booking matches the

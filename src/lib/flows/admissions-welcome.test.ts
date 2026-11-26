@@ -14,6 +14,8 @@ const h = vi.hoisted(() => ({
   tables: {} as Record<string, Record<string, unknown>[]>,
   intakeCalls: [] as Record<string, unknown>[],
   sent: [] as string[],
+  /** The family's lead has closed: intake_lead opens a new one only when asked to reopen (migration 123). */
+  closed: false,
 }));
 
 vi.mock("./admin-client", async () => {
@@ -22,8 +24,10 @@ vi.mock("./admin-client", async () => {
     supabaseAdmin: () =>
       createFakeDb(h.tables as FakeTables, new Set(), (name, args) => {
         if (name !== "intake_lead") return { error: null };
-        h.intakeCalls.push(args.p_lead as Record<string, unknown>);
-        return { data: { contact_id: "c-1", lead_id: "lead-1", created: h.intakeCalls.length === 1 }, error: null };
+        const lead = args.p_lead as Record<string, unknown>;
+        h.intakeCalls.push(lead);
+        const leadId = h.closed && !lead.reopen ? null : "lead-1";
+        return { data: { contact_id: "c-1", lead_id: leadId, created: h.intakeCalls.length === 1 }, error: null };
       }),
   };
 });
@@ -72,6 +76,7 @@ beforeEach(() => {
   };
   h.intakeCalls = [];
   h.sent = [];
+  h.closed = false;
 });
 
 describe("admissions welcome menu", () => {
@@ -112,6 +117,43 @@ describe("admissions welcome menu", () => {
     expect(h.intakeCalls.at(-1)).toMatchObject({ campus_id: "camp-neev" });
     expect(callTasks()).toEqual([]);
     expect(run().status).toBe("completed");
+  });
+
+  it("a family whose lead had closed asks for a call back: the lead reopens and the call lands on Today", async () => {
+    h.closed = true;
+    await say("Hello", true);
+    await tap("call_back");
+    expect(h.intakeCalls.at(-1)).toMatchObject({ reopen: true });
+    expect(callTasks()).toHaveLength(1);
+  });
+
+  it("a QR scanned halfway through starts the menu again and is not taken as the child's name", async () => {
+    await say("Hi", true);
+    await tap("visit");
+    const first = run();
+    await say(prefilledText("gate_qr"));
+    expect(first.status).toBe("cancelled");
+    expect(run()).not.toBe(first);
+    expect(h.sent.at(-1)).toContain("[Request a call back | Visit the school | Online meeting]");
+    expect(h.intakeCalls.every((c) => c.child === undefined)).toBe(true);
+  });
+
+  it("the campus the parent taps wins over the campus the date of birth points to", async () => {
+    h.tables.admissions_settings[1].value = { born_from: "2019-06-01", born_before: "2020-06-01" }; // Gurukul by date
+    await say("Hi", true);
+    await tap("visit");
+    await say("Meera");
+    await say("01/01/2020");
+    await tap("neev");
+    expect(h.intakeCalls.at(-1)).toMatchObject({ campus_id: "camp-neev" });
+  });
+
+  it("a name with & or # cannot break the booking link", async () => {
+    await say("Hi", true);
+    await tap("online");
+    await say("Riya & Kabir #2");
+    await say("01/06/2019");
+    expect(h.sent.at(-1)).toContain("child-first-name=Riya%20%26%20Kabir%20%232");
   });
 
   it("online meeting: straight to the online calendar after the child's details", async () => {
