@@ -16,7 +16,7 @@ _Overwritten at the end of every session. Keep under 30 lines. Facts only._
 
 ## Next step
 0. #73 can run any time (independent, small).
-1. Coordinator: check PR #75 loop-guard is green after the re-budget, then review + merge #63.
+1. PR #75: budget now passes; loop-guard still red on a guard bug (merge-ref checkout counts #74's HANDOFF.md/route.test.ts as builder edits; see LESSONS). Builder diff is clean. Coordinator: either fix the plugin's loop-guard checkout (head.sha) and re-run, or merge main into `plan/t63`, set Plan-base to that tip, merge it into the build branch. Then review + merge.
 2. Next plan job: seed #18 (blocked by #63; label `ready` when #63 merges). Then one plan job per milestone to seed its ticket.
 
 ## Blocked / open questions

@@ -9,3 +9,14 @@
 {"issue": 26, "size": "small", "model": "fable", "attempts": 4, "result": "pr", "ts": "2026-11-26T00:23:56"}
 {"issue": 26, "size": "standard", "model": "sonnet", "attempts": 2, "result": "pr", "ts": "2026-11-26T00:51:02"}
 {"issue": 30, "size": "small", "attempts": 5, "result": "escalated", "ts": "2026-11-26T01:12:14"}
+{"issue": 30, "size": "small", "model": "haiku", "attempts": 6, "result": "pr", "ts": "2026-11-26T01:22:52"}
+{"issue": 27, "size": "standard", "model": "fable", "attempts": 4, "result": "pr", "ts": "2026-11-26T01:35:52"}
+{"issue": 36, "size": "standard", "model": "sonnet", "attempts": 1, "result": "pr", "ts": "2026-11-26T01:59:22"}
+{"issue": 36, "size": "standard", "model": "sonnet", "attempts": 2, "result": "pr", "ts": "2026-11-26T02:08:16"}
+{"issue": 37, "size": "standard", "model": "fable", "attempts": 4, "result": "pr", "ts": "2026-11-26T02:16:49"}
+{"issue": 51, "size": "standard", "model": "sonnet", "attempts": 1, "result": "pr", "ts": "2026-11-26T02:34:46"}
+{"issue": 56, "size": "standard", "model": "sonnet", "attempts": 1, "result": "pr", "ts": "2026-11-26T02:51:58"}
+{"issue": 56, "size": "standard", "model": "sonnet", "attempts": 2, "result": "pr", "ts": "2026-11-26T02:57:36"}
+{"issue": 52, "size": "standard", "model": "sonnet", "attempts": 1, "result": "pr", "ts": "2026-11-26T03:10:04"}
+{"issue": 7, "size": "standard", "model": "fable", "attempts": 5, "result": "pr", "ts": "2026-11-26T08:36:37"}
+{"issue": 63, "size": "standard", "model": "fable", "attempts": 4, "result": "pr", "ts": "2026-11-26T09:54:57"}
