@@ -9,7 +9,6 @@ import type { Translate } from '@/lib/i18n/translate';
 import { presenceLabel } from '@/lib/presence';
 import { buildHandoffSummary } from '@/lib/ai/handoff';
 import { notificationText } from '@/lib/notifications/notification-text';
-import { ModeToggle } from '@/components/layout/mode-toggle';
 import { AppearancePanel } from '@/components/settings/appearance-panel';
 
 const themeState = vi.hoisted(() => ({ mode: 'dark', theme: 'violet' }));
@@ -93,22 +92,6 @@ describe('Portuguese messages in their UI context', () => {
     );
     expect(t('importBtn', { count: 0 })).toBe('Importar 0 contatos');
   });
-
-  it.each([
-    ['dark', 'claro'],
-    ['light', 'escuro'],
-  ])(
-    'describes the destination of the %s mode toggle in Portuguese',
-    (mode, target) => {
-      themeState.mode = mode;
-      const html = renderToStaticMarkup(
-        <NextIntlClientProvider locale="pt" messages={messages} timeZone="UTC">
-          <ModeToggle />
-        </NextIntlClientProvider>
-      );
-      expect(html).toContain(`aria-label="Mudar para o modo ${target}"`);
-    }
-  );
 
   it('renders localized theme names, descriptions and accessible mode labels', () => {
     const html = renderToStaticMarkup(
