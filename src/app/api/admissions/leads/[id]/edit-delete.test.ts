@@ -152,6 +152,8 @@ describe("PATCH { fields } — Edit mode", () => {
     [{ child_name: "x".repeat(81) }, /80 characters/],
     [{ grade: 5 }, /must be text/],
     [{ account_id: LEAD }, /Unknown field/],
+    [{ constructor: "x" }, /Unknown field/],
+    [{ toString: "x" }, /Unknown field/],
     [[], /details/],
   ])("refuses %j with 400", async (fields, message) => {
     const res = await edit(fields);

@@ -133,7 +133,7 @@ export function parseLeadFields(raw: unknown): { ok: true; edit: LeadEdit } | { 
   for (const [key, value] of Object.entries(raw)) {
     if (value !== null && typeof value !== "string") return { ok: false, error: `${key} must be text` };
     const v = value?.trim() || null;
-    const text = TEXT_FIELDS[key];
+    const text = Object.hasOwn(TEXT_FIELDS, key) ? TEXT_FIELDS[key] : undefined;
     if (text) {
       if (v && v.length > text.max) return { ok: false, error: `${text.label} can be at most ${text.max} characters` };
       (edit[text.to] as Record<string, string | null>)[text.column] = v;
