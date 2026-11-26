@@ -4,7 +4,6 @@ import {
   Inbox,
   KeyRound,
   LayoutGrid,
-  Palette,
   PlugZap,
   Shield,
   Tags,
@@ -22,11 +21,11 @@ import {
  * keeps the existing links in sidebar.tsx / header.tsx working) — we
  * just map the old values onto the new sections.
  */
+// Appearance (theme picker) is hidden in v1: light only (ADR 0008, ADR 0014 §3). ?tab=appearance falls back to Overview.
 export const SETTINGS_SECTIONS = [
   'overview',
   'profile',
   'security',
-  'appearance',
   'whatsapp',
   'templates',
   'quick-replies',
@@ -53,7 +52,6 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
   overview: { id: 'overview', label: 'Overview', icon: LayoutGrid, group: 'top' },
   profile: { id: 'profile', label: 'Your profile', icon: User, group: 'account' },
   security: { id: 'security', label: 'Login & security', icon: Shield, group: 'account' },
-  appearance: { id: 'appearance', label: 'Appearance', icon: Palette, group: 'account' },
   whatsapp: { id: 'whatsapp', label: 'WhatsApp', icon: PlugZap, group: 'workspace' },
   templates: { id: 'templates', label: 'Templates', icon: FileText, group: 'workspace' },
   'quick-replies': { id: 'quick-replies', label: 'Quick replies', icon: Zap, group: 'workspace' },

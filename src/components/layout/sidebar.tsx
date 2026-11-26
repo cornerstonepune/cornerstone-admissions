@@ -1,151 +1,92 @@
 "use client";
 
-import Link from "next/link";
+import NextLink from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/hooks/use-auth";
-import { useTotalUnread } from "@/hooks/use-total-unread";
 import { useUnreadNotifications } from "@/hooks/use-unread-notifications";
-import {
-  Bell,
-  Bot,
-  Crown,
-  GitBranch,
-  LayoutDashboard,
-  LogOut,
-  MessageSquare,
-  Radio,
-  Settings,
-  Shield,
-  User,
-  UserCog,
-  Users,
-  UsersRound,
-  Workflow,
-  X,
-  Zap,
-} from "lucide-react";
-import type { AccountRole } from "@/lib/auth/roles";
+import { Icon, type IconName } from "@/admissions/components/icons";
 
-// Per-role chip metadata used in the sidebar's account strip + the
-// Members tab roster. Keeping this near both consumers in a single
-// place avoids drift between the two surfaces — when a designer
-// wants to recolour "agent" rows, this is the one diff.
-const ROLE_CHIP: Record<
-  AccountRole,
-  { icon: typeof Crown; labelKey: string; className: string }
-> = {
-  owner: {
-    icon: Crown,
-    labelKey: "roleOwner",
-    // Amber: scarce, immutable, "the boss" — gets visual emphasis.
-    className:
-      "border-amber-500/40 bg-amber-500/10 text-amber-300",
-  },
-  admin: {
-    icon: Shield,
-    labelKey: "roleAdmin",
-    // Primary-tinted: significant but not as scarce as owner.
-    className:
-      "border-primary/40 bg-primary/10 text-primary",
-  },
-  agent: {
-    icon: UserCog,
-    labelKey: "roleAgent",
-    // Neutral slate: the operational default.
-    className:
-      "border-border bg-muted text-foreground",
-  },
-  viewer: {
-    icon: User,
-    labelKey: "roleViewer",
-    // Muted slate: read-only role; visually quieter than agent.
-    className:
-      "border-border bg-card text-muted-foreground",
-  },
-};
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@/components/ui/avatar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+// The Cornerstone sidebar (S-frame, ADR 0014 §3): three groups of doors on the dark menu ground. The current page is lit with
+// the action-soft fill and aria-current="page". From 701 px it sits beside the page and folds to its icons (the fold is kept in
+// localStorage); at 700 px or less it is a drawer, a modal opened by the bar's Menu button. Hidden in v1: Broadcasts, AI Agents.
+type Door = { href: string; label: string; icon: IconName; counted?: boolean };
 
-interface NavItem {
-  href: string;
-  labelKey: string;
-  icon: typeof LayoutDashboard;
-  /**
-   * When true, the nav row renders a small "Beta" chip after the label.
-   * Purely informational — doesn't affect routing or access.
-   */
-  beta?: boolean;
+export const MENU: readonly { group: string; doors: readonly Door[] }[] = [
+  {
+    group: "Daily work",
+    doors: [
+      { href: "/today", label: "Today", icon: "today" },
+      { href: "/inbox", label: "Inbox", icon: "inbox" },
+      { href: "/pipelines", label: "Pipeline", icon: "pipeline" },
+      { href: "/contacts", label: "Parents", icon: "parents" },
+      { href: "/notifications", label: "Notifications", icon: "notifications", counted: true },
+    ],
+  },
+  {
+    group: "Oversight",
+    doors: [
+      { href: "/report", label: "Report", icon: "report" },
+      { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
+    ],
+  },
+  {
+    group: "Set up",
+    doors: [
+      { href: "/admissions-settings", label: "Admissions settings", icon: "admissions-settings" },
+      { href: "/flows", label: "Flows", icon: "flows" },
+      { href: "/automations", label: "Automations", icon: "automations" },
+      { href: "/settings", label: "Account settings", icon: "setup" },
+    ],
+  },
+];
+
+export const FOLD_KEY = "cs.sidebar.folded";
+
+function readFold(): boolean {
+  try {
+    return localStorage.getItem(FOLD_KEY) === "1";
+  } catch {
+    return false; // storage refused (private window): start unfolded
+  }
 }
 
-const navItems: NavItem[] = [
-  { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard },
-  { href: "/inbox", labelKey: "inbox", icon: MessageSquare },
-  { href: "/notifications", labelKey: "notifications", icon: Bell },
-  { href: "/contacts", labelKey: "contacts", icon: Users },
-  { href: "/pipelines", labelKey: "pipelines", icon: GitBranch },
-  { href: "/broadcasts", labelKey: "broadcasts", icon: Radio },
-  { href: "/automations", labelKey: "automations", icon: Zap },
-  { href: "/flows", labelKey: "flows", icon: Workflow, beta: true },
-  { href: "/agents", labelKey: "aiAgents", icon: Bot },
-];
-
-const bottomNavItems = [
-  { href: "/settings", labelKey: "settings", icon: Settings },
-];
-
 interface SidebarProps {
-  /** Controlled on mobile by the Header's hamburger button. Ignored on lg+. */
+  /** The phone drawer, opened by the bar's Menu button. Never true from 701 px (the button is hidden there). */
   open?: boolean;
   onClose?: () => void;
 }
 
-import { useTranslations } from "next-intl";
-
 export function Sidebar({ open = false, onClose }: SidebarProps) {
-  const t = useTranslations("Sidebar");
   const pathname = usePathname();
-  const { profile, profileLoading, account, accountRole, signOut } = useAuth();
-  const totalUnread = useTotalUnread();
-  const unreadNotifications = useUnreadNotifications();
-  // Only surface the account-name strip when it actually carries
-  // information. A solo user's personal account is named after them
-  // (the 017 signup trigger seeds it from `full_name`), so showing it
-  // here would just duplicate the user name in the footer below. Once
-  // the account is renamed or the user joins a shared account, the
-  // name diverges and the strip becomes meaningful — that's the signal
-  // we gate on. Wait for the profile fetch to settle first, otherwise
-  // the strip flashes in once the row resolves (a layout jump).
-  const showAccountStrip =
-    !profileLoading &&
-    !!account?.name &&
-    account.name !== profile?.full_name;
+  const unread = useUnreadNotifications();
+  // The shell only draws the frame on the client (after auth resolves), so reading storage here never mismatches a server render.
+  const [folded, setFolded] = useState(readFold);
+  const closeRef = useRef<HTMLButtonElement>(null);
 
-  // Close the drawer when route changes — users opened it to navigate,
-  // so once they pick a destination the drawer should get out of the way.
+  const toggleFold = () => {
+    const next = !folded;
+    setFolded(next);
+    try {
+      localStorage.setItem(FOLD_KEY, next ? "1" : "0");
+    } catch {
+      // storage refused: the fold lasts until reload
+    }
+  };
+
+  // A picked door closes the drawer: it was opened to navigate.
   useEffect(() => {
     onClose?.();
-    // Only pathname drives this — onClose identity doesn't need to re-run it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
-  // Lock body scroll and allow Escape to close while the drawer is open on
-  // mobile. No-ops on desktop because the sidebar isn't positioned there.
+  // The drawer is a modal: focus moves in, Escape closes, the page behind does not scroll, and focus returns on close.
   useEffect(() => {
     if (!open) return;
+    const back = document.activeElement as HTMLElement | null;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    closeRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose?.();
     };
@@ -153,249 +94,99 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
     return () => {
       document.body.style.overflow = prev;
       window.removeEventListener("keydown", onKey);
+      back?.focus();
     };
   }, [open, onClose]);
 
   return (
     <>
-      {/* Backdrop — only exists on mobile and only when open. Clicking
-          it closes the drawer. Hidden from lg+ since the sidebar is
-          part of the main flex row there. */}
-      <button
-        type="button"
-        aria-label={t("closeMenu")}
-        onClick={onClose}
+      {open ? (
+        <div aria-hidden="true" onClick={onClose} className="fixed inset-0 z-30 bg-[var(--menu)] opacity-60 wide:hidden" />
+      ) : null}
+      <div
+        role={open ? "dialog" : undefined}
+        aria-modal={open || undefined}
+        aria-label={open ? "Menu" : undefined}
+        data-folded={folded || undefined}
         className={cn(
-          "fixed inset-0 z-30 bg-background/70 backdrop-blur-sm transition-opacity lg:hidden",
-          open
-            ? "pointer-events-auto opacity-100"
-            : "pointer-events-none opacity-0",
+          "flex shrink-0 flex-col overflow-y-auto bg-[var(--menu)] text-[var(--menu-ink)]",
+          // phone: a drawer from the left, drawn only while open
+          "max-wide:fixed max-wide:inset-y-0 max-wide:left-0 max-wide:z-40 max-wide:w-[calc(var(--space-7)*2.5)]",
+          !open && "max-wide:hidden",
+          folded ? "wide:w-[calc(var(--tap)+var(--space-2)*2)]" : "wide:w-[calc(var(--space-7)*2.5)]",
         )}
-      />
-
-      <aside
-        className={cn(
-          // Mobile: fixed drawer that slides in from the left.
-          "fixed inset-y-0 left-0 z-40 flex h-full w-64 flex-col border-r border-border bg-card",
-          "transition-transform duration-200 ease-out will-change-transform",
-          open ? "translate-x-0" : "-translate-x-full",
-          // Desktop: static, always visible — reset all the mobile framing.
-          "lg:static lg:z-0 lg:w-60 lg:translate-x-0 lg:transition-none",
-        )}
-        aria-label={t("primaryNav")}
       >
-        {/* Logo row. On mobile we put a close button here; on desktop the
-            close button is hidden since the sidebar is always-visible. */}
-        <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border px-4">
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <MessageSquare className="h-4 w-4" />
-            </div>
-            <span className="text-sm font-semibold text-foreground">
-              {t("title")}
-            </span>
-          </Link>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={t("closeMenu")}
-            className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground lg:hidden"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        {/* Main navigation */}
-        <nav className="flex-1 overflow-y-auto px-3 py-4">
-          <ul className="flex flex-col gap-1">
-            {navItems.map((item) => {
-              const isActive =
-                pathname === item.href ||
-                (item.href !== "/dashboard" && pathname.startsWith(item.href));
-
-              const showUnreadDot =
-                item.href === "/inbox" && totalUnread > 0 && !isActive;
-
-              // Unlike the inbox dot, the notifications count stays visible
-              // even while the page is active — it reflects unread state
-              // (cleared by marking notifications read), not "currently
-              // viewing this section".
-              const showNotificationBadge =
-                item.href === "/notifications" && unreadNotifications > 0;
-
-              return (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
+        <button
+          ref={closeRef}
+          type="button"
+          onClick={onClose}
+          className="m-[var(--space-2)] mb-0 inline-flex min-h-[var(--tap)] items-center gap-[var(--space-2)] self-start rounded-[var(--radius-control)] px-[var(--space-2)] text-label font-semibold hover:bg-[var(--menu-hover)] wide:hidden"
+        >
+          <Icon name="close" />
+          Close menu
+        </button>
+        <nav aria-label="Sections" className="grid flex-1 content-start gap-[var(--space-0)] px-[var(--space-2)] py-[var(--space-3)]">
+          {MENU.map(({ group, doors }) => (
+            <div key={group} className="grid gap-[var(--space-0)]">
+              <h2
+                className={cn(
+                  "mt-[var(--space-3)] mb-[var(--space-0)] px-[var(--space-2)] text-eyebrow font-semibold uppercase text-[var(--menu-ink-muted)] first:mt-0",
+                  folded && "wide:sr-only",
+                )}
+              >
+                {group}
+              </h2>
+              {doors.map((d) => {
+                const on = pathname === d.href || pathname.startsWith(d.href + "/");
+                const count = d.counted && unread > 0 ? (unread > 9 ? "9+" : String(unread)) : null;
+                return (
+                  <NextLink
+                    key={d.href}
+                    href={d.href}
+                    aria-current={on ? "page" : undefined}
+                    title={folded ? d.label : undefined}
                     className={cn(
-                      // Taller on mobile so fingers can hit the row reliably (≥44px).
-                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2",
-                      isActive
-                        ? "bg-primary/10 text-primary"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                      "flex min-h-[var(--tap)] items-center gap-[var(--space-2)] rounded-[var(--radius-control)] px-[var(--space-2)] text-label font-semibold no-underline",
+                      on ? "bg-[var(--action-soft)] text-[var(--action-soft-ink)]" : "text-[var(--menu-ink)] hover:bg-[var(--menu-hover)]",
                     )}
                   >
-                    <item.icon className="h-4 w-4" />
-                    <span className="flex-1">{t(item.labelKey as string)}</span>
-                    {item.beta && (
-                      <span
-                        aria-label={t("beta")}
-                        className="rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-amber-300"
-                      >
-                        {t("beta")}
-                      </span>
-                    )}
-                    {showUnreadDot && (
-                      <span
-                        aria-label={t("unreadConversations", { count: totalUnread })}
-                        className="relative flex h-2 w-2"
-                      >
-                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
-                        <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
-                      </span>
-                    )}
-                    {showNotificationBadge && (
-                      <span
-                        aria-label={t("unreadNotifications", { count: unreadNotifications })}
-                        className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground"
-                      >
-                        {unreadNotifications > 9 ? "9+" : unreadNotifications}
-                      </span>
-                    )}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-
-          <div className="my-4 border-t border-border" />
-
-          <ul className="flex flex-col gap-1">
-            {bottomNavItems.map((item) => {
-              const isActive = pathname.startsWith(item.href);
-              return (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    className={cn(
-                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2",
-                      isActive
-                        ? "bg-primary/10 text-primary"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                    )}
-                  >
-                    <item.icon className="h-4 w-4" />
-                    {t(item.labelKey as string)}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
-
-        {/* User section */}
-        <div className="shrink-0 border-t border-border p-3">
-          {/* Account name display — surfaced only when the account
-              name differs from the user's own name (see
-              `showAccountStrip`). For a default solo account the two
-              match, so we hide it to avoid duplicating the user name
-              below; for renamed or shared accounts it tells the user
-              which account they're acting in. */}
-          {showAccountStrip && account?.name ? (
-            <div className="mb-2 flex items-center gap-2 px-3 text-xs text-muted-foreground">
-              <UsersRound className="size-3.5 shrink-0" />
-              {/* `title=` exposes the full name on hover when it
-                  gets truncated (long account names + narrow
-                  sidebars). Cheap a11y win. */}
-              <span className="truncate" title={account.name}>
-                {account.name}
-              </span>
-              {accountRole ? (
-                // Always render the chip — owners used to be
-                // invisible here, which made them indistinguishable
-                // from admins at a glance. Now everyone sees their
-                // role (with a colour cue) regardless of tier.
-                (() => {
-                  const meta = ROLE_CHIP[accountRole];
-                  const Icon = meta.icon;
-                  return (
                     <span
-                      className={`ml-auto inline-flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider ${meta.className}`}
+                      className={cn(
+                        "grid size-[var(--space-4)] shrink-0 place-items-center rounded-[var(--radius-control)]",
+                        on ? "bg-[var(--action)] text-[var(--action-ink)]" : "bg-[var(--menu-hover)]",
+                      )}
                     >
-                      <Icon className="size-3" />
-                      {t(meta.labelKey as string)}
+                      <Icon name={d.icon} size={16} />
                     </span>
-                  );
-                })()
-              ) : null}
+                    <span className={cn("min-w-0 flex-1 truncate", folded && "wide:sr-only")}>{d.label}</span>
+                    {count ? (
+                      <b
+                        className={cn(
+                          "rounded-[var(--radius-pill)] bg-[var(--action)] px-[var(--space-1)] text-caption text-[var(--action-ink)] tabular-nums",
+                          folded && "wide:sr-only",
+                        )}
+                      >
+                        {count}
+                        <span className="sr-only"> unread</span>
+                      </b>
+                    ) : null}
+                  </NextLink>
+                );
+              })}
             </div>
-          ) : null}
-          <DropdownMenu>
-            <DropdownMenuTrigger className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-muted/60 focus:bg-muted/60 focus:outline-none data-popup-open:bg-muted/60">
-              <Avatar className="size-8 shrink-0">
-                {profile?.avatar_url ? (
-                  <AvatarImage
-                    src={profile.avatar_url}
-                    alt={profile.full_name ?? t("defaultAvatar")}
-                  />
-                ) : null}
-                <AvatarFallback className="bg-primary/10 text-sm font-medium text-primary">
-                  {profile?.full_name?.charAt(0)?.toUpperCase() ??
-                    profile?.email?.charAt(0)?.toUpperCase() ??
-                    "U"}
-                </AvatarFallback>
-              </Avatar>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-foreground">
-                  {profile?.full_name ?? t("defaultUser")}
-                </p>
-                <p className="truncate text-xs text-muted-foreground">
-                  {profile?.email ?? ""}
-                </p>
-              </div>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              side="top"
-              sideOffset={6}
-              className="min-w-56 bg-popover text-popover-foreground ring-border"
-            >
-              <DropdownMenuItem
-                render={
-                  <Link
-                    href="/settings?tab=profile"
-                    onClick={onClose}
-                    className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
-                  />
-                }
-              >
-                <User className="size-4" />
-                {t("menuProfile")}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                render={
-                  <Link
-                    href="/settings?tab=whatsapp"
-                    onClick={onClose}
-                    className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
-                  />
-                }
-              >
-                <Settings className="size-4" />
-                {t("menuSettings")}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator className="bg-border" />
-              <DropdownMenuItem
-                onClick={signOut}
-                className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
-              >
-                <LogOut className="size-4" />
-                {t("menuSignOut")}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </aside>
+          ))}
+        </nav>
+        <button
+          type="button"
+          onClick={toggleFold}
+          aria-expanded={!folded}
+          aria-label={folded ? "Unfold the sidebar" : "Fold the sidebar"}
+          className="m-[var(--space-2)] mt-0 inline-flex min-h-[var(--tap)] items-center gap-[var(--space-2)] self-start rounded-[var(--radius-control)] px-[var(--space-2)] text-label text-[var(--menu-ink-muted)] hover:bg-[var(--menu-hover)] max-wide:hidden"
+        >
+          <Icon name={folded ? "expand" : "collapse"} />
+          {folded ? null : "Fold"}
+        </button>
+      </div>
     </>
   );
 }

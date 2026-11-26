@@ -3,6 +3,7 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "../../design/tokens.css" layer(tokens);
+@import "../admissions/styles/blocks.css";
 @source not "../../design";
 
 @theme {
