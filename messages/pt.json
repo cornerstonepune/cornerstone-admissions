@@ -2563,7 +2563,7 @@
       "callThanks": "Thank you so much. Someone from our admissions team will call you within 24 hours. We look forward to speaking with you.",
       "askCampus": "We would love to show you around. Which campus would you like to visit?",
       "campusNeev": "Neev (Playgroup–KG)",
-      "campusGurukul": "Gurukul (Grade 1–7)",
+      "campusGurukul": "Gurukul (Grade 1–5)",
       "visitLink": "Please pick a time that suits you here, and we will be waiting to welcome you and {name}:\n{link}",
       "onlineLink": "Of course. Please pick a time that suits you here, and the meeting link will reach you as soon as you book:\n{link}",
       "handoffNote": "From the welcome chat: asked for a call back. Child {name}, date of birth {dob}."
