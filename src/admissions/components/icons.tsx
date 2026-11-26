@@ -1,20 +1,26 @@
 import {
   Bell,
+  CalendarDays,
   ChartColumn,
+  ChevronLeft,
+  ChevronRight,
   House,
   Inbox,
   Kanban,
   LayoutDashboard,
   LogOut,
   type LucideIcon,
+  MapPin,
   Menu,
   PanelLeftClose,
   PanelLeftOpen,
   Pencil,
+  Phone,
   Plus,
   Settings,
   SlidersHorizontal,
   Sun,
+  Video,
   Workflow,
   X,
   Zap,
@@ -26,6 +32,7 @@ import {
 export const ICONS = {
   // the sidebar's doors (ADR 0014 §3)
   today: Sun,
+  calendar: CalendarDays,
   inbox: Inbox,
   pipeline: Kanban,
   parents: House,
@@ -45,6 +52,12 @@ export const ICONS = {
   // S-admissions-settings: add a setting, and a change-log line
   add: Plus,
   edit: Pencil,
+  // the Calendar (ADR 0040): the three kinds of meeting, and month paging
+  campus: MapPin,
+  virtual: Video,
+  phone: Phone,
+  previous: ChevronLeft,
+  next: ChevronRight,
 } satisfies Record<string, LucideIcon>;
 export type IconName = keyof typeof ICONS;
 

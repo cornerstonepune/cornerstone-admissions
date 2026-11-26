@@ -266,6 +266,66 @@ $$;
 
 
 --
+-- Name: book_meeting(uuid, timestamp with time zone, text, uuid, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.book_meeting(p_lead_id uuid, p_starts_at timestamp with time zone, p_kind text, p_campus_id uuid DEFAULT NULL::uuid, p_url text DEFAULT NULL::text) RETURNS TABLE(visit_id uuid, created boolean, account_id uuid, contact_id uuid, owner_id uuid)
+    LANGUAGE plpgsql
+    SET search_path TO 'public'
+    AS $$
+#variable_conflict use_column
+DECLARE
+  v_lead record;
+  v_campus uuid;
+  v_id uuid;
+  v_stage record;
+BEGIN
+  SELECT l.id, l.account_id, l.contact_id, l.campus_id INTO v_lead FROM leads l
+  WHERE l.id = p_lead_id AND l.exit IS NULL AND l.admitted_at IS NULL;
+  IF v_lead.id IS NULL THEN
+    RAISE EXCEPTION 'Only an open lead can have a meeting booked' USING ERRCODE = '23514';
+  END IF;
+  IF NOT is_account_member(v_lead.account_id, 'agent') THEN
+    RAISE EXCEPTION 'You cannot book meetings' USING ERRCODE = '42501';
+  END IF;
+  IF p_starts_at IS NULL OR p_kind IS NULL OR p_kind NOT IN ('campus', 'virtual', 'phone') THEN
+    RAISE EXCEPTION 'A meeting needs a time and a kind' USING ERRCODE = '23514';
+  END IF;
+  IF p_campus_id IS NOT NULL THEN
+    SELECT s.id INTO v_campus FROM admissions_settings s
+    WHERE s.id = p_campus_id AND s.account_id = v_lead.account_id AND s.kind = 'campus' AND s.active;
+    IF v_campus IS NULL THEN RAISE EXCEPTION 'Not a campus of this account' USING ERRCODE = '23514'; END IF;
+  END IF;
+
+  -- already booked at this moment (Cal.com, or a retried save): the same meeting, not created
+  SELECT v.id INTO v_id FROM visits v
+  WHERE v.lead_id = v_lead.id AND v.starts_at = p_starts_at AND v.status = 'booked' ORDER BY v.created_at LIMIT 1;
+  IF v_id IS NULL THEN
+    INSERT INTO visits (account_id, lead_id, starts_at, campus_id, kind, meeting_url)
+    VALUES (v_lead.account_id, v_lead.id, p_starts_at, coalesce(v_campus, v_lead.campus_id), p_kind,
+            CASE WHEN p_kind = 'virtual' THEN nullif(btrim(p_url), '') END)
+    ON CONFLICT (lead_id, starts_at) WHERE status = 'booked' AND cal_booking_id IS NULL DO NOTHING  -- a double save
+    RETURNING id INTO v_id;
+    IF v_id IS NOT NULL THEN
+      SELECT * INTO v_stage FROM visit_booked_stage(v_lead.id);
+      IF v_stage.current_pos < v_stage.stage_pos THEN
+        PERFORM move_lead(v_lead.id, v_stage.stage_id);
+      END IF;
+      RETURN QUERY SELECT v_id, true, v_lead.account_id, v_lead.contact_id, a.owner_user_id
+        FROM accounts a WHERE a.id = v_lead.account_id;
+      RETURN;
+    END IF;
+    SELECT v.id INTO v_id FROM visits v
+    WHERE v.lead_id = v_lead.id AND v.starts_at = p_starts_at AND v.status = 'booked' AND v.cal_booking_id IS NULL;
+  END IF;
+  IF v_id IS NOT NULL THEN
+    RETURN QUERY SELECT v_id, false, v_lead.account_id, v_lead.contact_id, a.owner_user_id
+      FROM accounts a WHERE a.id = v_lead.account_id;
+  END IF;
+END $$;
+
+
+--
 -- Name: broadcast_delivery_in_flight(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -346,10 +406,10 @@ $$;
 
 
 --
--- Name: calcom_book(text, timestamp with time zone, uuid, text, text, text); Type: FUNCTION; Schema: public; Owner: -
+-- Name: calcom_book(text, timestamp with time zone, uuid, text, text, text, text, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.calcom_book(p_booking text, p_starts_at timestamp with time zone, p_lead_id uuid, p_phone text, p_from_booking text DEFAULT NULL::text, p_location text DEFAULT NULL::text) RETURNS TABLE(lead_id uuid, account_id uuid, contact_id uuid, owner_id uuid)
+CREATE FUNCTION public.calcom_book(p_booking text, p_starts_at timestamp with time zone, p_lead_id uuid, p_phone text, p_from_booking text DEFAULT NULL::text, p_location text DEFAULT NULL::text, p_kind text DEFAULT 'campus'::text, p_url text DEFAULT NULL::text) RETURNS TABLE(lead_id uuid, account_id uuid, contact_id uuid, owner_id uuid)
     LANGUAGE plpgsql
     SET search_path TO 'public'
     AS $$
@@ -364,8 +424,11 @@ BEGIN
   IF v_lead IS NULL THEN RETURN; END IF;
   v_campus := calcom_campus((SELECT l.account_id FROM leads l WHERE l.id = v_lead), p_location);
 
-  INSERT INTO visits (account_id, lead_id, cal_booking_id, starts_at, campus_id)
-  SELECT l.account_id, l.id, p_booking, p_starts_at, coalesce(v_campus, l.campus_id) FROM leads l WHERE l.id = v_lead
+  INSERT INTO visits (account_id, lead_id, cal_booking_id, starts_at, campus_id, kind, meeting_url)
+  SELECT l.account_id, l.id, p_booking, p_starts_at, coalesce(v_campus, l.campus_id),
+         CASE WHEN p_kind IN ('campus', 'virtual', 'phone') THEN p_kind ELSE 'campus' END,
+         CASE WHEN p_kind = 'virtual' THEN p_url END
+  FROM leads l WHERE l.id = v_lead
   ON CONFLICT (cal_booking_id) DO NOTHING;
   IF NOT FOUND THEN RETURN; END IF;  -- the same booking, in a webhook delivered twice at once
 
@@ -3080,6 +3143,20 @@ $$;
 
 
 --
+-- Name: visits_set_created_by(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.visits_set_created_by() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO 'public'
+    AS $$
+BEGIN
+  NEW.created_by := auth.uid();
+  RETURN NEW;
+END $$;
+
+
+--
 -- Name: account_invitations; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -3637,7 +3714,7 @@ CREATE TABLE public.visits (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     account_id uuid NOT NULL,
     lead_id uuid NOT NULL,
-    cal_booking_id text NOT NULL,
+    cal_booking_id text,
     starts_at timestamp with time zone NOT NULL,
     campus_id uuid,
     status public.visit_status DEFAULT 'booked'::public.visit_status NOT NULL,
@@ -3646,7 +3723,12 @@ CREATE TABLE public.visits (
     rsvp_sent_at timestamp with time zone,
     reminder_sent_at timestamp with time zone,
     call_task_at timestamp with time zone,
-    CONSTRAINT visits_cal_booking_id_check CHECK ((btrim(cal_booking_id) <> ''::text))
+    kind text DEFAULT 'campus'::text NOT NULL,
+    meeting_url text,
+    created_by uuid,
+    CONSTRAINT visits_cal_booking_id_check CHECK ((btrim(cal_booking_id) <> ''::text)),
+    CONSTRAINT visits_kind_check CHECK ((kind = ANY (ARRAY['campus'::text, 'virtual'::text, 'phone'::text]))),
+    CONSTRAINT visits_meeting_url_check CHECK (((meeting_url IS NULL) OR ((kind = 'virtual'::text) AND (length(meeting_url) <= 500) AND (meeting_url ~ '^https://[^[:space:]]+$'::text))))
 );
 
 
@@ -5084,10 +5166,24 @@ CREATE INDEX settings_changes_account_idx ON public.settings_changes USING btree
 
 
 --
+-- Name: visits_account_starts_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX visits_account_starts_idx ON public.visits USING btree (account_id, starts_at);
+
+
+--
 -- Name: visits_lead_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX visits_lead_id_idx ON public.visits USING btree (lead_id, created_at DESC);
+
+
+--
+-- Name: visits_one_staff_meeting_per_time; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX visits_one_staff_meeting_per_time ON public.visits USING btree (lead_id, starts_at) WHERE ((status = 'booked'::public.visit_status) AND (cal_booking_id IS NULL));
 
 
 --
@@ -5361,6 +5457,13 @@ CREATE TRIGGER update_visits_updated_at BEFORE UPDATE ON public.visits FOR EACH 
 --
 
 CREATE TRIGGER visits_check_refs BEFORE INSERT OR UPDATE ON public.visits FOR EACH ROW EXECUTE FUNCTION public.check_visit_refs();
+
+
+--
+-- Name: visits visits_set_created_by; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER visits_set_created_by BEFORE INSERT ON public.visits FOR EACH ROW EXECUTE FUNCTION public.visits_set_created_by();
 
 
 --
@@ -6257,6 +6360,14 @@ ALTER TABLE ONLY public.visits
 
 ALTER TABLE ONLY public.visits
     ADD CONSTRAINT visits_campus_id_fkey FOREIGN KEY (campus_id) REFERENCES public.admissions_settings(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: visits visits_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.visits
+    ADD CONSTRAINT visits_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
 
 
 --

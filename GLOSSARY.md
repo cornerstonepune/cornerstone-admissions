@@ -71,8 +71,14 @@ _Avoid_: UTM, campaign id
 Neev or Gurukul. The child's date of birth decides which, by the cut-off in Settings.
 _Avoid_: school, branch, centre
 
+**Meeting**:
+Any time set with a family: a campus visit, a video call or a phone call (ADR 0040). Booked on Cal.com (the website, a staff link) or by staff while logging a call. All meetings are on the Calendar and get the same WhatsApp reminders. Stored as a visit row with a kind.
+
+**Calendar**:
+The screen with every meeting on a month (ADR 0040).
+
 **Visit**:
-A family's booked campus visit, made through Cal.com. A lead keeps every visit it has had (rescheduled, cancelled, no-show); its current visit is the latest one not cancelled or rescheduled.
+A family's booked meeting; first a campus visit made through Cal.com, now any meeting (see Meeting). A lead keeps every visit it has had (rescheduled, cancelled, no-show); its current visit is the latest one not cancelled or rescheduled.
 _Avoid_: tour, appointment, meeting
 
 **No-show**:

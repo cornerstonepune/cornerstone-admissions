@@ -43,7 +43,7 @@ _The locked blueprint. Agents read §1–4 and the current milestone every sessi
 | broadcasts, broadcast_recipients | bulk sends | | 0 | hidden in v1 |
 | ai_configs, ai_knowledge_documents, ai_knowledge_chunks, ai_usage_log | AI replies | | 0 | hidden in v1 |
 
-- **Entities M0 adds (6, in `public`; spec `docs/spec/m0-data-model.md`, ADR 0010, ADR 0011):** `leads` (1:1 with a deal in the Admissions pipeline: child name, date of birth, grade, campus, area, source, exit, lost reason; ADR 0007), `visits` (every Cal.com booking, reschedule, cancel and no-show for a lead, Cal.com booking id unique; the lead's current visit is derived from it), `lead_stage_history`, `admissions_settings` (one row per campus, source, lost reason, follow-up rule or alert, by `kind`), `lead_activity` (follow-up sends, call tasks and their call log), `settings_changes` (audit).
+- **Entities M0 adds (6, in `public`; spec `docs/spec/m0-data-model.md`, ADR 0010, ADR 0011):** `leads` (1:1 with a deal in the Admissions pipeline: child name, date of birth, grade, campus, area, source, exit, lost reason; ADR 0007), `visits` (every meeting with a family: campus visit, video or phone call (ADR 0040); every Cal.com booking, reschedule, cancel and no-show, Cal.com booking id unique when present; meetings staff book on a call; the lead's current visit is derived from it), `lead_stage_history`, `admissions_settings` (one row per campus, source, lost reason, follow-up rule or alert, by `kind`), `lead_activity` (follow-up sends, call tasks and their call log), `settings_changes` (audit).
 - **Core flow:** a message, form or quick-add finds-or-creates the contact by phone → one open lead (deal + `leads` row) in Enquiry → each stage move writes one history row → rules read settings and queue sends or call tasks → a parent reply pauses them → Admitted, Lost (with reason) or Dormant closes the lead.
 - **Invariants (each becomes a test in M0):**
   1. Self sign-up is off: a sign-up without an invitation creates no account and no profile.
@@ -72,6 +72,7 @@ _The locked blueprint. Agents read §1–4 and the current milestone every sessi
 | S-lead | Lead card and its right-side panel | Lakshmi ma'am | child details, stage history, calls | `design/wireframes/S-lead.html` | new, M3 |
 | S-quick-add | Staff quick-add (3 fields, phone) | staff | log a walk-in in 30 s | `design/wireframes/S-quick-add.html` | new, M4 |
 | S-today | Today list | Lakshmi ma'am | who to call, who visits, who is stuck | `design/wireframes/S-today.html` | new, M6 |
+| S-calendar | Calendar of meetings | Lakshmi ma'am, Akanksha | every visit, video and phone call on a month | none (click-through, ADR 0040) | new (ADR 0040) |
 | S-admissions-settings | Admissions Settings (8 tabs, brief §7) | Nimish, Akanksha, Lakshmi ma'am | change rules without a developer | `design/wireframes/S-admissions-settings.html` | new, M6 |
 | S-report | Funnel report | Nimish, Akanksha | funnel by stage and source, days per stage, lost reasons | `design/wireframes/S-report.html` | new, M7; charts, grade, campus, trend (ADR 0037) |
 

@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { CALL_OUTCOMES } from "@/admissions/lib/pipeline";
+import { MEETING_KINDS, type MeetingKind } from "@/admissions/lib/meetings";
 import { KeyValue, KindTile, StatusChip, Stepper, Timeline, stageColour, type Tone } from "./parts";
 import { LeadConversations } from "./lead-conversations";
 
@@ -55,7 +56,7 @@ interface LeadDetail {
     notes: string | null;
     by_name: string | null;
   }[];
-  visit: { starts_at: string; status: string } | null;
+  visit: { starts_at: string; status: string; kind: MeetingKind; meeting_url: string | null } | null;
   lostReasons: Choice[];
   campuses: Choice[];
   sources: Choice[];
@@ -146,24 +147,39 @@ export function LostForm({
   );
 }
 
-function CallForm({ onSaved, leadId }: { leadId: string; onSaved: () => void }) {
+/** Logs a call; "Meeting set" books the meeting the call agreed (ADR 0040): it goes on the Calendar and gets the
+ * same WhatsApp confirmation and reminders as a Cal.com booking. */
+function CallForm({ onSaved, leadId, campuses, campusId }: { leadId: string; onSaved: () => void; campuses: Choice[]; campusId: string | null }) {
   const [outcome, setOutcome] = useState<string>(CALL_OUTCOMES[0]);
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
+  const [meet, setMeet] = useState(false);
+  const [when, setWhen] = useState("");
+  const [kind, setKind] = useState<MeetingKind>("campus");
+  const [campus, setCampus] = useState(campusId ?? "");
+  const [link, setLink] = useState("");
   return (
     <form
       className="grid gap-2"
       onSubmit={async (e) => {
         e.preventDefault();
+        if (meet && !when) return toast.error("Pick the meeting's date and time");
         setBusy(true);
+        const meeting = meet
+          ? { starts_at: new Date(when).toISOString(), kind, campus_id: campus || null, url: kind === "virtual" ? link : null }
+          : undefined;
         const res = await fetch(`/api/admissions/leads/${leadId}/calls`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ outcome, notes }),
+          body: JSON.stringify({ outcome, notes, meeting }),
         });
         setBusy(false);
         if (!res.ok) return toast.error((await res.json().catch(() => null))?.error ?? "Couldn't save the call");
+        if (meet) toast.success("Meeting added to the Calendar");
         setNotes("");
+        setMeet(false);
+        setWhen("");
+        setLink("");
         onSaved();
       }}
     >
@@ -179,6 +195,63 @@ function CallForm({ onSaved, leadId }: { leadId: string; onSaved: () => void }) 
         Notes
       </label>
       <textarea id="call-notes" value={notes} onChange={(e) => setNotes(e.target.value)} className={`${field} py-2`} />
+      <label className="flex min-h-11 items-center gap-2 text-label font-semibold">
+        <input type="checkbox" checked={meet} onChange={(e) => setMeet(e.target.checked)} className="size-4" />
+        Meeting set on this call
+      </label>
+      {meet ? (
+        <fieldset className="grid gap-2 rounded-[var(--radius-card)] border border-border p-3">
+          <legend className="px-1 text-label font-semibold">Meeting</legend>
+          <label htmlFor="meet-when" className="text-label font-semibold">
+            Date and time
+          </label>
+          <input id="meet-when" type="datetime-local" required value={when} onChange={(e) => setWhen(e.target.value)} className={field} />
+          <label htmlFor="meet-kind" className="text-label font-semibold">
+            Kind
+          </label>
+          <select id="meet-kind" value={kind} onChange={(e) => setKind(e.target.value as MeetingKind)} className={field}>
+            {(Object.keys(MEETING_KINDS) as MeetingKind[]).map((k) => (
+              <option key={k} value={k}>
+                {MEETING_KINDS[k]}
+              </option>
+            ))}
+          </select>
+          {campuses.length ? (
+            <>
+              <label htmlFor="meet-campus" className="text-label font-semibold">
+                Campus
+              </label>
+              <select id="meet-campus" value={campus} onChange={(e) => setCampus(e.target.value)} className={field}>
+                <option value="">Not decided</option>
+                {campuses.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </>
+          ) : null}
+          {kind === "virtual" ? (
+            <>
+              <label htmlFor="meet-link" className="text-label font-semibold">
+                Meeting link (optional)
+              </label>
+              <input
+                id="meet-link"
+                type="url"
+                inputMode="url"
+                placeholder="https://meet.google.com/…"
+                value={link}
+                onChange={(e) => setLink(e.target.value)}
+                className={field}
+              />
+            </>
+          ) : null}
+          <p className="m-0 text-caption text-muted-foreground">
+            The parent gets the WhatsApp confirmation now, and reminders the day before and that morning.
+          </p>
+        </fieldset>
+      ) : null}
       <Button type="submit" disabled={busy} className="justify-self-start">
         Save call
       </Button>
@@ -596,9 +669,15 @@ export function LeadPanel({
                         hour: "2-digit",
                         minute: "2-digit",
                       })}
+                      <span>· {MEETING_KINDS[data.visit.kind] ?? "Campus visit"}</span>
+                      {data.visit.meeting_url ? (
+                        <a href={data.visit.meeting_url} target="_blank" rel="noopener noreferrer" className="text-[var(--link)]">
+                          Join link
+                        </a>
+                      ) : null}
                     </p>
                   ) : (
-                    <p className="m-0 text-caption text-muted-foreground">No visit booked.</p>
+                    <p className="m-0 text-caption text-muted-foreground">No meeting booked. Set one when you log a call.</p>
                   )}
                 </Section>
                 <Section title="Follow-ups">
@@ -627,7 +706,7 @@ export function LeadPanel({
               </TabsContent>
 
               <TabsContent value="calls" className="grid gap-4 pt-2">
-                <CallForm leadId={lead!.id} onSaved={load} />
+                <CallForm leadId={lead!.id} onSaved={() => (load(), onChanged())} campuses={data.campuses} campusId={lead!.campus_id} />
                 {calls.length ? (
                   <Timeline
                     entries={calls.map((c) => ({
