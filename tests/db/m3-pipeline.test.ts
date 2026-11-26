@@ -125,3 +125,17 @@ describe("G3.3 Lost needs a lost reason", () => {
       expect(l.exit).toBe("lost");
     }));
 });
+
+describe("a lead can't be moved from another account", () => {
+  it("refuses an agent of account B moving account A's lead, and writes no history", () =>
+    tx(async (t) => {
+      const a = await account(t);
+      const b = await account(t);
+      const { leadId } = await lead(t, a);
+      await actAs(t, await member(t, b.accountId, "agent"));
+      const err = await errorOf(t, (s) => s`select public.move_lead(${leadId}, ${a.stageIds[1]})`);
+      expect(err?.code).toBe("23514");
+      await actAsSuperuser(t);
+      expect(await historyOf(t, leadId)).toHaveLength(1);
+    }));
+});

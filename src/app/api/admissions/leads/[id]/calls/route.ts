@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireRole, toErrorResponse } from "@/lib/auth/account";
 import { CALL_OUTCOMES, statusOf } from "@/admissions/lib/pipeline";
+import { isUuid } from "@/lib/api/v1/pagination";
 
 /**
  * POST /api/admissions/leads/[id]/calls — { outcome, notes? } logs a call made now, as a done call task (lead_activity).
@@ -8,6 +9,8 @@ import { CALL_OUTCOMES, statusOf } from "@/admissions/lib/pipeline";
  */
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
+  // A malformed id would reach Postgres as 22P02 (a 500); refuse it here instead.
+  if (!isUuid(id)) return NextResponse.json({ error: "Not a valid id" }, { status: 400 });
   try {
     const { supabase, accountId, userId } = await requireRole("agent");
     const body = (await request.json().catch(() => null)) as { outcome?: unknown; notes?: unknown } | null;
