@@ -33,6 +33,7 @@
  */
 
 import { supabaseAdmin } from "./admin-client";
+import { intakeFromWhatsApp } from "@/admissions/lib/intake";
 import {
   engineSendInteractiveButtons,
   engineSendInteractiveList,
@@ -986,6 +987,21 @@ async function closeActiveRun(
 // ============================================================
 
 export async function dispatchInboundToFlows(
+  input: DispatchInboundInput & { isFirstInboundMessage: boolean },
+): Promise<DispatchInboundResult> {
+  const result = await dispatchToRuns(input);
+  // Admissions one door (M4, #67): every inbound opens or reuses the parent's lead, with the source from a QR code in
+  // the text and the welcome flow's answers. After the run, so this message's answer is already in its vars.
+  await intakeFromWhatsApp(supabaseAdmin(), {
+    accountId: input.accountId,
+    contactId: input.contactId,
+    text: input.message.kind === "text" ? input.message.text : input.message.reply_title,
+    flowRunId: result.consumed ? result.flow_run_id : undefined,
+  });
+  return result;
+}
+
+async function dispatchToRuns(
   input: DispatchInboundInput & { isFirstInboundMessage: boolean },
 ): Promise<DispatchInboundResult> {
   const db = supabaseAdmin();

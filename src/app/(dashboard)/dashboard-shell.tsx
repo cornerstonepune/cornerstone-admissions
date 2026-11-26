@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { Sidebar } from "@/components/layout/sidebar";
@@ -23,6 +23,8 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
   // always visible and this stays at `false` (ignored by the component).
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
+  // S-quick-add is staff's whole app: the bar and the form, no sidebar (wireframe frame "bare").
+  const bare = usePathname() === "/quick-add";
 
   useEffect(() => {
     if (!loading && !user) {
@@ -52,9 +54,9 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
           Your profile). Headless — renders nothing. */}
       <BrowserNotificationsListener />
       {/* S-frame: the bar across the top, the sidebar beside the page below it. */}
-      <Header onOpenSidebar={() => setSidebarOpen(true)} />
+      <Header onOpenSidebar={bare ? undefined : () => setSidebarOpen(true)} />
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        <Sidebar open={sidebarOpen} onClose={closeSidebar} />
+        {!bare && <Sidebar open={sidebarOpen} onClose={closeSidebar} />}
         {/* Thinner horizontal padding on mobile so cards have room to breathe. */}
         <main className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-6">
           {/* Above every page: writes are being rejected and here's why.

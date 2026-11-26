@@ -298,10 +298,66 @@ const LEAD_CAPTURE: FlowTemplate = {
 };
 
 // ============================================================
+// 4. Admissions welcome (M4, #67) — the parent's first message.
+// The webhook hands the vars child_name and child_dob to admissions
+// intake (src/admissions/lib/intake.ts), which fills the parent's lead
+// and picks the campus by date of birth. Keep those var keys when
+// editing the words in Flows.
+// ============================================================
+const ADMISSIONS_WELCOME: FlowTemplate = {
+  slug: "admissions_welcome",
+  name: t("admissions_welcome.name"),
+  description: t("admissions_welcome.description"),
+  icon: "UserPlus",
+  trigger_type: "first_inbound_message",
+  trigger_config: {},
+  entry_node_id: "start",
+  nodes: [
+    { node_key: "start", node_type: "start", config: { next_node_key: "intro" } },
+    {
+      node_key: "intro",
+      node_type: "send_message",
+      config: { text: t("admissions_welcome.intro"), next_node_key: "ask_child" } as SendMessageNodeConfig,
+    },
+    {
+      node_key: "ask_child",
+      node_type: "collect_input",
+      config: {
+        prompt_text: t("admissions_welcome.askChild"),
+        var_key: "child_name",
+        next_node_key: "ask_dob",
+      } as CollectInputNodeConfig,
+    },
+    {
+      node_key: "ask_dob",
+      node_type: "collect_input",
+      config: {
+        prompt_text: t("admissions_welcome.askDob", { name: "{{vars.child_name}}" }),
+        var_key: "child_dob",
+        next_node_key: "thanks",
+      } as CollectInputNodeConfig,
+    },
+    {
+      node_key: "thanks",
+      node_type: "send_message",
+      config: { text: t("admissions_welcome.thanks"), next_node_key: "handoff" } as SendMessageNodeConfig,
+    },
+    {
+      node_key: "handoff",
+      node_type: "handoff",
+      config: {
+        note: t("admissions_welcome.handoffNote", { name: "{{vars.child_name}}", dob: "{{vars.child_dob}}" }),
+      } as HandoffNodeConfig,
+    },
+  ],
+};
+
+// ============================================================
 // Registry
 // ============================================================
 
 const TEMPLATES: Record<string, FlowTemplate> = {
+  admissions_welcome: ADMISSIONS_WELCOME,
   welcome_menu: WELCOME_MENU,
   faq_bot: FAQ_BOT,
   lead_capture: LEAD_CAPTURE,

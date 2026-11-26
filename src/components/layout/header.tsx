@@ -23,10 +23,12 @@ export function Header({ onOpenSidebar }: HeaderProps) {
       data-bar
       className="flex min-h-[calc(var(--tap)+var(--space-2))] shrink-0 items-center gap-[var(--space-3)] bg-[var(--bar)] px-[var(--space-4)] text-label text-[var(--bar-ink)] max-wide:gap-[var(--space-2)] max-wide:px-[var(--space-3)]"
     >
-      <button type="button" onClick={onOpenSidebar} aria-haspopup="dialog" className={`${BAR_BUTTON} wide:hidden`}>
-        <Icon name="menu" />
-        Menu
-      </button>
+      {onOpenSidebar && (
+        <button type="button" onClick={onOpenSidebar} aria-haspopup="dialog" className={`${BAR_BUTTON} wide:hidden`}>
+          <Icon name="menu" />
+          Menu
+        </button>
+      )}
       <Link href="/today" aria-label="Today" className="flex shrink-0 items-center rounded-[var(--radius-control)] no-underline">
         <BrandMark />
       </Link>

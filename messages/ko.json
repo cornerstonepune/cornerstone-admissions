@@ -2550,6 +2550,15 @@
       "askEmail": "감사합니다, {name}님! 업무용 이메일 주소를 알려주세요.",
       "askCompany": "거의 끝났습니다 — 회사 이름이 무엇인가요?",
       "handoffNote": "신규 리드 — 이름={name}, 이메일={email}, 회사={company}."
+    },
+    "admissions_welcome": {
+      "name": "Admissions welcome",
+      "description": "Greets a parent's first message, asks the child's name and date of birth, then hands over to the admissions office. The answers fill the parent's lead and pick the campus.",
+      "intro": "Hello, and thank you for writing to Cornerstone! Two quick questions so we can help you.",
+      "askChild": "What is your child's name?",
+      "askDob": "Thank you. What is {name}'s date of birth? (for example 14/03/2022)",
+      "thanks": "Thank you! Our admissions office will message you shortly with the next steps.",
+      "handoffNote": "Welcome flow: child {name}, born {dob}."
     }
   },
   "LibErrors": {
