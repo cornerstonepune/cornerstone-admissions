@@ -18,6 +18,7 @@ import {
   type ContactTagAssignment,
 } from '@/lib/contacts/resolve-import-tags';
 import { cn } from '@/lib/utils';
+import { isLeadSheet } from '@/admissions/lib/import';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -219,6 +220,17 @@ export function ImportModal({
       if (!user) throw new Error(t('notAuthenticated'));
       if (!accountId)
         throw new Error(t('notLinkedToAccount'));
+
+      // Admissions (#71): a sheet with a child column opens leads, deduped by phone, on the server.
+      const text = file ? await file.text() : '';
+      if (isLeadSheet(text)) {
+        const res = await fetch('/api/admissions/import', { method: 'POST', headers: { 'Content-Type': 'text/csv' }, body: text });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(json.error ?? t('toastError'));
+        setResult(json);
+        if (json.imported > 0) onImported();
+        return;
+      }
 
       let imported = 0;
       let skipped = 0;
