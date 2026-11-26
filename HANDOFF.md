@@ -3,13 +3,13 @@
 _Overwritten at the end of every session. Keep under 30 lines. Facts only._
 
 **Updated:** 2026-11-27 · **By:** Old-sheet events loaded; calls on the Calendar (ADR 0040) · **Model:** claude-sonnet-5-5
-**Milestone:** M7 hosting live for testing; M2 hand checks open · **Branch:** feat/calendar-calls
+**Milestone:** M7 hosting live for testing; M2 hand checks open · **Branch:** main (PR #106 merged)
 
 ## State
 - Live: https://cornerstone-admissions.vercel.app (Vercel) on Supabase `bfnrfpuaaifdhlundrum`. Migrations 001–128 applied.
-- Live (bb08500): Calendar, three meeting kinds, meetings set on a call, Cal.com video calls and new-family leads.
-- Loaded on live (data only): the old sheet's dated events, 31 calls made, 8 calls to make, 4 past visits, 2 meetings on
-  28 Nov (reminders stamped as sent, so no messages). This branch shows calls on the Calendar; merge and deploy.
+- Live (87e6465): Calendar with meetings and calls, meetings set on a call, Cal.com video calls and new-family leads.
+- Old sheet's dated events loaded on live: 31 calls made, 8 to make, 4 past visits, 2 meetings on 28 Nov (reminders
+  stamped as sent: no messages). Seen signed in on live: November shows 6 visits, 4 calls to make, 31 made.
 - Vercel production has `CALCOM_WEBHOOK_SECRET`, `ADMISSIONS_ACCOUNT_ID`, `ANTHROPIC_API_KEY`; not `SARVAM_API_KEY`.
 - Deploy: `git archive origin/main` + `.vercel/` → `vercel deploy --prod`. Migrations: psql.
 ## Next step
@@ -17,7 +17,7 @@ _Overwritten at the end of every session. Keep under 30 lines. Facts only._
    with the right kind and a new lead (source Website). Check Cal.com's webhook points at the live app.
 2. Nimish: add `SARVAM_API_KEY` on Vercel (Production) and redeploy; log one real call and check the sections.
 3. Pipeline board is cramped on a short laptop screen: compact the numbers above it.
-4. Earlier hand checks: password setup, WhatsApp settings and Meta callback, welcome wording. Close PR #105.
+4. Earlier hand checks: password setup, WhatsApp settings and Meta callback, welcome wording.
 ## Blocked / open questions
 - Not built: marking a meeting Visited/No-show in the app, editing or cancelling a staff-added meeting.
 - Unverified: Cal.com's real video payload fields and the child/grade question names; real Sarvam/Claude calls.
