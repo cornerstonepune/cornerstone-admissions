@@ -25,7 +25,7 @@ export const LEAD_SUMMARY_SELECT =
   "lead:leads(id, child_name, grade, exit, admitted_at, days_in_stage, " +
   "campus:admissions_settings!leads_campus_id_fkey(label), source:admissions_settings!leads_source_id_fkey(label))";
 
-/** A "stuck" alert setting: `kind = 'alert'`, key starting `stuck`, value `{ stage: <stage name>, threshold: <days> }`. */
+/** A "stuck" alert setting: `kind = 'alert'`, key starting `stuck`, value `{ stage: <stage id>, threshold: <days> }` (ADR 0025). */
 export interface AlertSetting {
   key: string;
   value: { stage?: unknown; threshold?: unknown };
@@ -39,7 +39,8 @@ export function stuckAfterByStage(
   const out: Record<string, number> = {};
   for (const a of alerts) {
     if (!a.key.startsWith("stuck") || typeof a.value.threshold !== "number") continue;
-    const stage = stages.find((s) => s.name === a.value.stage);
+    // Settings (ADR 0025) writes the stage's id, which survives a rename; a name is still read for older rows.
+    const stage = stages.find((s) => s.id === a.value.stage) ?? stages.find((s) => s.name === a.value.stage);
     if (stage) out[stage.id] = a.value.threshold;
   }
   return out;

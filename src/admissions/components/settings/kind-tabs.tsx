@@ -13,17 +13,16 @@ import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Icon } from "@/admissions/components/icons";
 import {
-  ALERT_KEYS,
   checkLabel,
   checkValue,
   RULE_ACTIONS,
-  STAGES,
   stuckKey,
   UNTOUCHED_KEY,
   type RuleAction,
   type Setting,
   type SettingKind,
   type SettingValue,
+  type Stage,
 } from "@/admissions/lib/settings";
 
 /** Saves one setting: PATCH when `id` is given, else POST. Resolves to an error message, or null when saved. */
@@ -32,6 +31,8 @@ export interface TabProps {
   rows: Setting[];
   canEdit: boolean;
   save: Save;
+  /** The account's stages in order, with today's names (rules and stuck alerts hold stage ids). */
+  stages: Stage[];
 }
 type Draft = { id?: string; kind: SettingKind; key?: string; label: string; value: SettingValue; active: boolean };
 
@@ -70,22 +71,24 @@ function OnSwitch({ row, canEdit, save }: { row: Setting; canEdit: boolean; save
   );
 }
 
-const ruleLabel = (v: SettingValue) => `${v.stage}, day ${v.days}: ${RULE_ACTIONS[v.action as RuleAction] ?? ""}`;
-const stageIndex = (s: Setting) => STAGES.indexOf(s.value.stage as (typeof STAGES)[number]);
+const stageName = (stages: Stage[], id: unknown) => stages.find((s) => s.id === id)?.name ?? "Removed stage";
+const ruleLabel = (stages: Stage[], v: SettingValue) =>
+  `${stageName(stages, v.stage)}, day ${v.days}: ${RULE_ACTIONS[v.action as RuleAction] ?? ""}`;
 
-export function RulesTab({ rows, canEdit, save, templates }: TabProps & { templates: string[] }) {
+export function RulesTab({ rows, canEdit, save, stages, templates }: TabProps & { templates: string[] }) {
   const [draft, setDraft] = useState<Draft | null>(null);
-  const rules = [...rows].sort((a, b) => stageIndex(a) - stageIndex(b) || Number(a.value.days) - Number(b.value.days));
+  const at = (s: Setting) => stages.findIndex((st) => st.id === s.value.stage);
+  const rules = [...rows].sort((a, b) => at(a) - at(b) || Number(a.value.days) - Number(b.value.days));
   const off = rules.filter((r) => !r.active);
   return (
     <Section
       title="Follow-up rules"
       meta={`${rules.length} rules · ${rules.length - off.length} on · by stage, then day`}
-      action={canEdit && <AddButton label="Add a rule" onClick={() => setDraft({ kind: "follow_up_rule", label: "", active: true, value: { stage: "Enquiry", days: 1, action: "call_task" } })} />}
+      action={canEdit && <AddButton label="Add a rule" onClick={() => setDraft({ kind: "follow_up_rule", label: "", active: true, value: { stage: stages[0]?.id, days: 1, action: "call_task" } })} />}
     >
       {off.length > 0 && (
         <p className="text-body text-[var(--state-wait)]">
-          {off.length === 1 ? "One rule is off" : `${off.length} rules are off`}: {off.map((r) => r.label).join("; ")}. Leads in
+          {off.length === 1 ? "One rule is off" : `${off.length} rules are off`}: {off.map((r) => ruleLabel(stages, r.value)).join("; ")}. Leads in
           those stages get nothing from them until they are back on.
         </p>
       )}
@@ -103,7 +106,7 @@ export function RulesTab({ rows, canEdit, save, templates }: TabProps & { templa
         <TableBody>
           {rules.map((r) => (
             <TableRow key={r.id} className={r.active ? undefined : "bg-[var(--state-wait-bg)]"}>
-              <TableCell>{String(r.value.stage)}</TableCell>
+              <TableCell>{stageName(stages, r.value.stage)}</TableCell>
               <TableCell className="text-right tabular-nums">{String(r.value.days)}</TableCell>
               <TableCell>{RULE_ACTIONS[r.value.action as RuleAction]}</TableCell>
               <TableCell>{(r.value.template as string) ?? "—"}</TableCell>
@@ -127,22 +130,25 @@ export function RulesTab({ rows, canEdit, save, templates }: TabProps & { templa
         </TableBody>
       </Table>
       <Caption>A rule that sends a template saves but stays off until Meta approves the template.</Caption>
-      <SettingSheet draft={draft} onClose={() => setDraft(null)} save={save} templates={templates} />
+      <SettingSheet draft={draft} onClose={() => setDraft(null)} save={save} templates={templates} stages={stages} />
     </Section>
   );
 }
 
-export function AlertsTab({ rows, canEdit, save }: TabProps) {
+export function AlertsTab({ rows, canEdit, save, stages }: TabProps) {
   const byKey = Object.fromEntries(rows.map((r) => [r.key, r]));
+  // one stuck alert per stage a lead can sit in (not the last, Admitted), keyed by the stage's id
+  const keys = [UNTOUCHED_KEY, ...stages.filter((s) => !s.last).map((s) => stuckKey(s.id))];
   const [values, setValues] = useState<Record<string, string>>(() =>
-    Object.fromEntries(ALERT_KEYS.map((k) => [k, byKey[k] ? String(byKey[k].value.threshold) : ""])),
+    Object.fromEntries(keys.map((k) => [k, byKey[k] ? String(byKey[k].value.threshold) : ""])),
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const label = (key: string) => (key === UNTOUCHED_KEY ? "Untouched turns red after (hours)" : `Stuck in ${STAGES.find((s) => stuckKey(s) === key)} after (days)`);
+  const label = (key: string) =>
+    key === UNTOUCHED_KEY ? "Untouched turns red after (hours)" : `Stuck in ${stages.find((s) => stuckKey(s.id) === key)?.name} after (days)`;
 
   async function saveAll() {
     const next: Record<string, string> = {};
-    for (const key of ALERT_KEYS) {
+    for (const key of keys) {
       if (values[key] === "" || String(byKey[key]?.value.threshold) === values[key]) continue;
       const value = { threshold: Number(values[key]) };
       const checked = checkValue("alert", key, value);
@@ -155,7 +161,7 @@ export function AlertsTab({ rows, canEdit, save }: TabProps) {
   return (
     <Section title="Alerts" meta="when a lead turns red or amber">
       <div className="grid max-w-prose gap-[var(--space-3)]">
-        {ALERT_KEYS.map((key) => (
+        {keys.map((key) => (
           <div key={key} className="grid gap-[var(--space-1)]">
             <Label htmlFor={key}>{label(key)}</Label>
             <Input
@@ -293,7 +299,7 @@ function Choice({ id, value, options, onChange }: { id: string; value: string; o
 }
 
 /** The editor that opens on the right: a rule, a campus, a source or a lost reason. */
-function SettingSheet({ draft, onClose, save, templates }: { draft: Draft | null; onClose: () => void; save: Save; templates: string[] }) {
+function SettingSheet({ draft, onClose, save, templates, stages = [] }: { draft: Draft | null; onClose: () => void; save: Save; templates: string[]; stages?: Stage[] }) {
   const [form, setForm] = useState<Draft | null>(draft);
   const [error, setError] = useState<string | null>(null);
   const [shown, setShown] = useState<Draft | null>(draft);
@@ -310,7 +316,7 @@ function SettingSheet({ draft, onClose, save, templates }: { draft: Draft | null
 
   async function submit() {
     if (!form) return;
-    const label = isRule ? ruleLabel(form.value) : form.label;
+    const label = isRule ? ruleLabel(stages, form.value) : form.label;
     const checked = checkLabel(label);
     const value = checkValue(form.kind, form.key ?? "", form.value);
     if (!checked.ok || !value.ok) return setError(!checked.ok ? checked.error : (value as { error: string }).error);
@@ -329,7 +335,7 @@ function SettingSheet({ draft, onClose, save, templates }: { draft: Draft | null
           {isRule ? (
             <>
               <Field id="rule-stage" label="Stage">
-                <Choice id="rule-stage" value={String(v.stage)} options={Object.fromEntries(STAGES.slice(0, -1).map((s) => [s, s]))} onChange={(stage) => set({ stage })} />
+                <Choice id="rule-stage" value={String(v.stage)} options={Object.fromEntries(stages.filter((s) => !s.last).map((s) => [s.id, s.name]))} onChange={(stage) => set({ stage })} />
               </Field>
               <Field id="rule-days" label="Days after entering the stage">
                 <Input id="rule-days" type="number" inputMode="numeric" value={String(v.days ?? "")} onChange={(e) => set({ days: e.target.value === "" ? "" : Number(e.target.value) })} />

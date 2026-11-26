@@ -19,6 +19,13 @@ describe("stuckAfterByStage", () => {
   });
 });
 
+describe("stuckAfterByStage after a stage is renamed (#81 review)", () => {
+  it("finds a stuck alert by its stage id whatever the stage is called now", () => {
+    const renamed = [{ id: "s2", name: "Visit scheduled" }];
+    expect(stuckAfterByStage(renamed, [{ key: "stuck_s2", value: { stage: "s2", threshold: 7 } }])).toEqual({ s2: 7 });
+  });
+});
+
 describe("isStuck", () => {
   it("is stuck only past the day count", () => {
     expect(isStuck(8, 7)).toBe(true);

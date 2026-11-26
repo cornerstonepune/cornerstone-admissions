@@ -15,7 +15,7 @@ import { Icon } from "@/admissions/components/icons";
 import Link from "@/admissions/components/link";
 import { PageHead } from "@/admissions/components/page-head";
 import { canEditSettings, type AccountRole } from "@/lib/auth/roles";
-import { describeChange, KIND_TAB, STAGES, type Setting, type SettingKind, type SettingsChange } from "@/admissions/lib/settings";
+import { describeChange, KIND_TAB, type Setting, type SettingKind, type SettingsChange, type Stage } from "@/admissions/lib/settings";
 import { AlertsTab, CampusesTab, NameList, RulesTab, Section, type Save } from "./kind-tabs";
 
 interface Loaded {
@@ -24,6 +24,7 @@ interface Loaded {
   changes: SettingsChange[];
   names: Record<string, string>;
   templates: string[];
+  stages: Stage[];
 }
 
 const TABS = {
@@ -102,7 +103,7 @@ export function SettingsScreen() {
 function Loaded({ data, tab, setTab, save }: { data: Loaded; tab: Tab; setTab: (t: Tab) => void; save: Save }) {
   const canEdit = canEditSettings(data.role);
   const of = (kind: SettingKind) => data.settings.filter((s) => s.kind === kind);
-  const props = (kind: SettingKind) => ({ rows: of(kind), canEdit, save });
+  const props = (kind: SettingKind) => ({ rows: of(kind), canEdit, save, stages: data.stages });
   return (
     <>
       <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
@@ -125,9 +126,9 @@ function Loaded({ data, tab, setTab, save }: { data: Loaded; tab: Tab; setTab: (
         <TabsContent value="stages" className="grid gap-[var(--space-5)]">
           <Section title="Stages" meta="names and order">
             <ol className="flex flex-wrap gap-[var(--space-2)]">
-              {STAGES.map((s, i) => (
-                <li key={s} className="rounded-[var(--radius-pill)] bg-[var(--panel)] px-[var(--space-3)] py-[var(--space-1)]">
-                  {i + 1} · {s}
+              {data.stages.map((s, i) => (
+                <li key={s.id} className="rounded-[var(--radius-pill)] bg-[var(--panel)] px-[var(--space-3)] py-[var(--space-1)]">
+                  {i + 1} · {s.name}
                 </li>
               ))}
             </ol>
@@ -169,12 +170,12 @@ function Loaded({ data, tab, setTab, save }: { data: Loaded; tab: Tab; setTab: (
           <MembersTab />
         </TabsContent>
       </Tabs>
-      <ChangeLog changes={data.changes} names={data.names} />
+      <ChangeLog changes={data.changes} names={data.names} stages={data.stages} />
     </>
   );
 }
 
-function ChangeLog({ changes, names }: { changes: SettingsChange[]; names: Record<string, string> }) {
+function ChangeLog({ changes, names, stages }: { changes: SettingsChange[]; names: Record<string, string>; stages: Stage[] }) {
   return (
     <div id="change-log">
       <Section title="Change log" meta="newest first · all tabs">
@@ -183,7 +184,7 @@ function ChangeLog({ changes, names }: { changes: SettingsChange[]; names: Recor
             <li key={c.id} data-change={c.id} className="flex items-start gap-[var(--space-3)] px-[var(--space-3)] py-[var(--space-2)]">
               <Icon name={c.action === "insert" ? "add" : "edit"} size={16} className="mt-[var(--space-1)] text-[var(--ink-muted)]" />
               <div className="grow">
-                <b>{KIND_TAB[c.kind]}</b> · {describeChange(c)}
+                <b>{KIND_TAB[c.kind]}</b> · {describeChange(c, Object.fromEntries(stages.map((s) => [s.id, s.name])))}
                 <p className="text-caption text-[var(--ink-muted)]">{(c.changed_by && names[c.changed_by]) || "System"}</p>
               </div>
               <time dateTime={c.changed_at} className="text-caption text-[var(--ink-muted)]">
