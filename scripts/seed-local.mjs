@@ -23,7 +23,7 @@ const STAGES = [
 // Defaults from design/wireframes/S-admissions-settings.html.
 const SETTINGS = [
   ['campus', 'neev', 'Neev', { grades: 'Playgroup – Sr KG' }],
-  ['campus', 'gurukul', 'Gurukul', { grades: 'Grade 1 – Grade 7' }],
+  ['campus', 'gurukul', 'Gurukul', { grades: 'Grade 1 – Grade 5' }],
   ...[
     'WhatsApp',
     'Website',

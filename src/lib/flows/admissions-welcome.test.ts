@@ -110,7 +110,7 @@ describe("admissions welcome menu", () => {
     await tap("visit");
     await say("Aarav Shah");
     await say("14/03/2022");
-    expect(h.sent.at(-1)).toContain("[Neev (Playgroup–KG) | Gurukul (Grade 1–7)]");
+    expect(h.sent.at(-1)).toContain("[Neev (Playgroup–KG) | Gurukul (Grade 1–5)]");
     await tap("neev");
     expect(h.sent.at(-1)).toContain(
       "https://cal.com/nimish-shah-zp0z89/school-visit-neev?attendeePhoneNumber=%2B919876543210&child-first-name=Aarav%20Shah");

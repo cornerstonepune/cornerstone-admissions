@@ -15,6 +15,8 @@ fourth "something else" option.
   three WhatsApp buttons (Meta allows three) → child's name → date of birth (dd/mm/yyyy) → by the tap:
   call back → "we'll call within 24 hours" and handoff (the chat shows as pending in the Inbox);
   visit → Neev or Gurukul button → that campus's Cal.com link; online → the online-meeting link.
+  Gurukul takes Grade 1 to Grade 5 (Nimish, 26 Nov: "Gurukul as grades 1-5 instead of 1-7"); Cal.com's grade list
+  already ends at Grade 5.
 - **A tap is kept** (engine): `vars[<node key>] = reply id`, so a later condition node and intake know the choice.
   The menu node is `menu`, its reply ids `call_back`, `visit`, `online`; the campus node is `campus`, its reply ids
   the campus settings' tags (`neev`, `gurukul`).

@@ -2,8 +2,8 @@
 
 _Overwritten at the end of every session. Keep under 30 lines. Facts only._
 
-**Updated:** 2026-11-26 · **By:** welcome menu live (ADR 0035) · **Model:** claude-opus-5-5
-**Milestone:** M7 hosting live for testing; M2 hand checks open · **Branch:** docs/handoff-welcome-live
+**Updated:** 2026-11-26 · **By:** Gurukul Grade 1–5; test number connected · **Model:** claude-opus-5-5
+**Milestone:** M7 hosting live for testing; M2 hand checks open · **Branch:** chore/gurukul-grades-1-5
 
 ## State
 - Live: https://cornerstone-admissions.vercel.app (Vercel, icn1) on Supabase `bfnrfpuaaifdhlundrum` (Seoul).
@@ -14,6 +14,9 @@ _Overwritten at the end of every session. Keep under 30 lines. Facts only._
   call on Today or the campus's Cal.com link (prefill checked on Cal.com); a scanned QR restarts the menu; logging a
   call closes open call tasks. Live: flow "Admissions welcome" active (13 nodes); 4 rules on (Enquiry d3 call,
   d14 Dormant; Visited d7 call; Deciding d30 call). Template drafts: `docs/whatsapp-templates.md`.
+- Gurukul = Grade 1–5 (campus setting and the flow's campus button changed on live too).
+- WhatsApp on live = Meta test number +1 555 164 2653 with a temporary token (expires ~1 day): the visit path tested
+  end to end on 26 Nov. System user `admissions-bot` could not read the test WABA; use it for the real number.
 - Cal.com events: `school-visit` (Gurukul), `school-visit-neev`, `online-meeting` (Zoom), one webhook to the app.
 - Secrets: Vercel env (META_APP_ID/SECRET set) + local `.env.hosted`. Deploy: `git archive main` → `vercel deploy --prod`.
 
