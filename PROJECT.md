@@ -55,7 +55,7 @@ _The locked blueprint. Agents read §1–4 and the current milestone every sessi
   7. Every insert, update or delete on `admissions_settings` writes a `settings_changes` row with who and when.
 
 ## 4. Frontend (screens and flows locked here; pixels locked by approved wireframes)
-- **Design system (ADR 0003):** root `DESIGN.md` is the design authority, its values in `design/tokens.css` (the Cornerstone platform's tokens, copied once on 2026-11-25). `design/platform/` is a frozen reference snapshot: port from it through tickets, never import it, never edit it, never open the platform repo again. Project brand overrides only in `design/brand.css`, only for `.loop.json → brand_overridable`. Port tickets #7–#18 (`design-port`, `queued`) get their seeds when the first screen that needs them is approved. Inventory: `docs/design/platform-components.md`.
+- **Design system (ADR 0003):** root `DESIGN.md` is the design authority, its values in `design/tokens.css` (the Cornerstone platform's tokens, copied once on 2026-11-25). `design/platform/` is a frozen reference snapshot: port from it through tickets, never import it, never edit it, never open the platform repo again. Project brand overrides only in `design/brand.css`, only for `.loop.json → brand_overridable`. Components are ported inside the screen ticket that first needs them, only as far as that screen uses them (ADR 0021); there are no separate port tickets. Inventory: `docs/design/platform-components.md`.
 - **Light mode only** (ADR 0008, confirmed by Nimish 2026-11-25): `data-scheme="light"` on `<html>`, no theme picker; dark values stay in the tokens file.
 - **Screens** (built = upstream wacrm, restyled by the theme in M1, not redesigned):
 
@@ -80,7 +80,7 @@ _The locked blueprint. Agents read §1–4 and the current milestone every sessi
 - **Gate:** no frontend code for a screen until Nimish runs `loop approve <ID>`. Editing a wireframe voids its approval.
 
 ## 5. Milestones
-_M0 is the data model. Every later milestone is a vertical slice Nimish can click through with `npm run local`. Goals are yes/no; each maps to a test. Order and renumbering vs. brief §9: ADR 0004._
+_M0 is the data model. Every later milestone is a vertical slice Nimish can click through with `npm run local`. Goals are yes/no; each maps to a test. Order and renumbering vs. brief §9: ADR 0004. **One build ticket per milestone (two in M6), reusing wacrm first (ADR 0021).**_
 
 **M-done** (before the loop, 2026-11-25):
 - Fork in the private repo, upstream remote fetch-only, loop harness, CI (`loop-guard`, `loop-tests`, upstream `CI`, `Migrations`) — PR #6, ADR 0001.
@@ -104,36 +104,37 @@ _M0 is the data model. Every later milestone is a vertical slice Nimish can clic
 - **Out of scope:** any UI; Cal.com and WhatsApp wiring (tables only).
 
 ### M1 — Look and frame · In progress
-- **Delivers:** every existing screen in the Cornerstone theme, light only; signup, broadcasts and AI hidden. Port tickets #7–#12, #18.
+- **Delivers:** every existing screen in the Cornerstone theme, light only; signup, broadcasts and AI hidden.
 - **Screens:** S-frame (plus snapshots of built screens approved with `loop approve --all`).
 - **Goals:** [ ] G1.1 no theme picker, `<html data-scheme="light">` · [ ] G1.2 hidden routes return 404 and are not in the menu · [ ] G1.3 CI token check passes on all `src/` (no raw colours) · [ ] G1.4 upstream tests pass.
 - **Depends on:** M0.
-- **Issues:** label `M1`: #52 (hidden routes, seeded, label `ready`: no wireframe needed); #7–#12, #18 (ports, seeded when S-frame is approved). G1.3 (token check on all `src/`) is checked after the ports land.
+- **Issues:** done: #52 (hidden routes), #7 (theme). Left: #63 (theme follow-ups, `ready`), then #18 (the frame: sidebar, top bar, page head, icon map; absorbs #8, #9, #12; G1.3 is in its Done when).
 
 ### M2 — WhatsApp on the test number · Not started
 - **Delivers:** tunnel, Meta test app, webhook; written finding on connecting the real number.
 - **Goals:** [ ] G2.1 an inbound message appears in the inbox · [ ] G2.2 a reply is delivered · [ ] G2.3 a template sends · [ ] G2.4 an unsigned webhook POST is rejected (test).
+- **Issue:** #65.
 - **Needs from Nimish:** brief §10 items 4–7.
 
 ### M3 — Admissions pipeline · Not started
-- **Delivers:** Admissions pipeline with the six stages from settings, child fields on the card, stage history, days in stage, lost reason. Screens: S-board changes, S-lead. Ports #13, #16.
+- **Delivers:** Admissions pipeline with the six stages from settings, child fields on the card, stage history, days in stage, lost reason. Screens: S-board changes, S-lead. **Issue:** #66 (ports what the two screens use).
 - **Goals:** [ ] G3.1 moving a card writes one history row · [ ] G3.2 days in stage comes from history · [ ] G3.3 Lost cannot be saved without a reason (API and UI).
 
 ### M4 — Entry: one door · Not started
-- **Delivers:** welcome flow, staff quick-add, website form endpoint, source tag per QR. Screen: S-quick-add.
+- **Delivers:** welcome flow, staff quick-add, website form endpoint, source tag per QR. Screen: S-quick-add. **Issue:** #67.
 - **Goals:** [ ] G4.1 same phone twice gives one lead · [ ] G4.2 date of birth routes correctly at the cut-off boundary · [ ] G4.3 quick-add under 30 s on a phone (timed by Nimish).
 - **Needs from Nimish:** cut-off date and grades (§6), welcome wording.
 
 ### M5 — Booking · Not started
-- **Delivers:** Cal.com webhook moves the lead; confirmation, T-24h RSVP, morning reminder, no-show.
+- **Delivers:** Cal.com webhook moves the lead; confirmation, T-24h RSVP, morning reminder, no-show. **Issue:** #68.
 - **Goals:** [ ] G5.1 a booking moves the lead once even if the webhook repeats · [ ] G5.2 cancel moves it back · [ ] G5.3 unconfirmed leads appear on the call list.
 
 ### M6 — Follow-ups, Today, Settings · Not started
-- **Delivers:** stage-changed trigger, rules engine on the settings tables, pause on reply, call tasks, S-today, S-admissions-settings. Ports #14, #15.
+- **Delivers:** stage-changed trigger, rules engine on the settings tables, pause on reply, call tasks, S-today, S-admissions-settings. **Issues:** #69 (follow-ups + S-today), #70 (Admissions Settings).
 - **Goals:** [ ] G6.1 a reply stops the next scheduled message · [ ] G6.2 changing a day count in Settings changes behaviour without a restart · [ ] G6.3 no message sent twice for the same rule and lead · [ ] G6.4 a rule switched off sends nothing.
 
 ### M7 — Report, import, hosting, go-live · Not started
-- **Delivers:** S-report (port #17), sheet import, hosting, a new hosted Supabase project for admissions (Nimish creates it) with all migrations applied, real number.
+- **Delivers:** S-report and sheet import (**Issue:** #71); then hosting via `loop-release` (no ticket): a new hosted Supabase project for admissions (Nimish creates it) with all migrations applied, real number.
 - **Goals:** [ ] G7.1 imported leads dedupe by phone · [ ] G7.2 report counts match the board · [ ] G7.3 the hosted project has the same tables as `db/schema.sql` · [ ] G7.4 a signed-in non-member reads zero rows on live.
 
 ## 6. Open questions (Plan resolves before the milestone they block)
