@@ -207,7 +207,7 @@ function LogForm({ leadId, onSaved }: { leadId: string; onSaved: () => void }) {
 
   return (
     <form onSubmit={save} className="grid gap-2 rounded-[var(--radius-card)] border border-border p-3">
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 gap-2">
         <label className="grid gap-1 text-label font-semibold">
           What was it
           <select value={kind} onChange={(e) => setKind(e.target.value as Kind)} className={field}>

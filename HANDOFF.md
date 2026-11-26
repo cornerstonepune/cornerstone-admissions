@@ -2,36 +2,28 @@
 
 _Overwritten at the end of every session. Keep under 30 lines. Facts only._
 
-**Updated:** 2026-11-26 · **By:** Gurukul Grade 1–5; test number connected · **Model:** claude-opus-5-5
-**Milestone:** M7 hosting live for testing; M2 hand checks open · **Branch:** chore/gurukul-grades-1-5
+**Updated:** 2026-11-26 · **By:** Nimish's live feedback built and deployed · **Model:** claude-sonnet-5-5
+**Milestone:** M7 hosting live for testing; M2 hand checks open · **Branch:** fix/conversation-grants
 
 ## State
-- Live: https://cornerstone-admissions.vercel.app (Vercel, icn1) on Supabase `bfnrfpuaaifdhlundrum` (Seoul).
-  Migrations 001–123 applied. Nimish signs in (owner). pg_cron calls the automations cron every 5 min.
-- Old sheet imported (ADR 0036): 59 leads + 3 contact-only records; tags No phone (8), Check phone, Not admissions,
-  After-school. No messages sent.
-- PR #96 merged and deployed (ADR 0035): welcome menu (call back / visit / online) → child's name, date of birth → a
-  call on Today or the campus's Cal.com link (prefill checked on Cal.com); a scanned QR restarts the menu; logging a
-  call closes open call tasks. Live: flow "Admissions welcome" active (13 nodes); 4 rules on (Enquiry d3 call,
-  d14 Dormant; Visited d7 call; Deciding d30 call). Template drafts: `docs/whatsapp-templates.md`.
-- Gurukul = Grade 1–5 (campus setting and the flow's campus button changed on live too).
-- WhatsApp on live = Meta test number +1 555 164 2653 with a temporary token (expires ~1 day): the visit path tested
-  end to end on 26 Nov. System user `admissions-bot` could not read the test WABA; use it for the real number.
-- Cal.com events: `school-visit` (Gurukul), `school-visit-neev`, `online-meeting` (Zoom), one webhook to the app.
-- Secrets: Vercel env (META_APP_ID/SECRET set) + local `.env.hosted`. Deploy: `git archive main` → `vercel deploy --prod`.
+- Live: https://cornerstone-admissions.vercel.app (Vercel) on Supabase `bfnrfpuaaifdhlundrum`. Migrations 001–127 applied.
+- Live now: lead edit/delete, parent email, stage and campus colours, side-scroll board (ADR 0038); admissions Dashboard
+  and visual Report (ADR 0037); Conversations tab: upload, record or type, Sarvam then Claude sections (ADR 0039).
+- Security: PRs #100 and #101 independently reviewed and fixed. Imported leads no longer count in dated numbers (#102).
+- Deploy: `git archive origin/main` export + `.vercel/` → `vercel deploy --prod`. Migrations: psql with PGPASSWORD.
 
 ## Next step
-1. Nimish: Settings → WhatsApp on live (phone number id, WABA id, token, verify phrase); Meta webhook callback
-   `/api/whatsapp/webhook`, subscribe `messages`.
-2. Test from a phone: QR → menu → each branch → card on the board, call on Today, Cal.com booking (G2.1–G2.3).
-3. Approve and submit `docs/whatsapp-templates.md` in Templates; add template-sending rules only after approval.
+1. Nimish: create `SARVAM_API_KEY` (dashboard.sarvam.ai) and `ANTHROPIC_API_KEY` (console.anthropic.com), add both in
+   Vercel → Settings → Environment Variables (Production), redeploy; then log one real call and check the sections.
+2. Pipeline board is cramped on a short laptop screen (about two cards per column): compact the numbers above it.
+3. Earlier hand checks: password setup, WhatsApp settings and Meta callback, real Cal.com booking, welcome wording.
 
 ## Blocked / open questions
-- DOB cut-offs per campus (until then the campus button or staff pick it). Online meetings land in Visit booked and
-  get visit-worded messages. G1.3 raw styles in upstream screens. G7.4 signed-in non-member on live untested.
-- Default Supabase email: a few emails per hour; more staff invites need custom SMTP (e.g. Resend).
+- Grade from date of birth needs each campus's cut-off per grade. Seat targets per grade wanted on Dashboard?
+- Unverified: real Sarvam/Claude calls (upload method and output shape assumed), phone width and Safari on live.
+- Anonymous and signed-in roles hold default grants on hosted tables (RLS protects); some upstream SECURITY DEFINER
+  functions are executable by anon: hardening follow-up.
 
 ## Don't repeat
-- The hosted DB password contains `%`: pass it raw via PGPASSWORD, never URL-decoded.
-- Vercel turns on Authentication for production by default; it blocks webhooks. Keep it on previews only.
-- Template-sending follow-up rules before Meta approves the template mark every lead "Not sent" for that stage entry.
+- Hosted DB password contains `%`: pass it raw via PGPASSWORD. Hosted default grants differ from local (LESSONS).
+- `npm run lint` in the main checkout scans `.claude/worktrees` and hangs: remove old worktrees or lint changed files.
