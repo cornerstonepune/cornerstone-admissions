@@ -298,12 +298,21 @@ const LEAD_CAPTURE: FlowTemplate = {
 };
 
 // ============================================================
-// 4. Admissions welcome (M4, #67) — the parent's first message.
-// The webhook hands the vars child_name and child_dob to admissions
-// intake (src/admissions/lib/intake.ts), which fills the parent's lead
-// and picks the campus by date of birth. Keep those var keys when
-// editing the words in Flows.
+// 4. Admissions welcome (M4, #67; menu: ADR 0035) — a parent's first
+// message, or a scanned QR. Menu: call back, school visit, online
+// meeting. Then the child's name and date of birth, then a call on the
+// Today list or the right booking calendar.
+// Admissions intake (src/admissions/lib/intake.ts) reads the vars:
+// child_name, child_dob, menu (the tapped button's reply id: call_back
+// makes the call task) and campus (reply id = the campus setting's
+// tag). Keep those node keys and reply ids when editing the words in
+// Flows. Booking links carry the parent's number and the child's name
+// so Cal.com recognises the family (Cal.com prefills a booking question
+// from the URL parameter named after it).
 // ============================================================
+const CAL = "https://cal.com/nimish-shah-zp0z89";
+const calLink = (event: string) =>
+  `${CAL}/${event}?attendeePhoneNumber=%2B{{vars.contact_phone}}&child-first-name={{vars.child_name|url}}`;
 const ADMISSIONS_WELCOME: FlowTemplate = {
   slug: "admissions_welcome",
   name: t("admissions_welcome.name"),
@@ -313,11 +322,18 @@ const ADMISSIONS_WELCOME: FlowTemplate = {
   trigger_config: {},
   entry_node_id: "start",
   nodes: [
-    { node_key: "start", node_type: "start", config: { next_node_key: "intro" } },
+    { node_key: "start", node_type: "start", config: { next_node_key: "menu" } },
     {
-      node_key: "intro",
-      node_type: "send_message",
-      config: { text: t("admissions_welcome.intro"), next_node_key: "ask_child" } as SendMessageNodeConfig,
+      node_key: "menu",
+      node_type: "send_buttons",
+      config: {
+        text: t("admissions_welcome.menu"),
+        buttons: [
+          { reply_id: "call_back", title: t("admissions_welcome.menuCallBack"), next_node_key: "ask_child" },
+          { reply_id: "visit", title: t("admissions_welcome.menuVisit"), next_node_key: "ask_child" },
+          { reply_id: "online", title: t("admissions_welcome.menuOnline"), next_node_key: "ask_child" },
+        ],
+      } as SendButtonsNodeConfig,
     },
     {
       node_key: "ask_child",
@@ -334,13 +350,25 @@ const ADMISSIONS_WELCOME: FlowTemplate = {
       config: {
         prompt_text: t("admissions_welcome.askDob", { name: "{{vars.child_name}}" }),
         var_key: "child_dob",
-        next_node_key: "thanks",
+        next_node_key: "is_call_back",
       } as CollectInputNodeConfig,
     },
     {
-      node_key: "thanks",
+      node_key: "is_call_back",
+      node_type: "condition",
+      config: {
+        subject: "var",
+        subject_key: "menu",
+        operator: "equals",
+        value: "call_back",
+        true_next: "call_thanks",
+        false_next: "is_visit",
+      } as ConditionNodeConfig,
+    },
+    {
+      node_key: "call_thanks",
       node_type: "send_message",
-      config: { text: t("admissions_welcome.thanks"), next_node_key: "handoff" } as SendMessageNodeConfig,
+      config: { text: t("admissions_welcome.callThanks"), next_node_key: "handoff" } as SendMessageNodeConfig,
     },
     {
       node_key: "handoff",
@@ -349,6 +377,54 @@ const ADMISSIONS_WELCOME: FlowTemplate = {
         note: t("admissions_welcome.handoffNote", { name: "{{vars.child_name}}", dob: "{{vars.child_dob}}" }),
       } as HandoffNodeConfig,
     },
+    {
+      node_key: "is_visit",
+      node_type: "condition",
+      config: {
+        subject: "var",
+        subject_key: "menu",
+        operator: "equals",
+        value: "visit",
+        true_next: "campus",
+        false_next: "online_link",
+      } as ConditionNodeConfig,
+    },
+    {
+      node_key: "campus",
+      node_type: "send_buttons",
+      config: {
+        text: t("admissions_welcome.askCampus"),
+        buttons: [
+          { reply_id: "neev", title: t("admissions_welcome.campusNeev"), next_node_key: "neev_link" },
+          { reply_id: "gurukul", title: t("admissions_welcome.campusGurukul"), next_node_key: "gurukul_link" },
+        ],
+      } as SendButtonsNodeConfig,
+    },
+    {
+      node_key: "neev_link",
+      node_type: "send_message",
+      config: {
+        text: t("admissions_welcome.visitLink", { name: "{{vars.child_name}}", link: calLink("school-visit-neev") }),
+        next_node_key: "done",
+      } as SendMessageNodeConfig,
+    },
+    {
+      node_key: "gurukul_link",
+      node_type: "send_message",
+      config: {
+        text: t("admissions_welcome.visitLink", { name: "{{vars.child_name}}", link: calLink("school-visit") }),
+        next_node_key: "done",
+      } as SendMessageNodeConfig,
+    },
+    {
+      node_key: "online_link",
+      node_type: "send_message",
+      config: {
+        text: t("admissions_welcome.onlineLink", { link: calLink("online-meeting") }),
+        next_node_key: "done",
+      } as SendMessageNodeConfig,
+    },
+    { node_key: "done", node_type: "end", config: {} },
   ],
 };
 

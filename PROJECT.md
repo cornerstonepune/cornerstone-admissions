@@ -76,7 +76,7 @@ _The locked blueprint. Agents read §1–4 and the current milestone every sessi
 | S-report | Funnel report | Nimish, Akanksha | funnel by stage and source, days per stage, lost reasons | `design/wireframes/S-report.html` | new, M7 |
 
   Hidden in v1: signup, broadcasts, agents (AI). The built screens get static snapshots in `design/wireframes/` (one file per ID, ADR 0014) and one `loop approve --all` from Nimish; until then they're not changed.
-- **Key flows:** (1) Parent says "Hi" → welcome flow → details → campus by date of birth → Cal.com link → S-board shows Visit booked. (2) Staff quick-add on a phone → lead in Enquiry with source. (3) Lakshmi ma'am opens S-today → calls → logs on S-lead → moves stage. (4) Admin changes a day count on S-admissions-settings → next scheduler run uses it.
+- **Key flows:** (1) Parent says "Hi" or scans a QR → welcome menu (call back, visit, online meeting) → child's name and date of birth → a call on S-today, or that campus's (or the online) Cal.com link → S-board shows Visit booked (ADR 0035). (2) Staff quick-add on a phone → lead in Enquiry with source. (3) Lakshmi ma'am opens S-today → calls → logs on S-lead → moves stage. (4) Admin changes a day count on S-admissions-settings → next scheduler run uses it.
 - **Gate:** no frontend code for a screen until Nimish runs `loop approve <ID>`. Editing a wireframe voids its approval.
 
 ## 5. Milestones

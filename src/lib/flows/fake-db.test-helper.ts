@@ -10,7 +10,13 @@ function readColumn(row: Row, column: string): unknown {
   return json?.[jsonKey] ?? null;
 }
 
-export function createFakeDb(tables: FakeTables, failingTables: ReadonlySet<string> = new Set()) {
+type RpcHandler = (name: string, args: Record<string, unknown>) => { data?: unknown; error: unknown };
+
+export function createFakeDb(
+  tables: FakeTables,
+  failingTables: ReadonlySet<string> = new Set(),
+  rpcHandler: RpcHandler = () => ({ error: null }),
+) {
   let idCounter = 0;
 
   function from(table: string) {
@@ -105,6 +111,6 @@ export function createFakeDb(tables: FakeTables, failingTables: ReadonlySet<stri
 
   return {
     from,
-    rpc: async () => ({ error: null }),
+    rpc: async (name: string, args: Record<string, unknown> = {}) => rpcHandler(name, args),
   };
 }
