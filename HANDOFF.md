@@ -2,28 +2,28 @@
 
 _Overwritten at the end of every session. Keep under 30 lines. Facts only._
 
-**Updated:** 2026-11-26 · **By:** builder (M4 review fixes, #91) · **Model:** claude-opus-5-5
-**Milestone:** M4 — Entry: one door · **Branch:** m4-review-fixes
+**Updated:** 2026-11-26 · **By:** status catch-up (ADR 0032) · **Model:** claude-opus-5-5
+**Milestone:** all slices built except M2's hand checks and M7 hosting · **Branch:** docs/status-catch-up
 
 ## State
-- #91 (M4) merged. This branch fixes its security review (ADR 0031 §Review fixes), migration 121 (CREATE OR REPLACE
-  `intake_lead`): switched-off sources never set; the website form (`fill = false`) never changes a known family, only
-  notes it; a known family's note carries what was submitted (child, DOB, grade, source); a WhatsApp sibling is a
-  note, once. Website form: honeypot `website_url` and minimum fill time `started_at` (3 s), both answer the same 201.
-  Quick-add saves with no source. QR download URL revoked after a delay.
-- 121 is on the shared local DB (psql, one transaction, recorded as version 121; no reset). db/schema.sql = main + 121.
-- Tests: tests/db/m4-intake.test.ts (fill, sibling note, inactive source, two concurrent calls on committed rows that
-  it deletes afterwards); website and quick-add route tests. The G4.1 note expectation now includes the submitted child.
+- main at b96c541, CI and Migrations green. No open PRs. Open issues: #65 (M2 hand checks), #73 (small perf bug).
+- Built (merged, goals tested): M0, M1 (except G1.3), M3, M4 (except G4.3), M5, M6, M7 report + import. PROJECT.md §5
+  now says so goal by goal, naming each test. Nimish has clicked through none of it; nothing checked in a running app.
+- G1.3 fails: CI's raw-style rule over all of `src/` finds 228 lines in 71 of 161 screen files (mostly upstream:
+  auth, automations, broadcasts, contacts, flows). CI only checks lines a PR adds, so it never caught them.
 
 ## Next step
-1. CI green → review → merge. The school website's form needs the hidden `website_url` input and a `started_at` value.
-2. Production: a proxy that overwrites X-Real-IP in front of the app (the form's rate limit depends on it).
+1. Nimish: sign in locally and click through M1–M7; set up the Meta test app and check G2.1–G2.3 (`docs/whatsapp-test-number.md`); time quick-add (G4.3).
+2. Decide whether to fix G1.3 (tokenise upstream screens) before go-live, or narrow it to the screens staff use.
+3. Go-live (M7): Nimish creates the hosted Supabase project; real number; a proxy that overwrites X-Real-IP;
+   the school website's form adds the hidden `website_url` input and a `started_at` value (ADR 0031).
 
 ## Blocked / open questions
-- Per-grade cut-offs (grade ranges per campus), office notification on a repeat family, staff-only routing: still open.
+- From Nimish: grades and cut-off dates per campus, welcome wording, a Cal.com account, office notification on a
+  repeat family, staff-only routing.
 - `tests/holdout/db/invariants-stage-history.test.ts` "leaves a deal that has no lead alone" counts every history
   row, so it fails on the shared local DB with data in it; passes on a fresh DB (CI).
 
 ## Don't repeat
-- A module-level `NextResponse` can be sent once only: make a shared response a function.
+- Update PROJECT.md §5 in the same PR that finishes a milestone; it fell 6 milestones behind (ADR 0032).
 - A concurrency test needs committed rows in two sessions: commit, then delete what you made in `finally`.
