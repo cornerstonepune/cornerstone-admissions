@@ -3,7 +3,9 @@
 import { afterAll, describe, expect, it } from "vitest";
 
 import { phoneDigits, prefilledText, routeByDob, sourceCode, type Campus } from "@/admissions/lib/intake";
-import { account, actAs, actAsSuperuser, errorOf, member, setting, sql, tx, contact, type Tx } from "./db";
+import postgres from "postgres";
+
+import { account, actAs, actAsSuperuser, contact, DATABASE_URL, errorOf, member, setting, sql, tx, type Account, type Tx } from "./db";
 
 afterAll(() => sql.end());
 
@@ -46,7 +48,8 @@ describe("G4.1 the same phone through any door, in any format, gives one contact
       expect(leads).toHaveLength(1);
       expect(leads[0]).toMatchObject({ child_name: "Aarav", source_id: walkIn }); // first source and child stay
       const notes = await t`select note_text from contact_notes where contact_id = ${first.contact_id}`;
-      expect(notes.map((n) => n.note_text)).toEqual(["Enquired again on the website"]);
+      // what the second door sent (another child's name, its source) is kept in the note, not dropped (#91 review)
+      expect(notes.map((n) => n.note_text)).toEqual(["Enquired again on the website Submitted: child Someone else, source website."]);
       const [stage] = await t`select d.stage_id, d.user_id from deals d join leads l on l.deal_id = d.id where l.id = ${first.lead_id}`;
       expect(stage).toEqual({ stage_id: a.stageIds[0], user_id: staff }); // in Enquiry, by whoever saved it
     }));
@@ -140,4 +143,88 @@ describe("a source code maps to its source; an unknown or another account's code
         expect({ text, source: l.source_id }).toEqual({ text, source });
       }
     }));
+});
+
+describe("review fixes (#91, migration 121)", () => {
+  const notesOf = async (t: Tx, contactId: string) =>
+    (await t`select note_text from contact_notes where contact_id = ${contactId} order by created_at, id`).map((n) => n.note_text);
+
+  it("the public form never fills a known family's blanks; it only leaves a note with what was sent", () =>
+    tx(async (t) => {
+      const a = await account(t);
+      await setting(t, a, "source", "website");
+      const wa = await intake(t, a.accountId, { phone: "919800000301" }); // a WhatsApp first message: nothing known
+      const web = await intake(t, a.accountId, {
+        phone: "919800000301", parent: "Not the parent", child: "Typed by anyone", child_dob: "2022-03-14",
+        source_keys: ["website"], note: "Enquired again on the website, 26 Nov.", fill: false,
+      });
+      expect(web).toMatchObject({ lead_id: wa.lead_id, created: false });
+      const [l] = await t`select child_name, child_dob, source_id from leads where id = ${wa.lead_id}`;
+      expect(l).toEqual({ child_name: null, child_dob: null, source_id: null });
+      const [c] = await t`select name from contacts where id = ${wa.contact_id}`;
+      expect(c.name).toBeNull();
+      expect(await notesOf(t, wa.contact_id)).toEqual([
+        "Enquired again on the website, 26 Nov. Submitted: child Typed by anyone, born 14/03/2022, source website.",
+      ]);
+    }));
+
+  it("a sibling on WhatsApp is a note, once; the same child again writes nothing", () =>
+    tx(async (t) => {
+      const a = await account(t);
+      const first = await intake(t, a.accountId, { phone: "919800000302", child: "Aarav" });
+      for (let i = 0; i < 2; i++) await intake(t, a.accountId, { contact_id: first.contact_id, child: "Meera", child_dob: "2023-01-05" });
+      await intake(t, a.accountId, { contact_id: first.contact_id, child: "Aarav" });
+      expect(await notesOf(t, first.contact_id)).toEqual(["Another enquiry on this number: child Meera, born 05/01/2023."]);
+      const [l] = await t`select child_name from leads where id = ${first.lead_id}`;
+      expect(l.child_name).toBe("Aarav");
+    }));
+
+  it("a switched-off source is never set: the next tag that is on wins, else none", () =>
+    tx(async (t) => {
+      const a = await account(t);
+      const gate = await setting(t, a, "source", "gate_qr");
+      const whatsapp = await setting(t, a, "source", "whatsapp");
+      await t`update admissions_settings set active = false where id = ${gate}`;
+      const r1 = await intake(t, a.accountId, { phone: "919800000303", source_keys: ["gate_qr", "whatsapp"] });
+      await t`update admissions_settings set active = false where id = ${whatsapp}`;
+      const r2 = await intake(t, a.accountId, { phone: "919800000304", source_keys: ["gate_qr", "whatsapp"] });
+      const got = await t`select id, source_id from leads where id in (${r1.lead_id}, ${r2.lead_id})`;
+      expect(Object.fromEntries(got.map((l) => [l.id, l.source_id]))).toEqual({ [r1.lead_id!]: whatsapp, [r2.lead_id!]: null });
+    }));
+});
+
+describe("two doors at the same moment", () => {
+  it("two concurrent intake_lead calls for one new phone give one contact and one open lead", async () => {
+    // Real concurrency needs committed rows in two sessions, so this test commits and deletes its own account.
+    const one = postgres(DATABASE_URL, { onnotice: () => {}, max: 1 });
+    const two = postgres(DATABASE_URL, { onnotice: () => {}, max: 1 });
+    let a: Account | undefined;
+    try {
+      a = await sql.begin((t) => account(t));
+      const accountId = a.accountId;
+      const call = (c: Tx) => c`select public.intake_lead(${accountId}, ${c.json({ phone: "919800000399" })}) as r`;
+      let second: Promise<postgres.Row[]> | undefined;
+      const [{ r: r1 }] = await one.begin(async (t) => {
+        const r = await call(t); // holds the new contact uncommitted…
+        second = two.begin((u) => call(u)); // …so this one waits on the unique index until the first commits
+        await new Promise((res) => setTimeout(res, 300));
+        return r;
+      });
+      const [{ r: r2 }] = await second!;
+      expect(r2.contact_id).toBe(r1.contact_id);
+      expect(r2.lead_id).toBe(r1.lead_id);
+      expect([r1.created, r2.created]).toEqual([true, false]);
+      const [{ n }] = await sql`select count(*)::int as n from contacts where account_id = ${accountId}`;
+      const open = await sql`select 1 from leads where account_id = ${accountId} and exit is null and admitted_at is null`;
+      expect([n, open.length]).toEqual([1, 1]);
+    } finally {
+      if (a) {
+        await sql`delete from leads where account_id = ${a.accountId}`;
+        await sql`delete from deals where account_id = ${a.accountId}`;
+        await sql`delete from accounts where id = ${a.accountId}`;
+        await sql`delete from auth.users where id = ${a.ownerId}`;
+      }
+      await Promise.all([one.end(), two.end()]);
+    }
+  });
 });

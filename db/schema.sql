@@ -1671,10 +1671,17 @@ DECLARE
   v_user uuid := coalesce(auth.uid(), (SELECT owner_user_id FROM accounts WHERE id = p_account_id));
   v_contact uuid := (p_lead->>'contact_id')::uuid;
   v_phone text := nullif(p_lead->>'phone', '');
+  v_fill boolean := coalesce((p_lead->>'fill')::boolean, true);
+  v_child text := nullif(p_lead->>'child', '');
+  v_dob date := (p_lead->>'child_dob')::date;
   v_source uuid;
+  v_source_label text;
   v_stage uuid;
   v_deal uuid;
   v_lead uuid;
+  v_old leads%ROWTYPE;
+  v_details text;
+  v_note text;
   v_created boolean := false;
 BEGIN
   IF v_contact IS NULL THEN
@@ -1698,12 +1705,14 @@ BEGIN
   ELSIF NOT EXISTS (SELECT 1 FROM contacts WHERE id = v_contact AND account_id = p_account_id) THEN
     RAISE EXCEPTION 'Unknown contact' USING ERRCODE = '23503';
   END IF;
-  UPDATE contacts SET name = p_lead->>'parent'
-    WHERE id = v_contact AND coalesce(name, '') = '' AND coalesce(p_lead->>'parent', '') <> '';
+  IF v_fill THEN
+    UPDATE contacts SET name = p_lead->>'parent'
+      WHERE id = v_contact AND coalesce(name, '') = '' AND coalesce(p_lead->>'parent', '') <> '';
+  END IF;
 
-  SELECT s.id INTO v_source
+  SELECT s.id, s.label INTO v_source, v_source_label
     FROM jsonb_array_elements_text(coalesce(p_lead->'source_keys', '[]')) WITH ORDINALITY AS k(key, n)
-    JOIN admissions_settings s ON s.account_id = p_account_id AND s.kind = 'source' AND s.key = k.key
+    JOIN admissions_settings s ON s.account_id = p_account_id AND s.kind = 'source' AND s.key = k.key AND s.active
     ORDER BY k.n LIMIT 1;
 
   SELECT id INTO v_lead FROM leads WHERE contact_id = v_contact AND exit IS NULL AND admitted_at IS NULL;
@@ -1721,11 +1730,11 @@ BEGIN
     BEGIN
       INSERT INTO deals (user_id, account_id, pipeline_id, stage_id, contact_id, title)
         SELECT v_user, p_account_id, s.pipeline_id, s.id, v_contact,
-               coalesce(nullif(p_lead->>'child', ''), (SELECT coalesce(nullif(name, ''), phone) FROM contacts WHERE id = v_contact))
+               coalesce(v_child, (SELECT coalesce(nullif(name, ''), phone) FROM contacts WHERE id = v_contact))
         FROM pipeline_stages s WHERE s.id = v_stage
         RETURNING id INTO v_deal;
       INSERT INTO leads (account_id, deal_id, contact_id, child_name, child_dob, grade, campus_id, area, source_id)
-        VALUES (p_account_id, v_deal, v_contact, nullif(p_lead->>'child', ''), (p_lead->>'child_dob')::date,
+        VALUES (p_account_id, v_deal, v_contact, v_child, v_dob,
                 nullif(p_lead->>'grade', ''), (p_lead->>'campus_id')::uuid, nullif(p_lead->>'area', ''), v_source)
         RETURNING id INTO v_lead;
       v_created := true;
@@ -1735,17 +1744,29 @@ BEGIN
   END IF;
 
   IF NOT v_created THEN
-    UPDATE leads SET
-      child_name = coalesce(child_name, nullif(p_lead->>'child', '')),
-      child_dob = coalesce(child_dob, (p_lead->>'child_dob')::date),
-      grade = coalesce(grade, nullif(p_lead->>'grade', '')),
-      campus_id = coalesce(campus_id, (p_lead->>'campus_id')::uuid),
-      area = coalesce(area, nullif(p_lead->>'area', '')),
-      source_id = coalesce(source_id, v_source)
-    WHERE id = v_lead;
+    SELECT * INTO v_old FROM leads WHERE id = v_lead;
+    v_details := concat_ws(', ', 'child ' || v_child, 'born ' || to_char(v_dob, 'DD/MM/YYYY'),
+                           'grade ' || nullif(p_lead->>'grade', ''), 'source ' || v_source_label);
     IF coalesce(p_lead->>'note', '') <> '' THEN
+      v_note := p_lead->>'note' || CASE WHEN v_details <> '' THEN ' Submitted: ' || v_details || '.' ELSE '' END;
+    ELSIF v_details <> '' AND ((v_child IS NOT NULL AND v_old.child_name IS NOT NULL AND v_child <> v_old.child_name)
+                            OR (v_dob IS NOT NULL AND v_old.child_dob IS NOT NULL AND v_dob <> v_old.child_dob)) THEN
+      v_note := 'Another enquiry on this number: ' || v_details || '.';
+    END IF;
+    IF v_note IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM contact_notes WHERE contact_id = v_contact AND note_text = v_note) THEN
       INSERT INTO contact_notes (contact_id, user_id, note_text, account_id)
-        VALUES (v_contact, v_user, p_lead->>'note', p_account_id);
+        VALUES (v_contact, v_user, v_note, p_account_id);
+    END IF;
+    IF v_fill THEN
+      UPDATE leads SET
+        child_name = coalesce(child_name, v_child),
+        child_dob = coalesce(child_dob, v_dob),
+        grade = coalesce(grade, nullif(p_lead->>'grade', '')),
+        campus_id = coalesce(campus_id, (p_lead->>'campus_id')::uuid),
+        area = coalesce(area, nullif(p_lead->>'area', '')),
+        source_id = coalesce(source_id, v_source)
+      WHERE id = v_lead;
     END IF;
   END IF;
   RETURN jsonb_build_object('contact_id', v_contact, 'lead_id', v_lead, 'created', v_created);

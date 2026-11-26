@@ -73,6 +73,7 @@ export interface IntakeInput {
   sources: string[]; // source tags, first one that exists wins
   note?: string; // added when the family already has an open lead
   reopen?: boolean; // false: a family whose lead has closed gets no new one
+  fill?: boolean; // false (the public form): a family already with us is never changed, it only gets the note
 }
 export interface IntakeResult {
   contact_id: string;
@@ -109,6 +110,7 @@ export async function intake(db: SupabaseClient, accountId: string, input: Intak
       source_keys: input.sources,
       note: input.note,
       reopen: input.reopen ?? true,
+      fill: input.fill ?? true,
       ...route,
     },
   });

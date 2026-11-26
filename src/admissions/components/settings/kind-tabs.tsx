@@ -248,7 +248,7 @@ function SourceLinks({ number, tag }: { number: string; tag: string }) {
     const url = URL.createObjectURL(new Blob([qr.createSvgTag({ cellSize: 8, margin: 4, scalable: true })], { type: "image/svg+xml" }));
     const a = Object.assign(document.createElement("a"), { href: url, download: `whatsapp-qr-${tag}.svg` });
     a.click();
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 1000); // some browsers start the download after click() returns
   }
   return (
     <>
