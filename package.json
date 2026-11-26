@@ -40,7 +40,8 @@
     "test:watch": "vitest",
     "test:db": "vitest run --config vitest.db.config.ts",
     "db:reset": "supabase db start && supabase db reset --local --no-seed",
-    "db:schema": "bash supabase/ci/dump-schema.sh"
+    "db:schema": "bash supabase/ci/dump-schema.sh",
+    "db:seed:local": "node scripts/seed-local.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
