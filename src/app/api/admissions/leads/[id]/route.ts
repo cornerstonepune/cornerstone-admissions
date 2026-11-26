@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { requireRole, toErrorResponse } from "@/lib/auth/account";
 import { closeLead, moveLead } from "@/admissions/lib/pipeline";
+import { isUuid } from "@/lib/api/v1/pagination";
+
+// A malformed id would reach Postgres as 22P02 (a 500); refuse it here instead.
+const badId = () => NextResponse.json({ error: "Not a valid id" }, { status: 400 });
 
 /**
  * GET   /api/admissions/leads/[id] — one lead for the lead panel (S-lead): child, parent, stage, history, calls,
@@ -15,6 +19,7 @@ type Ctx = { params: Promise<{ id: string }> };
 
 export async function GET(_request: Request, context: Ctx) {
   const { id } = await context.params;
+  if (!isUuid(id)) return badId();
   try {
     const { supabase } = await requireRole("viewer");
     const { data: lead, error } = await supabase
@@ -82,6 +87,7 @@ export async function GET(_request: Request, context: Ctx) {
 
 export async function PATCH(request: Request, context: Ctx) {
   const { id } = await context.params;
+  if (!isUuid(id)) return badId();
   try {
     const { supabase } = await requireRole("agent");
     const body = (await request.json().catch(() => null)) as {
@@ -90,6 +96,7 @@ export async function PATCH(request: Request, context: Ctx) {
       lost_reason_id?: unknown;
     } | null;
     const str = (v: unknown) => (typeof v === "string" && v ? v : null);
+    if ([body?.stage_id, body?.lost_reason_id].some((v) => str(v) && !isUuid(str(v)!))) return badId();
 
     let result;
     if (str(body?.stage_id)) {
