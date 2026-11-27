@@ -2,7 +2,7 @@
 
 // The tabs of S-admissions-settings backed by admissions_settings rows: follow-up rules, alerts, lost reasons, campuses,
 // sources. Each edit goes through `save` (the API); viewers and agents see the same tabs with no Add, Edit or switches.
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import qrcode from "qrcode-generator";
 
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,6 @@ import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/com
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Icon } from "@/admissions/components/icons";
-import { waLink } from "@/admissions/lib/intake";
 import {
   checkLabel,
   checkValue,
@@ -191,7 +190,6 @@ export function AlertsTab({ rows, canEdit, save, stages }: TabProps) {
 /** Sources and lost reasons: a name each, switched off rather than deleted. */
 export function NameList({ rows, canEdit, save, kind, title, meta, addLabel, caption }: TabProps & { kind: "source" | "lost_reason"; title: string; meta: string; addLabel: string; caption?: string }) {
   const [draft, setDraft] = useState<Draft | null>(null);
-  const number = useWhatsAppNumber(kind === "source");
   return (
     <Section title={title} meta={meta} action={canEdit && <AddButton label={addLabel} onClick={() => setDraft({ kind, label: "", value: {}, active: true })} />}>
       <ul className="grid divide-y divide-[var(--line)] rounded-[var(--radius-card)] border border-[var(--line)] bg-[var(--surface)]">
@@ -200,7 +198,7 @@ export function NameList({ rows, canEdit, save, kind, title, meta, addLabel, cap
             <span className={r.active ? "" : "text-[var(--ink-muted)] line-through"}>{r.label}</span>
             {kind === "source" && <span className="text-caption text-[var(--ink-muted)]">tag {r.key}</span>}
             <span className="grow" />
-            {kind === "source" && number && <SourceLinks number={number} tag={r.key} />}
+            {kind === "source" && <SourceLinks tag={r.key} />}
             <OnSwitch row={r} canEdit={canEdit} save={save} />
             {canEdit && (
               <Button variant="link" size="sm" onClick={() => setDraft({ ...r })}>
@@ -211,11 +209,11 @@ export function NameList({ rows, canEdit, save, kind, title, meta, addLabel, cap
         ))}
         {rows.length === 0 && <li className="px-[var(--space-3)] py-[var(--space-2)] text-[var(--ink-muted)]">None yet.</li>}
       </ul>
-      {kind === "source" && number !== undefined && (
+      {kind === "source" && (
         <Caption>
-          {number
-            ? "Each source has its own WhatsApp link and QR. A parent who starts a chat from one is counted under that source; any other chat counts as WhatsApp."
-            : "Connect WhatsApp in Settings to get each source's link and QR."}
+          Each source has its own link and QR code. They open our own address, which forwards to our WhatsApp, so printed
+          codes keep working if the number changes. A parent who starts a chat from one is counted under that source; any
+          other chat counts as WhatsApp.
         </Caption>
       )}
       {caption && <Caption>{caption}</Caption>}
@@ -225,25 +223,14 @@ export function NameList({ rows, canEdit, save, kind, title, meta, addLabel, cap
 }
 
 /** The account's WhatsApp number, from wacrm's health check (it asks Meta): undefined while asking, null when unknown. */
-function useWhatsAppNumber(wanted: boolean): string | null | undefined {
-  const [number, setNumber] = useState<string | null | undefined>(undefined);
-  useEffect(() => {
-    if (!wanted) return;
-    fetch("/api/whatsapp/health")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((h: { displayPhoneNumber?: string | null } | null) => setNumber(h?.displayPhoneNumber ?? null))
-      .catch(() => setNumber(null));
-  }, [wanted]);
-  return number;
-}
-
-/** A source's click-to-chat link: Copy link, and QR downloads it as an SVG to print. */
-function SourceLinks({ number, tag }: { number: string; tag: string }) {
+/** A source's permanent link (/q/<tag>, ADR 0041): Copy link, and QR downloads it as an SVG to print. */
+function SourceLinks({ tag }: { tag: string }) {
   const [copied, setCopied] = useState(false);
-  const link = waLink(number, tag);
+  // the live address even when the settings screen is opened elsewhere; read on click, the browser's own otherwise
+  const link = () => `${(process.env.NEXT_PUBLIC_SITE_URL || window.location.origin).replace(/\/+$/, "")}/q/${tag}`;
   function downloadQr() {
     const qr = qrcode(0, "M");
-    qr.addData(link);
+    qr.addData(link());
     qr.make();
     const url = URL.createObjectURL(new Blob([qr.createSvgTag({ cellSize: 8, margin: 4, scalable: true })], { type: "image/svg+xml" }));
     const a = Object.assign(document.createElement("a"), { href: url, download: `whatsapp-qr-${tag}.svg` });
@@ -258,7 +245,7 @@ function SourceLinks({ number, tag }: { number: string; tag: string }) {
       <Button
         variant="link"
         size="sm"
-        onClick={() => navigator.clipboard?.writeText(link).then(() => setCopied(true), () => setCopied(false))}
+        onClick={() => navigator.clipboard?.writeText(link()).then(() => setCopied(true), () => setCopied(false))}
       >
         {copied ? "Copied" : "Copy link"}
       </Button>
